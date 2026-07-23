@@ -12,7 +12,12 @@
     "experimentalDecorators": true,
     "importHelpers": true,
     "target": "ES2022",
-    "module": "preserve"
+    "module": "preserve",
+    "ignoreDeprecations": "6.0",
+    "baseUrl": "./",
+    "paths": {
+      "convex/*": ["../convex/*"]
+    }
   },
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,

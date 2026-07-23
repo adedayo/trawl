@@ -13,7 +13,7 @@ services:
       - convex-data-dev:/convex/data
 
   dashboard-dev:
-    image: node:20-alpine
+    image: node:22-alpine
     container_name: trawl-dashboard-dev
     restart: unless-stopped
     working_dir: /app

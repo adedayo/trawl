@@ -6,7 +6,8 @@
     "types": []
   },
   "include": [
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "../convex/**/*.ts"
   ],
   "exclude": [
     "src/**/*.spec.ts"
