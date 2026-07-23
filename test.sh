@@ -17,9 +17,9 @@ npm test
 # 3. Worker Allowlist & Script Dry-Runs
 echo "[3/4] Validating Worker Entrypoints (--dry-run)..."
 chmod +x jobs/scan-worker/entrypoint.sh jobs/discovery-worker/entrypoint.sh jobs/repo-scan-worker/entrypoint.sh
-SEED_DOMAINS="ezeetax.ng" ./jobs/scan-worker/entrypoint.sh --dry-run > /dev/null
-SEED_DOMAINS="ezeetax.ng" ./jobs/discovery-worker/entrypoint.sh --dry-run > /dev/null
-SEED_REPOS="https://github.com/adedayo/trawl" ./jobs/repo-scan-worker/entrypoint.sh --dry-run > /dev/null
+SEED_DOMAINS="example.com" ./jobs/scan-worker/entrypoint.sh --dry-run > /dev/null
+SEED_DOMAINS="example.com" ./jobs/discovery-worker/entrypoint.sh --dry-run > /dev/null
+SEED_REPOS="https://github.com/example/repo" ./jobs/repo-scan-worker/entrypoint.sh --dry-run > /dev/null
 echo "✔ Worker dry-runs verified."
 
 # 4. Production Bundle Build
