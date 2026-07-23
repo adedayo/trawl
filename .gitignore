@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+
+# Instance config (real values — only example.json is committed)
+config/*.json
+!config/example.json
+
+# Build outputs
+dist/
+.angular/
+
+# Convex generated
+convex/_generated/
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker data volumes
+data/
+
+# Test results
+coverage/
+test-results/
+playwright-report/

@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "lib": ["ESNext"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "allowJs": true,
+    "outDir": "./dist",
+    "paths": {
+      "convex/*": ["./node_modules/convex/*"]
+    }
+  },
+  "include": ["convex/**/*.ts"],
+  "exclude": ["node_modules", "convex/_generated"]
+}

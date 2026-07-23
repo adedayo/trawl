@@ -1,0 +1,51 @@
+Trawl
+Copyright 2026 Dayo Adetoye
+
+This product is licensed under the Apache License, Version 2.0 (the "License").
+See the LICENSE file for the full license text.
+
+================================================================================
+
+THIRD-PARTY DEPENDENCY LICENSE NOTICE
+
+================================================================================
+
+Self-Hosted Convex Backend
+--------------------------
+This project's Docker Compose deployment uses the self-hosted Convex backend
+(get-convex/convex-backend) as a runtime dependency.
+
+The self-hosted Convex backend is licensed under the Functional Source License,
+Version 1.1 (FSL-1.1). FSL-1.1 is a source-available license that converts to
+Apache License 2.0 two years after each release date.
+
+Key points for adopters:
+
+  - FSL-1.1 is NOT an OSI-approved open-source license.
+  - You may freely self-host, modify, and use the Convex backend.
+  - The "Competing Use" restriction prohibits offering a substantially similar
+    product as a managed service (see the FSL-1.1 text for exact terms).
+  - Each release automatically converts to Apache-2.0 two years after its
+    release date, at which point no restrictions apply.
+
+For full FSL-1.1 terms, see:
+  https://github.com/get-convex/convex-backend/blob/main/LICENSE
+
+This disclosure is provided so that downstream adopters of Trawl can make an
+informed decision about the full dependency tree's licensing terms.
+
+================================================================================
+
+Scanning Tools (Runtime Dependencies in Job Containers)
+-------------------------------------------------------
+The job containers include the following tools, each under their own licenses:
+
+  - naabu          (MIT License)        https://github.com/projectdiscovery/naabu
+  - httpx          (MIT License)        https://github.com/projectdiscovery/httpx
+  - nuclei         (MIT License)        https://github.com/projectdiscovery/nuclei
+  - subfinder      (MIT License)        https://github.com/projectdiscovery/subfinder
+  - amass          (Apache-2.0)         https://github.com/owasp-amass/amass
+  - gitleaks       (MIT License)        https://github.com/gitleaks/gitleaks
+
+These tools are installed into container images at build time and are not
+distributed as part of this repository's source code.

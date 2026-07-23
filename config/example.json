@@ -1,0 +1,19 @@
+{
+  "$schema": "./config.schema.json",
+  "instanceName": "example",
+  "seedDomains": [
+    "example.com"
+  ],
+  "seedCidrs": [],
+  "seedRepos": [],
+  "webhookUrl": "",
+  "staleAfterDays": 90,
+  "triageThreshold": "high",
+  "secretVerificationEnabled": true,
+  "maxRepoCloneSizeMb": 500,
+  "aiProvider": {
+    "baseUrl": "https://api.openai.com/v1",
+    "model": "gpt-4o",
+    "timeoutMs": 30000
+  }
+}

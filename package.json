@@ -1,0 +1,28 @@
+{
+  "name": "trawl",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Continuous external attack surface monitoring and continuous external control validation",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adedayo/trawl.git"
+  },
+  "scripts": {
+    "dev:convex": "npx convex dev",
+    "dev:app": "npm --prefix app run start",
+    "test": "npx vitest run",
+    "lint": "npm --prefix app run lint",
+    "typecheck": "npm --prefix app run typecheck"
+  },
+  "bugs": {
+    "url": "https://github.com/adedayo/trawl/issues"
+  },
+  "homepage": "https://github.com/adedayo/trawl#readme",
+  "dependencies": {
+    "convex": "^1.42.3"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}
