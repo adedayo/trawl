@@ -20,6 +20,7 @@
     "@angular/platform-browser": "^22.0.0",
     "@angular/router": "^22.0.0",
     "@spartan-ng/cli": "^1.1.1",
+    "convex": "^1.19.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },
