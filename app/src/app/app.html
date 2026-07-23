@@ -1,44 +1,58 @@
-<div class="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+<div [class]="theme() === 'dark' ? 'dark min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans' : 'min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans'">
 
   <!-- Top Navigation Header -->
-  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+  <header [class]="theme() === 'dark' ? 'border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-50' : 'border-b border-slate-200 bg-white/90 backdrop-blur sticky top-0 z-50 shadow-sm'">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       
       <!-- Brand Logo -->
       <div class="flex items-center space-x-3">
-        <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+        <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-600 flex items-center justify-center shadow-md shadow-cyan-500/20">
           <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
           </svg>
         </div>
         <div>
           <div class="flex items-center space-x-2">
-            <h1 class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">TRAWL</h1>
-            <span class="text-xs px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-400 font-mono font-medium">v0.1.0-OSS</span>
+            <h1 [class]="theme() === 'dark' ? 'text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent' : 'text-xl font-extrabold tracking-tight text-slate-900'">TRAWL</h1>
+            <span [class]="theme() === 'dark' ? 'text-xs px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-400 font-mono font-medium' : 'text-xs px-2 py-0.5 rounded-full bg-cyan-50 border border-cyan-200 text-cyan-700 font-mono font-medium'">v0.1.0-OSS</span>
           </div>
-          <p class="text-[11px] text-slate-400 font-medium">External Attack Surface & Posture Validation Engine</p>
+          <p [class]="theme() === 'dark' ? 'text-[11px] text-slate-400 font-medium' : 'text-[11px] text-slate-500 font-medium'">External Attack Surface & Posture Validation Engine</p>
         </div>
       </div>
 
-      <!-- Engine Status & Scope Badge -->
-      <div class="flex items-center space-x-4">
+      <!-- Engine Status & Controls -->
+      <div class="flex items-center space-x-3">
+        
+        <!-- Light / Dark Theme Switcher Button -->
+        <button (click)="toggleTheme()" 
+          [class]="theme() === 'dark' ? 'p-2 rounded-lg bg-slate-800 border border-slate-700 text-amber-300 hover:bg-slate-700 transition' : 'p-2 rounded-lg bg-slate-100 border border-slate-300 text-slate-700 hover:bg-slate-200 transition'"
+          title="Toggle Light / Dark Theme">
+          @if (theme() === 'dark') {
+            <!-- Sun Icon for switching to Light mode -->
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+          } @else {
+            <!-- Moon Icon for switching to Dark mode -->
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          }
+        </button>
+
         <!-- Live Pulse -->
-        <div class="flex items-center space-x-2 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700/60 text-xs">
+        <div [class]="theme() === 'dark' ? 'flex items-center space-x-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700/60 text-xs' : 'flex items-center space-x-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-300 text-xs'">
           <span class="relative flex h-2 w-2">
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
-          <span class="text-slate-300 font-mono text-[11px]">CONVEX ENGINE ONLINE</span>
+          <span [class]="theme() === 'dark' ? 'text-slate-300 font-mono text-[11px]' : 'text-slate-700 font-mono text-[11px]'">CONVEX ENGINE ONLINE</span>
         </div>
 
         <!-- Scope Auth Status -->
         @if (isAuthorized()) {
-          <button (click)="activeTab.set('scope')" class="flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-xs hover:bg-emerald-900/60 transition">
+          <button (click)="activeTab.set('scope')" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-xs hover:bg-emerald-900/60 transition">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
             <span class="font-medium">Scope Authorized</span>
           </button>
         } @else {
-          <button (click)="activeTab.set('scope')" class="flex items-center space-x-1.5 px-3 py-1 rounded-full bg-amber-950/80 border border-amber-800 text-amber-300 text-xs hover:bg-amber-900/60 transition animate-pulse">
+          <button (click)="activeTab.set('scope')" [class]="theme() === 'dark' ? 'flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-amber-950/80 border border-amber-800 text-amber-300 text-xs hover:bg-amber-900/60 transition animate-pulse' : 'flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-300 text-amber-800 text-xs hover:bg-amber-100 transition animate-pulse'">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             <span class="font-medium">Action Required: Authorize Scope</span>
           </button>
@@ -48,40 +62,40 @@
     </div>
 
     <!-- Navigation Tabs -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-slate-800/80">
+    <div [class]="theme() === 'dark' ? 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-slate-800/80' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-slate-200'">
       <nav class="flex space-x-6">
         <button (click)="activeTab.set('overview')" 
-          [class]="activeTab() === 'overview' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-transparent text-slate-400 hover:text-slate-200'"
+          [class]="activeTab() === 'overview' ? (theme() === 'dark' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-cyan-600 text-cyan-700 font-semibold') : (theme() === 'dark' ? 'border-transparent text-slate-400 hover:text-slate-200' : 'border-transparent text-slate-600 hover:text-slate-900')"
           class="py-3 px-1 border-b-2 text-xs uppercase tracking-wider transition">
           Overview
         </button>
         <button (click)="activeTab.set('assets')" 
-          [class]="activeTab() === 'assets' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-transparent text-slate-400 hover:text-slate-200'"
+          [class]="activeTab() === 'assets' ? (theme() === 'dark' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-cyan-600 text-cyan-700 font-semibold') : (theme() === 'dark' ? 'border-transparent text-slate-400 hover:text-slate-200' : 'border-transparent text-slate-600 hover:text-slate-900')"
           class="py-3 px-1 border-b-2 text-xs uppercase tracking-wider transition flex items-center space-x-1.5">
           <span>Assets</span>
-          <span class="px-1.5 py-0.5 rounded-full bg-slate-800 text-[10px] text-slate-300">{{ activeAssetCount() }}</span>
+          <span [class]="theme() === 'dark' ? 'px-1.5 py-0.5 rounded-full bg-slate-800 text-[10px] text-slate-300' : 'px-1.5 py-0.5 rounded-full bg-slate-200 text-[10px] text-slate-700'">{{ activeAssetCount() }}</span>
         </button>
         <button (click)="activeTab.set('findings')" 
-          [class]="activeTab() === 'findings' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-transparent text-slate-400 hover:text-slate-200'"
+          [class]="activeTab() === 'findings' ? (theme() === 'dark' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-cyan-600 text-cyan-700 font-semibold') : (theme() === 'dark' ? 'border-transparent text-slate-400 hover:text-slate-200' : 'border-transparent text-slate-600 hover:text-slate-900')"
           class="py-3 px-1 border-b-2 text-xs uppercase tracking-wider transition flex items-center space-x-1.5">
           <span>Vulnerabilities</span>
           @if (kevCount() > 0) {
-            <span class="px-1.5 py-0.5 rounded-full bg-rose-950 border border-rose-800 text-rose-400 text-[10px] font-bold">{{ kevCount() }} KEV</span>
+            <span [class]="theme() === 'dark' ? 'px-1.5 py-0.5 rounded-full bg-rose-950 border border-rose-800 text-rose-400 text-[10px] font-bold' : 'px-1.5 py-0.5 rounded-full bg-rose-100 border border-rose-300 text-rose-700 text-[10px] font-bold'">{{ kevCount() }} KEV</span>
           }
         </button>
         <button (click)="activeTab.set('email')" 
-          [class]="activeTab() === 'email' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-transparent text-slate-400 hover:text-slate-200'"
+          [class]="activeTab() === 'email' ? (theme() === 'dark' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-cyan-600 text-cyan-700 font-semibold') : (theme() === 'dark' ? 'border-transparent text-slate-400 hover:text-slate-200' : 'border-transparent text-slate-600 hover:text-slate-900')"
           class="py-3 px-1 border-b-2 text-xs uppercase tracking-wider transition">
           Email Posture
         </button>
         <button (click)="activeTab.set('secrets')" 
-          [class]="activeTab() === 'secrets' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-transparent text-slate-400 hover:text-slate-200'"
+          [class]="activeTab() === 'secrets' ? (theme() === 'dark' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-cyan-600 text-cyan-700 font-semibold') : (theme() === 'dark' ? 'border-transparent text-slate-400 hover:text-slate-200' : 'border-transparent text-slate-600 hover:text-slate-900')"
           class="py-3 px-1 border-b-2 text-xs uppercase tracking-wider transition">
           Secret Scanning
         </button>
         <button (click)="activeTab.set('scope')" 
-          [class]="activeTab() === 'scope' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-transparent text-slate-400 hover:text-slate-200'"
-          class="py-3 px-1 border-b-2 text-xs uppercase tracking-wider transition flex items-center space-x-1 text-cyan-400">
+          [class]="activeTab() === 'scope' ? (theme() === 'dark' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-cyan-600 text-cyan-700 font-semibold') : (theme() === 'dark' ? 'border-transparent text-slate-400 hover:text-slate-200' : 'border-transparent text-slate-600 hover:text-slate-900')"
+          class="py-3 px-1 border-b-2 text-xs uppercase tracking-wider transition flex items-center space-x-1">
           <span>Scope Authorization</span>
         </button>
       </nav>
@@ -95,67 +109,67 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
       <!-- Total Active Assets -->
-      <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-lg relative overflow-hidden group hover:border-slate-700 transition">
+      <div [class]="theme() === 'dark' ? 'bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-lg' : 'bg-white border border-slate-200 rounded-xl p-5 shadow-sm'">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Active Assets</span>
-          <div class="p-2 rounded-lg bg-cyan-950/60 border border-cyan-800/60 text-cyan-400">
+          <span [class]="theme() === 'dark' ? 'text-xs font-medium text-slate-400 uppercase tracking-wider' : 'text-xs font-semibold text-slate-500 uppercase tracking-wider'">Active Assets</span>
+          <div [class]="theme() === 'dark' ? 'p-2 rounded-lg bg-cyan-950/60 border border-cyan-800/60 text-cyan-400' : 'p-2 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-700'">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"/></svg>
           </div>
         </div>
         <div class="mt-3 flex items-baseline space-x-2">
-          <span class="text-3xl font-extrabold text-white">{{ activeAssetCount() }}</span>
+          <span [class]="theme() === 'dark' ? 'text-3xl font-extrabold text-white' : 'text-3xl font-extrabold text-slate-900'">{{ activeAssetCount() }}</span>
           @if (pendingAssetCount() > 0) {
-            <span class="text-xs text-amber-400 font-medium">+{{ pendingAssetCount() }} pending review</span>
+            <span class="text-xs text-amber-500 font-semibold">+{{ pendingAssetCount() }} pending</span>
           }
         </div>
-        <p class="mt-1 text-xs text-slate-400">Monitored domains, IPs & public repos</p>
+        <p [class]="theme() === 'dark' ? 'mt-1 text-xs text-slate-400' : 'mt-1 text-xs text-slate-500'">Monitored domains, IPs & repos</p>
       </div>
 
       <!-- CISA KEV Exploited -->
-      <div class="bg-slate-900/90 border border-rose-900/50 rounded-xl p-5 shadow-lg relative overflow-hidden group hover:border-rose-800/80 transition">
+      <div [class]="theme() === 'dark' ? 'bg-slate-900/90 border border-rose-900/50 rounded-xl p-5 shadow-lg' : 'bg-rose-50/60 border border-rose-200 rounded-xl p-5 shadow-sm'">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-medium text-rose-400 uppercase tracking-wider font-mono">CISA KEV Exploited</span>
-          <div class="p-2 rounded-lg bg-rose-950 border border-rose-800 text-rose-400">
+          <span class="text-xs font-semibold text-rose-600 uppercase tracking-wider font-mono">CISA KEV Exploited</span>
+          <div [class]="theme() === 'dark' ? 'p-2 rounded-lg bg-rose-950 border border-rose-800 text-rose-400' : 'p-2 rounded-lg bg-rose-100 border border-rose-300 text-rose-700'">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
           </div>
         </div>
         <div class="mt-3 flex items-baseline space-x-2">
-          <span class="text-3xl font-extrabold text-rose-400">{{ kevCount() }}</span>
-          <span class="text-xs text-rose-500 font-semibold uppercase font-mono">Active In Wild</span>
+          <span class="text-3xl font-extrabold text-rose-600">{{ kevCount() }}</span>
+          <span class="text-xs text-rose-600 font-bold uppercase font-mono">Active In Wild</span>
         </div>
-        <p class="mt-1 text-xs text-slate-400">Confirmed active exploitation in the wild</p>
+        <p [class]="theme() === 'dark' ? 'mt-1 text-xs text-slate-400' : 'mt-1 text-xs text-slate-500'">Confirmed active exploitation in the wild</p>
       </div>
 
       <!-- Critical / High Findings -->
-      <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-lg relative overflow-hidden group hover:border-slate-700 transition">
+      <div [class]="theme() === 'dark' ? 'bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-lg' : 'bg-white border border-slate-200 rounded-xl p-5 shadow-sm'">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Open Exposure Findings</span>
-          <div class="p-2 rounded-lg bg-amber-950/60 border border-amber-800/60 text-amber-400">
+          <span [class]="theme() === 'dark' ? 'text-xs font-medium text-slate-400 uppercase tracking-wider' : 'text-xs font-semibold text-slate-500 uppercase tracking-wider'">Open Findings</span>
+          <div [class]="theme() === 'dark' ? 'p-2 rounded-lg bg-amber-950/60 border border-amber-800/60 text-amber-400' : 'p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700'">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
           </div>
         </div>
         <div class="mt-3 flex items-baseline space-x-2">
-          <span class="text-3xl font-extrabold text-white">{{ openFindingCount() }}</span>
-          <span class="text-xs text-slate-400 font-medium">({{ criticalFindingCount() }} Critical)</span>
+          <span [class]="theme() === 'dark' ? 'text-3xl font-extrabold text-white' : 'text-3xl font-extrabold text-slate-900'">{{ openFindingCount() }}</span>
+          <span [class]="theme() === 'dark' ? 'text-xs text-slate-400 font-medium' : 'text-xs text-slate-500 font-medium'">({{ criticalFindingCount() }} Critical)</span>
         </div>
-        <p class="mt-1 text-xs text-slate-400">CVEs, weak TLS, secret exposures</p>
+        <p [class]="theme() === 'dark' ? 'mt-1 text-xs text-slate-400' : 'mt-1 text-xs text-slate-500'">CVEs, weak TLS, secret leaks</p>
       </div>
 
       <!-- Scope Status Card -->
-      <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-lg relative overflow-hidden group hover:border-slate-700 transition">
+      <div [class]="theme() === 'dark' ? 'bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-lg' : 'bg-white border border-slate-200 rounded-xl p-5 shadow-sm'">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Authorization</span>
-          <div class="p-2 rounded-lg bg-indigo-950/60 border border-indigo-800/60 text-indigo-400">
+          <span [class]="theme() === 'dark' ? 'text-xs font-medium text-slate-400 uppercase tracking-wider' : 'text-xs font-semibold text-slate-500 uppercase tracking-wider'">Authorization</span>
+          <div [class]="theme() === 'dark' ? 'p-2 rounded-lg bg-indigo-950/60 border border-indigo-800/60 text-indigo-400' : 'p-2 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700'">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
           </div>
         </div>
         <div class="mt-3">
           @if (isAuthorized()) {
-            <span class="text-xl font-bold text-emerald-400">Authorized</span>
-            <p class="text-xs text-slate-400 mt-1">Signed by {{ signerName() || 'Admin' }}</p>
+            <span class="text-xl font-bold text-emerald-600">Authorized</span>
+            <p [class]="theme() === 'dark' ? 'text-xs text-slate-400 mt-1' : 'text-xs text-slate-500 mt-1'">Signed by {{ signerName() || 'Admin' }}</p>
           } @else {
-            <span class="text-xl font-bold text-amber-400">Pending Setup</span>
-            <p class="text-xs text-slate-400 mt-1">Non-destructive scope signoff</p>
+            <span class="text-xl font-bold text-amber-600">Pending Setup</span>
+            <p [class]="theme() === 'dark' ? 'text-xs text-slate-400 mt-1' : 'text-xs text-slate-500 mt-1'">Non-destructive scope signoff</p>
           }
         </div>
       </div>
@@ -168,85 +182,85 @@
         
         <!-- Action Banner: Pending Assets Review Queue -->
         @if (pendingAssetCount() > 0) {
-          <div class="bg-gradient-to-r from-amber-950/60 via-slate-900 to-slate-900 border border-amber-800/80 rounded-xl p-5 flex items-center justify-between shadow-xl">
+          <div [class]="theme() === 'dark' ? 'bg-gradient-to-r from-amber-950/60 via-slate-900 to-slate-900 border border-amber-800/80 rounded-xl p-5 flex items-center justify-between shadow-xl' : 'bg-amber-50 border border-amber-200 rounded-xl p-5 flex items-center justify-between shadow-sm'">
             <div class="flex items-center space-x-4">
-              <div class="p-3 rounded-lg bg-amber-900/40 border border-amber-700 text-amber-300">
+              <div [class]="theme() === 'dark' ? 'p-3 rounded-lg bg-amber-900/40 border border-amber-700 text-amber-300' : 'p-3 rounded-lg bg-amber-100 border border-amber-300 text-amber-800'">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
               </div>
               <div>
-                <h3 class="text-sm font-bold text-amber-200">OSINT Discovery: {{ pendingAssetCount() }} Candidate Asset Pending Approval</h3>
-                <p class="text-xs text-slate-300">Passive CT logs discovered subdomains. Review before adding to active scan schedule.</p>
+                <h3 [class]="theme() === 'dark' ? 'text-sm font-bold text-amber-200' : 'text-sm font-bold text-amber-900'">OSINT Discovery: {{ pendingAssetCount() }} Candidate Asset Pending Approval</h3>
+                <p [class]="theme() === 'dark' ? 'text-xs text-slate-300' : 'text-xs text-slate-600'">Passive CT logs discovered subdomains. Review before adding to active scan schedule.</p>
               </div>
             </div>
-            <button (click)="activeTab.set('assets')" class="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs shadow-lg transition">
+            <button (click)="activeTab.set('assets')" class="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs shadow-md transition">
               Review Queue →
             </button>
           </div>
         }
 
         <!-- Top Vulnerabilities Section -->
-        <div class="bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
-          <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900">
+        <div [class]="theme() === 'dark' ? 'bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden shadow-xl' : 'bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm'">
+          <div [class]="theme() === 'dark' ? 'px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900' : 'px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50'">
             <div class="flex items-center space-x-2">
-              <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider">Priority External Exposure Findings</h2>
-              <span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 text-xs font-mono">Deterministic Severity</span>
+              <h2 [class]="theme() === 'dark' ? 'text-sm font-bold text-slate-200 uppercase tracking-wider' : 'text-sm font-bold text-slate-800 uppercase tracking-wider'">Priority External Exposure Findings</h2>
+              <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 text-xs font-mono' : 'px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 text-xs font-mono'">Deterministic Severity</span>
             </div>
-            <button (click)="activeTab.set('findings')" class="text-xs text-cyan-400 hover:text-cyan-300 font-medium">View All Findings →</button>
+            <button (click)="activeTab.set('findings')" [class]="theme() === 'dark' ? 'text-xs text-cyan-400 hover:text-cyan-300 font-medium' : 'text-xs text-cyan-700 hover:text-cyan-800 font-semibold'">View All Findings →</button>
           </div>
 
-          <div class="divide-y divide-slate-800/80">
+          <div [class]="theme() === 'dark' ? 'divide-y divide-slate-800/80' : 'divide-y divide-slate-100'">
             @for (finding of findings(); track finding.id) {
-              <div class="p-6 hover:bg-slate-800/40 transition flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div [class]="theme() === 'dark' ? 'p-6 hover:bg-slate-800/40 transition flex flex-col md:flex-row md:items-center justify-between gap-4' : 'p-6 hover:bg-slate-50 transition flex flex-col md:flex-row md:items-center justify-between gap-4'">
                 <div class="space-y-2 flex-1">
                   <div class="flex items-center space-x-3 flex-wrap gap-y-2">
                     
                     <!-- Severity Badge -->
                     @if (finding.severity === 'critical') {
-                      <span class="px-2.5 py-0.5 rounded-md bg-rose-950 border border-rose-800 text-rose-400 text-xs font-mono font-bold uppercase">CRITICAL</span>
+                      <span class="px-2.5 py-0.5 rounded-md bg-rose-600 text-white text-xs font-mono font-bold uppercase">CRITICAL</span>
                     } @else if (finding.severity === 'high') {
-                      <span class="px-2.5 py-0.5 rounded-md bg-amber-950 border border-amber-800 text-amber-400 text-xs font-mono font-bold uppercase">HIGH</span>
+                      <span class="px-2.5 py-0.5 rounded-md bg-amber-500 text-slate-950 text-xs font-mono font-bold uppercase">HIGH</span>
                     } @else {
-                      <span class="px-2.5 py-0.5 rounded-md bg-blue-950 border border-blue-800 text-blue-400 text-xs font-mono font-bold uppercase">MEDIUM</span>
+                      <span class="px-2.5 py-0.5 rounded-md bg-blue-600 text-white text-xs font-mono font-bold uppercase">MEDIUM</span>
                     }
 
                     <!-- KEV Badge -->
                     @if (finding.kev) {
-                      <span class="px-2.5 py-0.5 rounded-md bg-rose-600 text-slate-950 text-xs font-mono font-black tracking-wide uppercase flex items-center space-x-1">
+                      <span class="px-2.5 py-0.5 rounded-md bg-rose-700 text-white text-xs font-mono font-black tracking-wide uppercase flex items-center space-x-1 shadow-sm">
                         <span>CISA KEV EXPLOITED</span>
                       </span>
                     }
 
                     <!-- CVE Tag -->
-                    <span class="text-xs font-mono font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-2 py-0.5 rounded">{{ finding.cveId }}</span>
+                    <span [class]="theme() === 'dark' ? 'text-xs font-mono font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-2 py-0.5 rounded' : 'text-xs font-mono font-bold text-cyan-800 bg-cyan-50 border border-cyan-200 px-2 py-0.5 rounded'">{{ finding.cveId }}</span>
 
                     <!-- Asset Name -->
-                    <span class="text-xs font-mono text-slate-300 bg-slate-800 px-2 py-0.5 rounded">{{ finding.assetValue }}</span>
+                    <span [class]="theme() === 'dark' ? 'text-xs font-mono text-slate-300 bg-slate-800 px-2 py-0.5 rounded' : 'text-xs font-mono text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded'">{{ finding.assetValue }}</span>
                   </div>
 
-                  <h3 class="text-base font-bold text-white">{{ finding.title }}</h3>
+                  <h3 [class]="theme() === 'dark' ? 'text-base font-bold text-white' : 'text-base font-bold text-slate-900'">{{ finding.title }}</h3>
 
                   <!-- AI Annotation Summary Box -->
                   @if (finding.aiAnnotation) {
-                    <div class="mt-2 p-3 rounded-lg bg-slate-950/80 border border-slate-800/80 text-xs space-y-1">
-                      <div class="flex items-center space-x-1.5 text-cyan-400 font-semibold">
+                    <div [class]="theme() === 'dark' ? 'mt-2 p-3 rounded-lg bg-slate-950/80 border border-slate-800/80 text-xs space-y-1' : 'mt-2 p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-1'">
+                      <div [class]="theme() === 'dark' ? 'flex items-center space-x-1.5 text-cyan-400 font-semibold' : 'flex items-center space-x-1.5 text-cyan-700 font-semibold'">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                         <span>AI Triage Annotation (Advisory):</span>
                       </div>
-                      <p class="text-slate-300">{{ finding.aiAnnotation.summary }}</p>
-                      <p class="text-slate-400"><strong class="text-slate-300">Remediation:</strong> {{ finding.aiAnnotation.remediation }}</p>
+                      <p [class]="theme() === 'dark' ? 'text-slate-300' : 'text-slate-700'">{{ finding.aiAnnotation.summary }}</p>
+                      <p [class]="theme() === 'dark' ? 'text-slate-400' : 'text-slate-600'"><strong [class]="theme() === 'dark' ? 'text-slate-300' : 'text-slate-800'">Remediation:</strong> {{ finding.aiAnnotation.remediation }}</p>
                     </div>
                   }
                 </div>
 
                 <!-- Scores Column -->
-                <div class="flex items-center space-x-6 border-t md:border-t-0 md:border-l border-slate-800 pt-3 md:pt-0 md:pl-6 text-right">
+                <div [class]="theme() === 'dark' ? 'flex items-center space-x-6 border-t md:border-t-0 md:border-l border-slate-800 pt-3 md:pt-0 md:pl-6 text-right' : 'flex items-center space-x-6 border-t md:border-t-0 md:border-l border-slate-200 pt-3 md:pt-0 md:pl-6 text-right'">
                   <div>
-                    <div class="text-[10px] text-slate-400 uppercase font-mono">CVSS v3</div>
-                    <div class="text-sm font-extrabold text-white font-mono">{{ finding.cvssScore }}</div>
+                    <div [class]="theme() === 'dark' ? 'text-[10px] text-slate-400 uppercase font-mono' : 'text-[10px] text-slate-500 uppercase font-mono'">CVSS v3</div>
+                    <div [class]="theme() === 'dark' ? 'text-sm font-extrabold text-white font-mono' : 'text-sm font-extrabold text-slate-900 font-mono'">{{ finding.cvssScore }}</div>
                   </div>
                   <div>
-                    <div class="text-[10px] text-slate-400 uppercase font-mono">EPSS Score</div>
-                    <div class="text-sm font-extrabold text-cyan-400 font-mono">{{ (finding.epssScore * 100).toFixed(1) }}%</div>
+                    <div [class]="theme() === 'dark' ? 'text-[10px] text-slate-400 uppercase font-mono' : 'text-[10px] text-slate-500 uppercase font-mono'">EPSS Score</div>
+                    <div [class]="theme() === 'dark' ? 'text-sm font-extrabold text-cyan-400 font-mono' : 'text-sm font-extrabold text-cyan-700 font-mono'">{{ (finding.epssScore * 100).toFixed(1) }}%</div>
                   </div>
                 </div>
               </div>
@@ -259,15 +273,15 @@
 
     <!-- TAB 2: ASSETS -->
     @if (activeTab() === 'assets') {
-      <div class="bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
-        <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900">
-          <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider">Tracked Asset Inventory</h2>
-          <span class="text-xs text-slate-400 font-mono">{{ assets().length }} total assets</span>
+      <div [class]="theme() === 'dark' ? 'bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden shadow-xl' : 'bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm'">
+        <div [class]="theme() === 'dark' ? 'px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900' : 'px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50'">
+          <h2 [class]="theme() === 'dark' ? 'text-sm font-bold text-slate-200 uppercase tracking-wider' : 'text-sm font-bold text-slate-800 uppercase tracking-wider'">Tracked Asset Inventory</h2>
+          <span [class]="theme() === 'dark' ? 'text-xs text-slate-400 font-mono' : 'text-xs text-slate-500 font-mono'">{{ assets().length }} total assets</span>
         </div>
 
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs">
-            <thead class="bg-slate-950/60 text-slate-400 font-mono uppercase tracking-wider border-b border-slate-800">
+            <thead [class]="theme() === 'dark' ? 'bg-slate-950/60 text-slate-400 font-mono uppercase tracking-wider border-b border-slate-800' : 'bg-slate-100 text-slate-600 font-mono uppercase tracking-wider border-b border-slate-200'">
               <tr>
                 <th class="py-3.5 px-6">Asset Value</th>
                 <th class="py-3.5 px-6">Type</th>
@@ -277,26 +291,26 @@
                 <th class="py-3.5 px-6 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800">
+            <tbody [class]="theme() === 'dark' ? 'divide-y divide-slate-800' : 'divide-y divide-slate-200'">
               @for (asset of assets(); track asset.id) {
-                <tr class="hover:bg-slate-800/40 transition">
-                  <td class="py-4 px-6 font-mono font-bold text-white">{{ asset.value }}</td>
-                  <td class="py-4 px-6 uppercase text-slate-300 font-mono">{{ asset.type }}</td>
-                  <td class="py-4 px-6 text-slate-400 font-mono">{{ asset.source }}</td>
+                <tr [class]="theme() === 'dark' ? 'hover:bg-slate-800/40 transition' : 'hover:bg-slate-50 transition'">
+                  <td [class]="theme() === 'dark' ? 'py-4 px-6 font-mono font-bold text-white' : 'py-4 px-6 font-mono font-bold text-slate-900'">{{ asset.value }}</td>
+                  <td [class]="theme() === 'dark' ? 'py-4 px-6 uppercase text-slate-300 font-mono' : 'py-4 px-6 uppercase text-slate-700 font-mono'">{{ asset.type }}</td>
+                  <td [class]="theme() === 'dark' ? 'py-4 px-6 text-slate-400 font-mono' : 'py-4 px-6 text-slate-500 font-mono'">{{ asset.source }}</td>
                   <td class="py-4 px-6">
                     @if (asset.status === 'active') {
-                      <span class="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 font-medium">Active</span>
+                      <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 font-medium' : 'px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium'">Active</span>
                     } @else if (asset.status === 'pending') {
-                      <span class="px-2 py-0.5 rounded-full bg-amber-950 text-amber-400 border border-amber-800 font-medium">Pending Review</span>
+                      <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded-full bg-amber-950 text-amber-400 border border-amber-800 font-medium' : 'px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-medium'">Pending Review</span>
                     }
                   </td>
-                  <td class="py-4 px-6 text-slate-400">{{ asset.firstSeen }} / {{ asset.lastSeen }}</td>
+                  <td [class]="theme() === 'dark' ? 'py-4 px-6 text-slate-400' : 'py-4 px-6 text-slate-500'">{{ asset.firstSeen }} / {{ asset.lastSeen }}</td>
                   <td class="py-4 px-6 text-right space-x-2">
                     @if (asset.status === 'pending') {
-                      <button (click)="approveAsset(asset.id)" class="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold transition">Approve</button>
-                      <button (click)="rejectAsset(asset.id)" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-rose-900 text-rose-300 font-medium transition">Reject</button>
+                      <button (click)="approveAsset(asset.id)" class="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition">Approve</button>
+                      <button (click)="rejectAsset(asset.id)" [class]="theme() === 'dark' ? 'px-2.5 py-1 rounded bg-slate-800 hover:bg-rose-900 text-rose-300 font-medium transition' : 'px-2.5 py-1 rounded bg-slate-200 hover:bg-rose-100 text-rose-700 font-medium transition'">Reject</button>
                     } @else {
-                      <span class="text-slate-500">Scanning Active</span>
+                      <span [class]="theme() === 'dark' ? 'text-slate-500' : 'text-slate-400'">Scanning Active</span>
                     }
                   </td>
                 </tr>
@@ -310,27 +324,27 @@
     <!-- TAB 3: EMAIL POSTURE -->
     @if (activeTab() === 'email') {
       <div class="space-y-6">
-        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-6 shadow-xl">
-          <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider mb-2">Email Authentication Posture</h2>
-          <p class="text-xs text-slate-400 mb-6">SPF, DKIM, and DMARC verification performed via DNS-over-HTTPS. Missing or weak DMARC policy represents a domain spoofing precondition.</p>
+        <div [class]="theme() === 'dark' ? 'bg-slate-900/80 border border-slate-800 rounded-xl p-6 shadow-xl' : 'bg-white border border-slate-200 rounded-xl p-6 shadow-sm'">
+          <h2 [class]="theme() === 'dark' ? 'text-sm font-bold text-slate-200 uppercase tracking-wider mb-2' : 'text-sm font-bold text-slate-800 uppercase tracking-wider mb-2'">Email Authentication Posture</h2>
+          <p [class]="theme() === 'dark' ? 'text-xs text-slate-400 mb-6' : 'text-xs text-slate-600 mb-6'">SPF, DKIM, and DMARC verification performed via DNS-over-HTTPS. Missing or weak DMARC policy represents a domain spoofing precondition.</p>
 
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             @for (posture of emailPostures(); track posture.domain) {
-              <div class="bg-slate-950 border border-slate-800 rounded-lg p-5 space-y-3">
+              <div [class]="theme() === 'dark' ? 'bg-slate-950 border border-slate-800 rounded-lg p-5 space-y-3' : 'bg-slate-50 border border-slate-200 rounded-lg p-5 space-y-3'">
                 <div class="flex items-center justify-between">
-                  <h3 class="font-mono font-bold text-white text-sm">{{ posture.domain }}</h3>
+                  <h3 [class]="theme() === 'dark' ? 'font-mono font-bold text-white text-sm' : 'font-mono font-bold text-slate-900 text-sm'">{{ posture.domain }}</h3>
                   @if (posture.dmarcPolicy === 'reject') {
-                    <span class="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-800 text-emerald-400 text-[10px] uppercase font-bold">STRICT (REJECT)</span>
+                    <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded bg-emerald-950 border border-emerald-800 text-emerald-400 text-[10px] uppercase font-bold' : 'px-2 py-0.5 rounded bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] uppercase font-bold'">STRICT (REJECT)</span>
                   } @else if (posture.dmarcPolicy === 'quarantine') {
-                    <span class="px-2 py-0.5 rounded bg-amber-950 border border-amber-800 text-amber-400 text-[10px] uppercase font-bold">QUARANTINE</span>
+                    <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded bg-amber-950 border border-amber-800 text-amber-400 text-[10px] uppercase font-bold' : 'px-2 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-800 text-[10px] uppercase font-bold'">QUARANTINE</span>
                   } @else {
-                    <span class="px-2 py-0.5 rounded bg-rose-950 border border-rose-800 text-rose-400 text-[10px] uppercase font-bold">WEAK (NONE)</span>
+                    <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded bg-rose-950 border border-rose-800 text-rose-400 text-[10px] uppercase font-bold' : 'px-2 py-0.5 rounded bg-rose-100 border border-rose-300 text-rose-800 text-[10px] uppercase font-bold'">WEAK (NONE)</span>
                   }
                 </div>
-                <div class="text-xs space-y-1 text-slate-300 font-mono">
-                  <div class="flex justify-between"><span>SPF Record:</span> <strong [class]="posture.spfValid ? 'text-emerald-400' : 'text-rose-400'">{{ posture.spfValid ? 'Pass' : 'Missing/Weak' }}</strong></div>
-                  <div class="flex justify-between"><span>DKIM Selectors:</span> <strong [class]="posture.dkimFound ? 'text-emerald-400' : 'text-rose-400'">{{ posture.dkimFound ? 'Found' : 'Not Found' }}</strong></div>
-                  <div class="flex justify-between"><span>DMARC Policy:</span> <strong class="text-white uppercase">{{ posture.dmarcPolicy }}</strong></div>
+                <div [class]="theme() === 'dark' ? 'text-xs space-y-1 text-slate-300 font-mono' : 'text-xs space-y-1 text-slate-700 font-mono'">
+                  <div class="flex justify-between"><span>SPF Record:</span> <strong [class]="posture.spfValid ? 'text-emerald-500' : 'text-rose-500'">{{ posture.spfValid ? 'Pass' : 'Missing/Weak' }}</strong></div>
+                  <div class="flex justify-between"><span>DKIM Selectors:</span> <strong [class]="posture.dkimFound ? 'text-emerald-500' : 'text-rose-500'">{{ posture.dkimFound ? 'Found' : 'Not Found' }}</strong></div>
+                  <div class="flex justify-between"><span>DMARC Policy:</span> <strong [class]="theme() === 'dark' ? 'text-white uppercase' : 'text-slate-900 uppercase'">{{ posture.dmarcPolicy }}</strong></div>
                 </div>
               </div>
             }
@@ -341,26 +355,26 @@
 
     <!-- TAB 4: REPOSITORY SECRETS -->
     @if (activeTab() === 'secrets') {
-      <div class="bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
-        <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900">
+      <div [class]="theme() === 'dark' ? 'bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden shadow-xl' : 'bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm'">
+        <div [class]="theme() === 'dark' ? 'px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900' : 'px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50'">
           <div>
-            <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider">Public Repository Secret Findings</h2>
-            <p class="text-xs text-slate-400">Full git history scanning via Gitleaks. Raw secret values are redacted at ingestion time.</p>
+            <h2 [class]="theme() === 'dark' ? 'text-sm font-bold text-slate-200 uppercase tracking-wider' : 'text-sm font-bold text-slate-800 uppercase tracking-wider'">Public Repository Secret Findings</h2>
+            <p [class]="theme() === 'dark' ? 'text-xs text-slate-400' : 'text-xs text-slate-600'">Full git history scanning via Gitleaks. Raw secret values are redacted at ingestion time.</p>
           </div>
         </div>
 
-        <div class="divide-y divide-slate-800">
+        <div [class]="theme() === 'dark' ? 'divide-y divide-slate-800' : 'divide-y divide-slate-200'">
           @for (secret of secretFindings(); track secret.filePath) {
             <div class="p-6 space-y-2">
               <div class="flex items-center space-x-3">
-                <span class="px-2 py-0.5 rounded bg-amber-950 border border-amber-800 text-amber-400 text-xs font-mono font-bold uppercase">{{ secret.priority }}</span>
-                <span class="font-mono text-xs text-white font-bold">{{ secret.provider }}</span>
-                <span class="text-xs text-slate-400 font-mono">Commit: {{ secret.commitSha }}</span>
+                <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded bg-amber-950 border border-amber-800 text-amber-400 text-xs font-mono font-bold uppercase' : 'px-2 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-800 text-xs font-mono font-bold uppercase'">{{ secret.priority }}</span>
+                <span [class]="theme() === 'dark' ? 'font-mono text-xs text-white font-bold' : 'font-mono text-xs text-slate-900 font-bold'">{{ secret.provider }}</span>
+                <span [class]="theme() === 'dark' ? 'text-xs text-slate-400 font-mono' : 'text-xs text-slate-500 font-mono'">Commit: {{ secret.commitSha }}</span>
               </div>
-              <div class="text-xs font-mono text-slate-300 bg-slate-950 p-3 rounded border border-slate-800 space-y-1">
-                <div><span class="text-slate-500">Repo:</span> {{ secret.repoUrl }}</div>
-                <div><span class="text-slate-500">File:</span> {{ secret.filePath }}</div>
-                <div><span class="text-slate-500">Redacted Ref:</span> <span class="text-amber-300">{{ secret.redactedRef }}</span></div>
+              <div [class]="theme() === 'dark' ? 'text-xs font-mono text-slate-300 bg-slate-950 p-3 rounded border border-slate-800 space-y-1' : 'text-xs font-mono text-slate-700 bg-slate-50 p-3 rounded border border-slate-200 space-y-1'">
+                <div><span [class]="theme() === 'dark' ? 'text-slate-500' : 'text-slate-500'">Repo:</span> {{ secret.repoUrl }}</div>
+                <div><span [class]="theme() === 'dark' ? 'text-slate-500' : 'text-slate-500'">File:</span> {{ secret.filePath }}</div>
+                <div><span [class]="theme() === 'dark' ? 'text-slate-500' : 'text-slate-500'">Redacted Ref:</span> <span [class]="theme() === 'dark' ? 'text-amber-300 font-bold' : 'text-amber-700 font-bold'">{{ secret.redactedRef }}</span></div>
               </div>
             </div>
           }
@@ -370,31 +384,31 @@
 
     <!-- TAB 5: SCOPE AUTHORIZATION WIZARD -->
     @if (activeTab() === 'scope') {
-      <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-8 shadow-2xl max-w-3xl mx-auto space-y-6">
+      <div [class]="theme() === 'dark' ? 'bg-slate-900/90 border border-slate-800 rounded-xl p-8 shadow-2xl max-w-3xl mx-auto space-y-6' : 'bg-white border border-slate-200 rounded-xl p-8 shadow-md max-w-3xl mx-auto space-y-6'">
         
-        <div class="border-b border-slate-800 pb-4">
+        <div [class]="theme() === 'dark' ? 'border-b border-slate-800 pb-4' : 'border-b border-slate-200 pb-4'">
           <div class="flex items-center space-x-3">
-            <div class="p-2 rounded-lg bg-cyan-950 border border-cyan-800 text-cyan-400">
+            <div [class]="theme() === 'dark' ? 'p-2 rounded-lg bg-cyan-950 border border-cyan-800 text-cyan-400' : 'p-2 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-700'">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
             </div>
             <div>
-              <h2 class="text-lg font-bold text-white">In-App Target Scope Authorization</h2>
-              <p class="text-xs text-slate-400">Enforces safety boundaries & rules of engagement before scanning targets.</p>
+              <h2 [class]="theme() === 'dark' ? 'text-lg font-bold text-white' : 'text-lg font-bold text-slate-900'">In-App Target Scope Authorization</h2>
+              <p [class]="theme() === 'dark' ? 'text-xs text-slate-400' : 'text-xs text-slate-500'">Enforces safety boundaries & rules of engagement before scanning targets.</p>
             </div>
           </div>
         </div>
 
         <!-- Scope Declaration -->
-        <div class="space-y-4 text-xs text-slate-300">
-          <h3 class="font-bold text-slate-200 uppercase tracking-wider">1. Authorized Target Scope</h3>
-          <div class="p-4 rounded-lg bg-slate-950 border border-slate-800 font-mono space-y-1">
-            <div><strong class="text-cyan-400">Seed Domains:</strong> {{ seedDomainsInput() }}</div>
-            <div><strong class="text-cyan-400">CIDRs:</strong> Unspecified (None)</div>
-            <div><strong class="text-cyan-400">Public Repositories:</strong> https://github.com/adedayo/trawl</div>
+        <div [class]="theme() === 'dark' ? 'space-y-4 text-xs text-slate-300' : 'space-y-4 text-xs text-slate-700'">
+          <h3 [class]="theme() === 'dark' ? 'font-bold text-slate-200 uppercase tracking-wider' : 'font-bold text-slate-800 uppercase tracking-wider'">1. Authorized Target Scope</h3>
+          <div [class]="theme() === 'dark' ? 'p-4 rounded-lg bg-slate-950 border border-slate-800 font-mono space-y-1' : 'p-4 rounded-lg bg-slate-50 border border-slate-200 font-mono space-y-1'">
+            <div><strong [class]="theme() === 'dark' ? 'text-cyan-400' : 'text-cyan-700'">Seed Domains:</strong> {{ seedDomainsInput() }}</div>
+            <div><strong [class]="theme() === 'dark' ? 'text-cyan-400' : 'text-cyan-700'">CIDRs:</strong> Unspecified (None)</div>
+            <div><strong [class]="theme() === 'dark' ? 'text-cyan-400' : 'text-cyan-700'">Public Repositories:</strong> https://github.com/example/repo</div>
           </div>
 
-          <h3 class="font-bold text-slate-200 uppercase tracking-wider pt-2">2. Non-Destructive Rules of Engagement</h3>
-          <ul class="list-disc list-inside space-y-1 text-slate-400">
+          <h3 [class]="theme() === 'dark' ? 'font-bold text-slate-200 uppercase tracking-wider pt-2' : 'font-bold text-slate-800 uppercase tracking-wider pt-2'">2. Non-Destructive Rules of Engagement</h3>
+          <ul [class]="theme() === 'dark' ? 'list-disc list-inside space-y-1 text-slate-400' : 'list-disc list-inside space-y-1 text-slate-600'">
             <li>Passive OSINT discovery & non-destructive TCP banner probing only.</li>
             <li>No active exploit payloads, remote code execution attempts, or DoS stress tests.</li>
             <li>No automated credential brute-forcing or password spraying.</li>
@@ -402,28 +416,28 @@
           </ul>
 
           <!-- Sign-Off Form -->
-          <div class="pt-4 border-t border-slate-800 space-y-4">
+          <div [class]="theme() === 'dark' ? 'pt-4 border-t border-slate-800 space-y-4' : 'pt-4 border-t border-slate-200 space-y-4'">
             @if (isAuthorized()) {
-              <div class="p-4 rounded-lg bg-emerald-950/80 border border-emerald-800 text-emerald-200 flex items-center justify-between">
+              <div [class]="theme() === 'dark' ? 'p-4 rounded-lg bg-emerald-950/80 border border-emerald-800 text-emerald-200 flex items-center justify-between' : 'p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center justify-between'">
                 <div>
-                  <div class="font-bold text-emerald-300">Scope Authorization Active</div>
-                  <div class="text-[11px] text-emerald-400">Signed by {{ signerName() }} ({{ signerTitle() }}) on {{ authorizationDate() }}</div>
+                  <div class="font-bold text-emerald-600">Scope Authorization Active</div>
+                  <div [class]="theme() === 'dark' ? 'text-[11px] text-emerald-400' : 'text-[11px] text-emerald-700'">Signed by {{ signerName() }} ({{ signerTitle() }}) on {{ authorizationDate() }}</div>
                 </div>
-                <button (click)="revokeAuthorization()" class="px-3 py-1.5 rounded bg-slate-900 hover:bg-rose-900 text-rose-300 text-xs font-medium transition">
+                <button (click)="revokeAuthorization()" [class]="theme() === 'dark' ? 'px-3 py-1.5 rounded bg-slate-900 hover:bg-rose-900 text-rose-300 text-xs font-medium transition' : 'px-3 py-1.5 rounded bg-white border border-slate-300 hover:bg-rose-50 text-rose-700 text-xs font-medium transition'">
                   Revoke Authorization
                 </button>
               </div>
             } @else {
               <div class="space-y-3">
                 <div>
-                  <label class="block text-xs font-medium text-slate-300 mb-1">Operator / Authorizer Full Name *</label>
-                  <input #nameInput type="text" placeholder="e.g. Dayo Adetoye" class="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none">
+                  <label [class]="theme() === 'dark' ? 'block text-xs font-medium text-slate-300 mb-1' : 'block text-xs font-medium text-slate-700 mb-1'">Operator / Authorizer Full Name *</label>
+                  <input #nameInput type="text" placeholder="e.g. Alex Morgan" [class]="theme() === 'dark' ? 'w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none' : 'w-full bg-white border border-slate-300 rounded p-2.5 text-xs text-slate-900 focus:border-cyan-600 focus:outline-none'">
                 </div>
                 <div>
-                  <label class="block text-xs font-medium text-slate-300 mb-1">Title / Role</label>
-                  <input #titleInput type="text" placeholder="e.g. Security Lead / System Owner" class="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none">
+                  <label [class]="theme() === 'dark' ? 'block text-xs font-medium text-slate-300 mb-1' : 'block text-xs font-medium text-slate-700 mb-1'">Title / Role</label>
+                  <input #titleInput type="text" placeholder="e.g. Security Lead / System Owner" [class]="theme() === 'dark' ? 'w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none' : 'w-full bg-white border border-slate-300 rounded p-2.5 text-xs text-slate-900 focus:border-cyan-600 focus:outline-none'">
                 </div>
-                <button (click)="signAuthorization(nameInput.value, titleInput.value)" class="w-full py-3 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-bold text-xs uppercase tracking-wider shadow-lg hover:from-cyan-400 hover:to-blue-500 transition">
+                <button (click)="signAuthorization(nameInput.value, titleInput.value)" class="w-full py-3 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-bold text-xs uppercase tracking-wider shadow-md hover:from-cyan-500 hover:to-blue-500 transition">
                   Confirm & Digital Sign Scope Authorization
                 </button>
               </div>
@@ -437,7 +451,7 @@
   </main>
 
   <!-- Footer -->
-  <footer class="border-t border-slate-900 bg-slate-950 py-4 text-center text-xs text-slate-500">
+  <footer [class]="theme() === 'dark' ? 'border-t border-slate-900 bg-slate-950 py-4 text-center text-xs text-slate-500' : 'border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500'">
     Trawl External Exposure Engine • Apache 2.0 Open Source • Convex + Angular + Docker Compose
   </footer>
 

@@ -58,6 +58,9 @@ export interface SecretFinding {
   styleUrl: './app.css'
 })
 export class App {
+  // Theme Mode ('light' by default, toggleable to 'dark')
+  readonly theme = signal<'light' | 'dark'>('light');
+
   // Navigation
   readonly activeTab = signal<'overview' | 'assets' | 'findings' | 'email' | 'secrets' | 'scope'>('overview');
 
@@ -71,22 +74,22 @@ export class App {
   readonly signerTitle = signal<string>('');
   readonly authorizationDate = signal<string>('');
 
-  // Target Registration
-  readonly seedDomainsInput = signal<string>('ezeetax.ng, dayo-adetoye.com');
+  // Target Registration (Generic Defaults)
+  readonly seedDomainsInput = signal<string>('example.com, api.example.com');
 
-  // Mock / Initial Data for Live Demonstration
+  // Mock / Initial Data for Live Demonstration (Generic Targets)
   readonly assets = signal<Asset[]>([
-    { id: '1', type: 'domain', value: 'ezeetax.ng', source: 'seed', confidence: 'high', status: 'active', firstSeen: '2026-07-20', lastSeen: 'Today 19:30' },
-    { id: '2', type: 'domain', value: 'api.ezeetax.ng', source: 'subfinder', confidence: 'high', status: 'active', firstSeen: '2026-07-21', lastSeen: 'Today 19:30' },
-    { id: '3', type: 'domain', value: 'staging.ezeetax.ng', source: 'ct-logs', confidence: 'medium', status: 'pending', firstSeen: '2026-07-22', lastSeen: 'Today 18:00' },
+    { id: '1', type: 'domain', value: 'example.com', source: 'seed', confidence: 'high', status: 'active', firstSeen: '2026-07-20', lastSeen: 'Today 19:30' },
+    { id: '2', type: 'domain', value: 'api.example.com', source: 'subfinder', confidence: 'high', status: 'active', firstSeen: '2026-07-21', lastSeen: 'Today 19:30' },
+    { id: '3', type: 'domain', value: 'staging.example.com', source: 'ct-logs', confidence: 'medium', status: 'pending', firstSeen: '2026-07-22', lastSeen: 'Today 18:00' },
     { id: '4', type: 'ip', value: '198.51.100.42', source: 'dns-pivot', confidence: 'high', status: 'active', firstSeen: '2026-07-20', lastSeen: 'Today 19:30' },
-    { id: '5', type: 'repository', value: 'https://github.com/adedayo/trawl', source: 'operator', confidence: 'high', status: 'active', firstSeen: '2026-07-23', lastSeen: 'Today 19:00' }
+    { id: '5', type: 'repository', value: 'https://github.com/example/repo', source: 'operator', confidence: 'high', status: 'active', firstSeen: '2026-07-23', lastSeen: 'Today 19:00' }
   ]);
 
   readonly findings = signal<Finding[]>([
     {
       id: 'f1',
-      assetValue: 'api.ezeetax.ng',
+      assetValue: 'api.example.com',
       cveId: 'CVE-2024-3094',
       cpe: 'cpe:2.3:a:xz:xz:5.6.0:*:*:*:*:*:*:*',
       title: 'XZ Utils Backdoor Remote Code Execution',
@@ -103,7 +106,7 @@ export class App {
     },
     {
       id: 'f2',
-      assetValue: 'ezeetax.ng',
+      assetValue: 'example.com',
       cveId: 'CVE-2023-4863',
       cpe: 'cpe:2.3:a:google:chrome:116.0.5845.187:*:*:*:*:*:*:*',
       title: 'Heap Buffer Overflow in WebP Image Rendering',
@@ -133,15 +136,15 @@ export class App {
   ]);
 
   readonly emailPostures = signal<EmailPosture[]>([
-    { domain: 'ezeetax.ng', spfValid: true, dkimFound: true, dmarcPolicy: 'reject', priority: 'info', lastChecked: 'Today 18:00' },
-    { domain: 'api.ezeetax.ng', spfValid: true, dkimFound: false, dmarcPolicy: 'quarantine', priority: 'medium', lastChecked: 'Today 18:00' },
-    { domain: 'staging.ezeetax.ng', spfValid: false, dkimFound: false, dmarcPolicy: 'none', priority: 'high', lastChecked: 'Today 18:00' }
+    { domain: 'example.com', spfValid: true, dkimFound: true, dmarcPolicy: 'reject', priority: 'info', lastChecked: 'Today 18:00' },
+    { domain: 'api.example.com', spfValid: true, dkimFound: false, dmarcPolicy: 'quarantine', priority: 'medium', lastChecked: 'Today 18:00' },
+    { domain: 'staging.example.com', spfValid: false, dkimFound: false, dmarcPolicy: 'none', priority: 'high', lastChecked: 'Today 18:00' }
   ]);
 
   readonly secretFindings = signal<SecretFinding[]>([
     {
-      repoUrl: 'https://github.com/adedayo/trawl',
-      filePath: 'config/dev-credentials.json',
+      repoUrl: 'https://github.com/example/repo',
+      filePath: 'config/example-credentials.json',
       provider: 'AWS IAM Key',
       redactedRef: 'AKIA...8F2A (REDACTED:SHA256)',
       commitSha: '67c049e',
@@ -165,6 +168,10 @@ export class App {
     }
     return list;
   });
+
+  toggleTheme() {
+    this.theme.update(t => t === 'light' ? 'dark' : 'light');
+  }
 
   // Authorization Actions
   signAuthorization(name: string, title: string) {
