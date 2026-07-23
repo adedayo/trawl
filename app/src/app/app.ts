@@ -74,10 +74,17 @@ export class App {
   readonly signerTitle = signal<string>('');
   readonly authorizationDate = signal<string>('');
 
-  // Target Registration (Generic Defaults)
-  readonly seedDomainsInput = signal<string>('example.com, api.example.com');
+  // Editable Target Scope Signals
+  readonly seedDomainsList = signal<string[]>(['example.com', 'api.example.com']);
+  readonly seedCidrsList = signal<string[]>(['198.51.100.0/24']);
+  readonly seedReposList = signal<string[]>(['https://github.com/example/repo']);
 
-  // Mock / Initial Data for Live Demonstration (Generic Targets)
+  // Computed Target Strings for Scope Authorization
+  readonly formattedDomains = computed(() => this.seedDomainsList().join(', ') || 'None');
+  readonly formattedCidrs = computed(() => this.seedCidrsList().join(', ') || 'None');
+  readonly formattedRepos = computed(() => this.seedReposList().join(', ') || 'None');
+
+  // Initial Data for Assets & Findings
   readonly assets = signal<Asset[]>([
     { id: '1', type: 'domain', value: 'example.com', source: 'seed', confidence: 'high', status: 'active', firstSeen: '2026-07-20', lastSeen: 'Today 19:30' },
     { id: '2', type: 'domain', value: 'api.example.com', source: 'subfinder', confidence: 'high', status: 'active', firstSeen: '2026-07-21', lastSeen: 'Today 19:30' },
@@ -171,6 +178,62 @@ export class App {
 
   toggleTheme() {
     this.theme.update(t => t === 'light' ? 'dark' : 'light');
+  }
+
+  // Target Scope Management Actions
+  addDomain(value: string) {
+    const trimmed = value.trim().toLowerCase();
+    if (!trimmed || this.seedDomainsList().includes(trimmed)) return;
+    this.seedDomainsList.update(list => [...list, trimmed]);
+    // Also auto-add to active assets inventory
+    if (!this.assets().some(a => a.value === trimmed)) {
+      this.assets.update(list => [...list, {
+        id: String(Date.now()),
+        type: 'domain',
+        value: trimmed,
+        source: 'operator-ui',
+        confidence: 'high',
+        status: 'active',
+        firstSeen: 'Just now',
+        lastSeen: 'Just now'
+      }]);
+    }
+  }
+
+  removeDomain(domain: string) {
+    this.seedDomainsList.update(list => list.filter(d => d !== domain));
+  }
+
+  addCidr(value: string) {
+    const trimmed = value.trim();
+    if (!trimmed || this.seedCidrsList().includes(trimmed)) return;
+    this.seedCidrsList.update(list => [...list, trimmed]);
+  }
+
+  removeCidr(cidr: string) {
+    this.seedCidrsList.update(list => list.filter(c => c !== cidr));
+  }
+
+  addRepo(value: string) {
+    const trimmed = value.trim();
+    if (!trimmed || this.seedReposList().includes(trimmed)) return;
+    this.seedReposList.update(list => [...list, trimmed]);
+    if (!this.assets().some(a => a.value === trimmed)) {
+      this.assets.update(list => [...list, {
+        id: String(Date.now()),
+        type: 'repository',
+        value: trimmed,
+        source: 'operator-ui',
+        confidence: 'high',
+        status: 'active',
+        firstSeen: 'Just now',
+        lastSeen: 'Just now'
+      }]);
+    }
+  }
+
+  removeRepo(repo: string) {
+    this.seedReposList.update(list => list.filter(r => r !== repo));
   }
 
   // Authorization Actions

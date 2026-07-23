@@ -276,7 +276,12 @@
       <div [class]="theme() === 'dark' ? 'bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden shadow-xl' : 'bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm'">
         <div [class]="theme() === 'dark' ? 'px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900' : 'px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50'">
           <h2 [class]="theme() === 'dark' ? 'text-sm font-bold text-slate-200 uppercase tracking-wider' : 'text-sm font-bold text-slate-800 uppercase tracking-wider'">Tracked Asset Inventory</h2>
-          <span [class]="theme() === 'dark' ? 'text-xs text-slate-400 font-mono' : 'text-xs text-slate-500 font-mono'">{{ assets().length }} total assets</span>
+          <div class="flex items-center space-x-3">
+            <button (click)="activeTab.set('scope')" class="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition flex items-center space-x-1">
+              <span>+ Add Target to Scope</span>
+            </button>
+            <span [class]="theme() === 'dark' ? 'text-xs text-slate-400 font-mono' : 'text-xs text-slate-500 font-mono'">{{ assets().length }} total assets</span>
+          </div>
         </div>
 
         <div class="overflow-x-auto">
@@ -382,9 +387,9 @@
       </div>
     }
 
-    <!-- TAB 5: SCOPE AUTHORIZATION WIZARD -->
+    <!-- TAB 5: SCOPE AUTHORIZATION WIZARD & SCOPE EDITOR -->
     @if (activeTab() === 'scope') {
-      <div [class]="theme() === 'dark' ? 'bg-slate-900/90 border border-slate-800 rounded-xl p-8 shadow-2xl max-w-3xl mx-auto space-y-6' : 'bg-white border border-slate-200 rounded-xl p-8 shadow-md max-w-3xl mx-auto space-y-6'">
+      <div [class]="theme() === 'dark' ? 'bg-slate-900/90 border border-slate-800 rounded-xl p-8 shadow-2xl max-w-4xl mx-auto space-y-8' : 'bg-white border border-slate-200 rounded-xl p-8 shadow-md max-w-4xl mx-auto space-y-8'">
         
         <div [class]="theme() === 'dark' ? 'border-b border-slate-800 pb-4' : 'border-b border-slate-200 pb-4'">
           <div class="flex items-center space-x-3">
@@ -392,22 +397,85 @@
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
             </div>
             <div>
-              <h2 [class]="theme() === 'dark' ? 'text-lg font-bold text-white' : 'text-lg font-bold text-slate-900'">In-App Target Scope Authorization</h2>
-              <p [class]="theme() === 'dark' ? 'text-xs text-slate-400' : 'text-xs text-slate-500'">Enforces safety boundaries & rules of engagement before scanning targets.</p>
+              <h2 [class]="theme() === 'dark' ? 'text-lg font-bold text-white' : 'text-lg font-bold text-slate-900'">In-App Target Scope Authorization & Management</h2>
+              <p [class]="theme() === 'dark' ? 'text-xs text-slate-400' : 'text-xs text-slate-500'">Manage in-scope targets dynamically and sign digital authorization bounds.</p>
             </div>
           </div>
         </div>
 
-        <!-- Scope Declaration -->
-        <div [class]="theme() === 'dark' ? 'space-y-4 text-xs text-slate-300' : 'space-y-4 text-xs text-slate-700'">
-          <h3 [class]="theme() === 'dark' ? 'font-bold text-slate-200 uppercase tracking-wider' : 'font-bold text-slate-800 uppercase tracking-wider'">1. Authorized Target Scope</h3>
-          <div [class]="theme() === 'dark' ? 'p-4 rounded-lg bg-slate-950 border border-slate-800 font-mono space-y-1' : 'p-4 rounded-lg bg-slate-50 border border-slate-200 font-mono space-y-1'">
-            <div><strong [class]="theme() === 'dark' ? 'text-cyan-400' : 'text-cyan-700'">Seed Domains:</strong> {{ seedDomainsInput() }}</div>
-            <div><strong [class]="theme() === 'dark' ? 'text-cyan-400' : 'text-cyan-700'">CIDRs:</strong> Unspecified (None)</div>
-            <div><strong [class]="theme() === 'dark' ? 'text-cyan-400' : 'text-cyan-700'">Public Repositories:</strong> https://github.com/example/repo</div>
+        <!-- Section A: Interactive Scope Editor -->
+        <div class="space-y-6">
+          <h3 [class]="theme() === 'dark' ? 'font-bold text-sm text-slate-200 uppercase tracking-wider' : 'font-bold text-sm text-slate-800 uppercase tracking-wider'">1. Manage Target Scope Items</h3>
+
+          <!-- Domain Scope Editor -->
+          <div class="space-y-2">
+            <label [class]="theme() === 'dark' ? 'block text-xs font-semibold text-slate-300' : 'block text-xs font-semibold text-slate-700'">Seed Domains</label>
+            <div class="flex space-x-2">
+              <input #domainInput type="text" placeholder="Add domain (e.g. ezeetax.ng or company.com)" [class]="theme() === 'dark' ? 'flex-1 bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none' : 'flex-1 bg-white border border-slate-300 rounded-lg p-2.5 text-xs text-slate-900 focus:border-cyan-600 focus:outline-none'">
+              <button (click)="addDomain(domainInput.value); domainInput.value=''" class="px-4 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition">
+                + Add Domain
+              </button>
+            </div>
+            <!-- Domain Badges -->
+            <div class="flex flex-wrap gap-2 pt-1">
+              @for (domain of seedDomainsList(); track domain) {
+                <span [class]="theme() === 'dark' ? 'inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-300 text-xs font-mono' : 'inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-cyan-50 border border-cyan-200 text-cyan-800 text-xs font-mono'">
+                  <span>{{ domain }}</span>
+                  <button (click)="removeDomain(domain)" class="text-slate-400 hover:text-rose-400 font-bold ml-1">×</button>
+                </span>
+              }
+            </div>
           </div>
 
-          <h3 [class]="theme() === 'dark' ? 'font-bold text-slate-200 uppercase tracking-wider pt-2' : 'font-bold text-slate-800 uppercase tracking-wider pt-2'">2. Non-Destructive Rules of Engagement</h3>
+          <!-- CIDR Scope Editor -->
+          <div class="space-y-2">
+            <label [class]="theme() === 'dark' ? 'block text-xs font-semibold text-slate-300' : 'block text-xs font-semibold text-slate-700'">CIDR IP Ranges</label>
+            <div class="flex space-x-2">
+              <input #cidrInput type="text" placeholder="Add CIDR range (e.g. 198.51.100.0/24)" [class]="theme() === 'dark' ? 'flex-1 bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none' : 'flex-1 bg-white border border-slate-300 rounded-lg p-2.5 text-xs text-slate-900 focus:border-cyan-600 focus:outline-none'">
+              <button (click)="addCidr(cidrInput.value); cidrInput.value=''" class="px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition">
+                + Add CIDR
+              </button>
+            </div>
+            <div class="flex flex-wrap gap-2 pt-1">
+              @for (cidr of seedCidrsList(); track cidr) {
+                <span [class]="theme() === 'dark' ? 'inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-indigo-950 border border-indigo-800 text-indigo-300 text-xs font-mono' : 'inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs font-mono'">
+                  <span>{{ cidr }}</span>
+                  <button (click)="removeCidr(cidr)" class="text-slate-400 hover:text-rose-400 font-bold ml-1">×</button>
+                </span>
+              }
+            </div>
+          </div>
+
+          <!-- Repo Scope Editor -->
+          <div class="space-y-2">
+            <label [class]="theme() === 'dark' ? 'block text-xs font-semibold text-slate-300' : 'block text-xs font-semibold text-slate-700'">Public Repositories</label>
+            <div class="flex space-x-2">
+              <input #repoInput type="text" placeholder="Add public repo URL (e.g. https://github.com/org/repo)" [class]="theme() === 'dark' ? 'flex-1 bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none' : 'flex-1 bg-white border border-slate-300 rounded-lg p-2.5 text-xs text-slate-900 focus:border-cyan-600 focus:outline-none'">
+              <button (click)="addRepo(repoInput.value); repoInput.value=''" class="px-4 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition">
+                + Add Repo
+              </button>
+            </div>
+            <div class="flex flex-wrap gap-2 pt-1">
+              @for (repo of seedReposList(); track repo) {
+                <span [class]="theme() === 'dark' ? 'inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 text-xs font-mono' : 'inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-300 text-slate-800 text-xs font-mono'">
+                  <span>{{ repo }}</span>
+                  <button (click)="removeRepo(repo)" class="text-slate-400 hover:text-rose-400 font-bold ml-1">×</button>
+                </span>
+              }
+            </div>
+          </div>
+        </div>
+
+        <!-- Section B: Rules of Engagement & Digital Signature -->
+        <div [class]="theme() === 'dark' ? 'space-y-4 text-xs text-slate-300 border-t border-slate-800 pt-6' : 'space-y-4 text-xs text-slate-700 border-t border-slate-200 pt-6'">
+          <h3 [class]="theme() === 'dark' ? 'font-bold text-slate-200 uppercase tracking-wider' : 'font-bold text-slate-800 uppercase tracking-wider'">2. Active Authorized Scope Summary</h3>
+          <div [class]="theme() === 'dark' ? 'p-4 rounded-lg bg-slate-950 border border-slate-800 font-mono space-y-1' : 'p-4 rounded-lg bg-slate-50 border border-slate-200 font-mono space-y-1'">
+            <div><strong [class]="theme() === 'dark' ? 'text-cyan-400' : 'text-cyan-700'">Seed Domains:</strong> {{ formattedDomains() }}</div>
+            <div><strong [class]="theme() === 'dark' ? 'text-cyan-400' : 'text-cyan-700'">CIDRs:</strong> {{ formattedCidrs() }}</div>
+            <div><strong [class]="theme() === 'dark' ? 'text-cyan-400' : 'text-cyan-700'">Public Repositories:</strong> {{ formattedRepos() }}</div>
+          </div>
+
+          <h3 [class]="theme() === 'dark' ? 'font-bold text-slate-200 uppercase tracking-wider pt-2' : 'font-bold text-slate-800 uppercase tracking-wider pt-2'">3. Non-Destructive Rules of Engagement</h3>
           <ul [class]="theme() === 'dark' ? 'list-disc list-inside space-y-1 text-slate-400' : 'list-disc list-inside space-y-1 text-slate-600'">
             <li>Passive OSINT discovery & non-destructive TCP banner probing only.</li>
             <li>No active exploit payloads, remote code execution attempts, or DoS stress tests.</li>
