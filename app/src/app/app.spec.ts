@@ -1,5 +1,20 @@
 import { TestBed } from '@angular/core/testing';
+import { vi } from 'vitest';
 import { App } from './app';
+
+vi.mock('convex/browser', () => {
+  return {
+    ConvexClient: class {
+      mutation() {
+        return Promise.resolve({});
+      }
+      onUpdate() {
+        return () => {};
+      }
+      close() {}
+    },
+  };
+});
 
 describe('App', () => {
   beforeEach(async () => {

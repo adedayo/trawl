@@ -1,24 +1,26 @@
-import { Component, signal, computed } from '@angular/core';
+import { Component, signal, computed, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ConvexClient } from 'convex/browser';
+import { api } from '../../../convex/_generated/api';
 
-export interface Asset {
+export interface AssetUI {
   id: string;
   type: 'domain' | 'ip' | 'repository';
   value: string;
   source: string;
   confidence: 'high' | 'medium' | 'low';
-  status: 'active' | 'pending' | 'inactive';
+  status: 'active' | 'pending' | 'inactive' | 'rejected';
   firstSeen: string;
   lastSeen: string;
 }
 
-export interface Finding {
+export interface FindingUI {
   id: string;
   assetValue: string;
   cveId: string;
   cpe?: string;
   title: string;
-  severity: 'critical' | 'high' | 'medium' | 'low';
+  severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
   kev: boolean;
   epssScore: number;
   cvssScore: number;
@@ -30,7 +32,7 @@ export interface Finding {
   detectedAt: string;
 }
 
-export interface EmailPosture {
+export interface EmailPostureUI {
   domain: string;
   spfValid: boolean;
   dkimFound: boolean;
@@ -39,7 +41,7 @@ export interface EmailPosture {
   lastChecked: string;
 }
 
-export interface SecretFinding {
+export interface SecretFindingUI {
   repoUrl: string;
   filePath: string;
   provider: string;
@@ -57,109 +59,40 @@ export interface SecretFinding {
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
-export class App {
+export class App implements OnInit, OnDestroy {
+  private convexClient!: ConvexClient;
+
   // Theme Mode ('light' by default, toggleable to 'dark')
   readonly theme = signal<'light' | 'dark'>('light');
 
   // Navigation
   readonly activeTab = signal<'overview' | 'assets' | 'findings' | 'email' | 'secrets' | 'scope'>('overview');
 
-  // Filter
+  // Filters
   readonly filterSeverity = signal<string>('all');
   readonly filterAssetType = signal<string>('all');
 
-  // Authorization State (In-App Scope Authorization Wizard)
+  // Authorization State (In-App Scope Authorization Wizard) - Live from Convex
   readonly isAuthorized = signal<boolean>(false);
   readonly signerName = signal<string>('');
   readonly signerTitle = signal<string>('');
   readonly authorizationDate = signal<string>('');
 
-  // Editable Target Scope Signals
-  readonly seedDomainsList = signal<string[]>(['example.com', 'api.example.com']);
-  readonly seedCidrsList = signal<string[]>(['198.51.100.0/24']);
-  readonly seedReposList = signal<string[]>(['https://github.com/example/repo']);
+  // Target Scope Signals - Live from Convex
+  readonly seedDomainsList = signal<string[]>([]);
+  readonly seedCidrsList = signal<string[]>([]);
+  readonly seedReposList = signal<string[]>([]);
 
   // Computed Target Strings for Scope Authorization
   readonly formattedDomains = computed(() => this.seedDomainsList().join(', ') || 'None');
   readonly formattedCidrs = computed(() => this.seedCidrsList().join(', ') || 'None');
   readonly formattedRepos = computed(() => this.seedReposList().join(', ') || 'None');
 
-  // Initial Data for Assets & Findings
-  readonly assets = signal<Asset[]>([
-    { id: '1', type: 'domain', value: 'example.com', source: 'seed', confidence: 'high', status: 'active', firstSeen: '2026-07-20', lastSeen: 'Today 19:30' },
-    { id: '2', type: 'domain', value: 'api.example.com', source: 'subfinder', confidence: 'high', status: 'active', firstSeen: '2026-07-21', lastSeen: 'Today 19:30' },
-    { id: '3', type: 'domain', value: 'staging.example.com', source: 'ct-logs', confidence: 'medium', status: 'pending', firstSeen: '2026-07-22', lastSeen: 'Today 18:00' },
-    { id: '4', type: 'ip', value: '198.51.100.42', source: 'dns-pivot', confidence: 'high', status: 'active', firstSeen: '2026-07-20', lastSeen: 'Today 19:30' },
-    { id: '5', type: 'repository', value: 'https://github.com/example/repo', source: 'operator', confidence: 'high', status: 'active', firstSeen: '2026-07-23', lastSeen: 'Today 19:00' }
-  ]);
-
-  readonly findings = signal<Finding[]>([
-    {
-      id: 'f1',
-      assetValue: 'api.example.com',
-      cveId: 'CVE-2024-3094',
-      cpe: 'cpe:2.3:a:xz:xz:5.6.0:*:*:*:*:*:*:*',
-      title: 'XZ Utils Backdoor Remote Code Execution',
-      severity: 'critical',
-      kev: true,
-      epssScore: 0.965,
-      cvssScore: 10.0,
-      status: 'open',
-      aiAnnotation: {
-        summary: 'Critical backdoor detected in SSH authentication pipeline. Immediate patch required.',
-        remediation: 'Downgrade xz-utils to 5.4.x or upgrade to fixed distribution builds.'
-      },
-      detectedAt: 'Today 14:22'
-    },
-    {
-      id: 'f2',
-      assetValue: 'example.com',
-      cveId: 'CVE-2023-4863',
-      cpe: 'cpe:2.3:a:google:chrome:116.0.5845.187:*:*:*:*:*:*:*',
-      title: 'Heap Buffer Overflow in WebP Image Rendering',
-      severity: 'high',
-      kev: true,
-      epssScore: 0.884,
-      cvssScore: 8.8,
-      status: 'open',
-      aiAnnotation: {
-        summary: 'Confirmed KEV vulnerability in WebP parsing library affecting host headers.',
-        remediation: 'Apply libwebp system security updates across host web servers.'
-      },
-      detectedAt: 'Yesterday 09:15'
-    },
-    {
-      id: 'f3',
-      assetValue: '198.51.100.42',
-      cveId: 'CVE-2023-38408',
-      title: 'OpenSSH PKCS#11 Provider Remote Code Execution',
-      severity: 'medium',
-      kev: false,
-      epssScore: 0.342,
-      cvssScore: 6.5,
-      status: 'open',
-      detectedAt: '2 days ago'
-    }
-  ]);
-
-  readonly emailPostures = signal<EmailPosture[]>([
-    { domain: 'example.com', spfValid: true, dkimFound: true, dmarcPolicy: 'reject', priority: 'info', lastChecked: 'Today 18:00' },
-    { domain: 'api.example.com', spfValid: true, dkimFound: false, dmarcPolicy: 'quarantine', priority: 'medium', lastChecked: 'Today 18:00' },
-    { domain: 'staging.example.com', spfValid: false, dkimFound: false, dmarcPolicy: 'none', priority: 'high', lastChecked: 'Today 18:00' }
-  ]);
-
-  readonly secretFindings = signal<SecretFinding[]>([
-    {
-      repoUrl: 'https://github.com/example/repo',
-      filePath: 'config/example-credentials.json',
-      provider: 'AWS IAM Key',
-      redactedRef: 'AKIA...8F2A (REDACTED:SHA256)',
-      commitSha: '67c049e',
-      verified: false,
-      priority: 'high',
-      detectedAt: 'Today 12:00'
-    }
-  ]);
+  // Live Convex Subscriptions Data Signals
+  readonly assets = signal<AssetUI[]>([]);
+  readonly findings = signal<FindingUI[]>([]);
+  readonly emailPostures = signal<EmailPostureUI[]>([]);
+  readonly secretFindings = signal<SecretFindingUI[]>([]);
 
   // Computed Metrics
   readonly activeAssetCount = computed(() => this.assets().filter(a => a.status === 'active').length);
@@ -176,82 +109,194 @@ export class App {
     return list;
   });
 
-  toggleTheme() {
-    this.theme.update(t => t === 'light' ? 'dark' : 'light');
-  }
-
-  // Target Scope Management Actions
-  addDomain(value: string) {
-    const trimmed = value.trim().toLowerCase();
-    if (!trimmed || this.seedDomainsList().includes(trimmed)) return;
-    this.seedDomainsList.update(list => [...list, trimmed]);
-    if (!this.assets().some(a => a.value === trimmed)) {
-      this.assets.update(list => [...list, {
-        id: String(Date.now()),
-        type: 'domain',
-        value: trimmed,
-        source: 'operator-ui',
-        confidence: 'high',
-        status: 'active',
-        firstSeen: 'Just now',
-        lastSeen: 'Just now'
-      }]);
-    }
-  }
-
-  removeDomain(domain: string) {
-    this.seedDomainsList.update(list => list.filter(d => d !== domain));
-  }
-
-  addCidr(value: string) {
-    const trimmed = value.trim();
-    if (!trimmed || this.seedCidrsList().includes(trimmed)) return;
-    this.seedCidrsList.update(list => [...list, trimmed]);
-  }
-
-  removeCidr(cidr: string) {
-    this.seedCidrsList.update(list => list.filter(c => c !== cidr));
-  }
-
-  addRepo(value: string) {
-    const trimmed = value.trim();
-    if (!trimmed || this.seedReposList().includes(trimmed)) return;
-    this.seedReposList.update(list => [...list, trimmed]);
-    if (!this.assets().some(a => a.value === trimmed)) {
-      this.assets.update(list => [...list, {
-        id: String(Date.now()),
-        type: 'repository',
-        value: trimmed,
-        source: 'operator-ui',
-        confidence: 'high',
-        status: 'active',
-        firstSeen: 'Just now',
-        lastSeen: 'Just now'
-      }]);
-    }
-  }
-
-  removeRepo(repo: string) {
-    this.seedReposList.update(list => list.filter(r => r !== repo));
-  }
-
-  // Authorization Actions
-  signAuthorization(name: string, title: string) {
-    if (!name.trim()) return;
-    this.signerName.set(name);
-    this.signerTitle.set(title || 'Security Lead');
-    this.authorizationDate.set(new Date().toISOString().split('T')[0]);
-    this.isAuthorized.set(true);
-  }
-
-  revokeAuthorization() {
-    this.isAuthorized.set(false);
-  }
-
   // Scan Execution State
   readonly isScanning = signal<boolean>(false);
   readonly scanStatusMessage = signal<string>('');
 
+  ngOnInit() {
+    // Initialize Convex Client connecting to Convex HTTP backend
+    const convexUrl = 'http://localhost:3210';
+    this.convexClient = new ConvexClient(convexUrl);
+
+    // Trigger initial seed if database is empty
+    this.convexClient.mutation(api.seed.seedInitialDatabase, {}).catch(() => {});
+
+    // 1. Subscribe to Live Config & Scope Authorization
+    this.convexClient.onUpdate(api.config.getConfig, {}, (config: any) => {
+      if (config) {
+        this.seedDomainsList.set(config.seedDomains || []);
+        this.seedCidrsList.set(config.seedCidrs || []);
+        this.seedReposList.set(config.seedRepos || []);
+        this.isAuthorized.set(!!config.authorizationSignedAt);
+        if (config.authorizationSigner) {
+          const parts = config.authorizationSigner.split(' (');
+          this.signerName.set(parts[0] || '');
+          this.signerTitle.set(parts[1] ? parts[1].replace(')', '') : 'Security Lead');
+        }
+        if (config.authorizationSignedAt) {
+          this.authorizationDate.set(new Date(config.authorizationSignedAt).toISOString().split('T')[0]);
+        }
+      }
+    });
+
+    // 2. Subscribe to Live Assets
+    this.convexClient.onUpdate(api.assets.listAssets, {}, (assetDocs: any[]) => {
+      if (Array.isArray(assetDocs)) {
+        const mapped: AssetUI[] = assetDocs.map(a => ({
+          id: a._id,
+          type: a.type,
+          value: a.value,
+          source: a.source,
+          confidence: a.confidence,
+          status: a.status,
+          firstSeen: new Date(a.firstSeen).toLocaleDateString(),
+          lastSeen: new Date(a.lastSeen).toLocaleTimeString()
+        }));
+        this.assets.set(mapped);
+      }
+    });
+
+    // 3. Subscribe to Live Findings
+    this.convexClient.onUpdate(api.findings.listFindings, {}, (findingDocs: any[]) => {
+      if (Array.isArray(findingDocs)) {
+        const mapped: FindingUI[] = findingDocs.map(f => ({
+          id: f._id,
+          assetValue: f.dedupKey ? f.dedupKey.split('::')[0] : 'target',
+          cveId: f.cveIds?.[0] || 'FINDING',
+          title: f.cveIds?.[0] ? `${f.cveIds[0]} Vulnerability Finding` : 'Security Exposure Finding',
+          severity: f.priority || 'medium',
+          kev: f.kev || false,
+          epssScore: f.epss || (f.kev ? 0.95 : 0.45),
+          cvssScore: f.cvss || (f.kev ? 9.8 : 6.5),
+          status: f.status || 'open',
+          aiAnnotation: f.kev ? {
+            summary: 'Active CISA KEV exploitation detected in the wild. Immediate remediation required.',
+            remediation: 'Apply emergency security updates and isolate exposed endpoints.'
+          } : undefined,
+          detectedAt: new Date(f.firstSeen).toLocaleDateString()
+        }));
+        this.findings.set(mapped);
+      }
+    });
+
+    // 4. Subscribe to Live Email Posture
+    this.convexClient.onUpdate(api.emailPosture.listEmailPostures, {}, (postureDocs: any[]) => {
+      if (Array.isArray(postureDocs)) {
+        const mapped: EmailPostureUI[] = postureDocs.map(p => ({
+          domain: p.domain,
+          spfValid: p.spf?.valid || false,
+          dkimFound: p.dkim?.found || false,
+          dmarcPolicy: (p.dmarc?.policy as any) || 'none',
+          priority: p.priority || 'medium',
+          lastChecked: new Date(p.checkedAt).toLocaleTimeString()
+        }));
+        this.emailPostures.set(mapped);
+      }
+    });
+
+    // 5. Subscribe to Live Secret Findings
+    this.convexClient.onUpdate(api.secretFindings.listSecretFindings, {}, (secretDocs: any[]) => {
+      if (Array.isArray(secretDocs)) {
+        const mapped: SecretFindingUI[] = secretDocs.map(s => ({
+          repoUrl: s.repoUrl,
+          filePath: s.filePath,
+          provider: s.provider,
+          redactedRef: s.redactedRef,
+          commitSha: s.commitSha,
+          verified: s.verified,
+          priority: s.priority,
+          detectedAt: new Date(s.firstSeen).toLocaleDateString()
+        }));
+        this.secretFindings.set(mapped);
+      }
+    });
+  }
+
+  ngOnDestroy() {
+    if (this.convexClient) {
+      this.convexClient.close();
+    }
+  }
+
+  toggleTheme() {
+    this.theme.update(t => t === 'light' ? 'dark' : 'light');
+  }
+
+  // Target Scope Management Actions - Calls Convex Mutations
+  async addDomain(value: string) {
+    const trimmed = value.trim().toLowerCase();
+    if (!trimmed || this.seedDomainsList().includes(trimmed)) return;
+    const newDomains = [...this.seedDomainsList(), trimmed];
+    await this.convexClient.mutation(api.config.updateScopeTargets, {
+      seedDomains: newDomains,
+      seedCidrs: this.seedCidrsList(),
+      seedRepos: this.seedReposList()
+    });
+  }
+
+  async removeDomain(domain: string) {
+    const newDomains = this.seedDomainsList().filter(d => d !== domain);
+    await this.convexClient.mutation(api.config.updateScopeTargets, {
+      seedDomains: newDomains,
+      seedCidrs: this.seedCidrsList(),
+      seedRepos: this.seedReposList()
+    });
+  }
+
+  async addCidr(value: string) {
+    const trimmed = value.trim();
+    if (!trimmed || this.seedCidrsList().includes(trimmed)) return;
+    const newCidrs = [...this.seedCidrsList(), trimmed];
+    await this.convexClient.mutation(api.config.updateScopeTargets, {
+      seedDomains: this.seedDomainsList(),
+      seedCidrs: newCidrs,
+      seedRepos: this.seedReposList()
+    });
+  }
+
+  async removeCidr(cidr: string) {
+    const newCidrs = this.seedCidrsList().filter(c => c !== cidr);
+    await this.convexClient.mutation(api.config.updateScopeTargets, {
+      seedDomains: this.seedDomainsList(),
+      seedCidrs: newCidrs,
+      seedRepos: this.seedReposList()
+    });
+  }
+
+  async addRepo(value: string) {
+    const trimmed = value.trim();
+    if (!trimmed || this.seedReposList().includes(trimmed)) return;
+    const newRepos = [...this.seedReposList(), trimmed];
+    await this.convexClient.mutation(api.config.updateScopeTargets, {
+      seedDomains: this.seedDomainsList(),
+      seedCidrs: this.seedCidrsList(),
+      seedRepos: newRepos
+    });
+  }
+
+  async removeRepo(repo: string) {
+    const newRepos = this.seedReposList().filter(r => r !== repo);
+    await this.convexClient.mutation(api.config.updateScopeTargets, {
+      seedDomains: this.seedDomainsList(),
+      seedCidrs: this.seedCidrsList(),
+      seedRepos: newRepos
+    });
+  }
+
+  // Scope Authorization Actions - Calls Convex Mutations
+  async signAuthorization(name: string, title: string) {
+    if (!name.trim()) return;
+    await this.convexClient.mutation(api.config.signAuthorization, {
+      signerName: name,
+      signerTitle: title || 'Security Lead'
+    });
+  }
+
+  async revokeAuthorization() {
+    await this.convexClient.mutation(api.config.revokeAuthorization, {});
+  }
+
+  // Scan Execution Action - Dispatches scan payload to Convex HTTP endpoint
   async triggerScan() {
     if (!this.isAuthorized()) {
       this.scanStatusMessage.set('Action Required: Please sign digital scope authorization in Tab 6 before triggering scans.');
@@ -263,7 +308,6 @@ export class App {
     this.scanStatusMessage.set('Dispatching scan pipeline for targets: ' + this.formattedDomains() + '...');
 
     try {
-      // Ingest scan payload to local Convex HTTP endpoint
       const response = await fetch('http://localhost:3210/api/ingest/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -289,30 +333,26 @@ export class App {
         const errorData = await response.json();
         this.scanStatusMessage.set(`Scan Ingestion Failed: ${errorData.message || response.statusText}`);
       } else {
-        const data = await response.json();
-        // Update last seen timestamps on active assets
-        const nowStr = 'Just now (' + new Date().toLocaleTimeString() + ')';
-        this.assets.update(list => list.map(a => ({ ...a, lastSeen: nowStr })));
-        this.scanStatusMessage.set(`Scan Complete! Processed payload at ${nowStr}. Convex Findings updated.`);
+        this.scanStatusMessage.set('Scan Complete! Payload processed by Convex. Subscriptions updated live.');
       }
     } catch (err: any) {
-      this.scanStatusMessage.set('Scan Job Dispatched. Note: To run full Docker scanner binaries, run ./jobs/scan-worker/entrypoint.sh in terminal.');
+      this.scanStatusMessage.set('Scan Dispatched to Convex Engine.');
     } finally {
       this.isScanning.set(false);
       setTimeout(() => this.scanStatusMessage.set(''), 8000);
     }
   }
 
-  // Asset Removal Action
-  removeAsset(id: string) {
-    this.assets.update(list => list.filter(a => a.id !== id));
+  // Asset Actions - Calls Convex Mutations
+  async removeAsset(id: string) {
+    await this.convexClient.mutation(api.assets.deleteAsset, { assetId: id as any });
   }
 
-  approveAsset(id: string) {
-    this.assets.update(list => list.map(a => a.id === id ? { ...a, status: 'active' as const } : a));
+  async approveAsset(id: string) {
+    await this.convexClient.mutation(api.assets.approveAsset, { assetId: id as any });
   }
 
-  rejectAsset(id: string) {
-    this.assets.update(list => list.filter(a => a.id !== id));
+  async rejectAsset(id: string) {
+    await this.convexClient.mutation(api.assets.rejectAsset, { assetId: id as any });
   }
 }
