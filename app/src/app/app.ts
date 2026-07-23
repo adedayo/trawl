@@ -308,7 +308,7 @@ export class App implements OnInit, OnDestroy {
     this.scanStatusMessage.set('Dispatching scan pipeline for targets: ' + this.formattedDomains() + '...');
 
     try {
-      const response = await fetch('http://localhost:3210/api/ingest/scan', {
+      let response: Response | null = await fetch('http://localhost:3210/http/api/ingest/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -327,7 +327,30 @@ export class App implements OnInit, OnDestroy {
             }
           ]
         })
-      });
+      }).catch(() => null);
+
+      if (!response || !response.ok) {
+        response = await fetch('http://localhost:3210/api/ingest/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jobRunId: `scan-${Date.now()}`,
+            naabu: this.seedDomainsList().map(d => ({ host: d, port: 443 })),
+            httpx: this.seedDomainsList().map(d => ({ url: `https://${d}`, title: 'Active Target', status_code: 200 })),
+            nuclei: [
+              {
+                host: this.seedDomainsList()[0] || 'example.com',
+                'template-id': 'cve-2024-3094-xz-backdoor',
+                info: {
+                  name: 'XZ Utils Backdoor Remote Code Execution',
+                  severity: 'critical',
+                  classification: { 'cve-id': ['CVE-2024-3094'], 'cvss-score': 10.0 }
+                }
+              }
+            ]
+          })
+        });
+      }
 
       if (!response.ok) {
         const errorData = await response.json();
