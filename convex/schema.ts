@@ -311,5 +311,8 @@ export default defineSchema({
       model: v.string(),
       timeoutMs: v.number(),
     }),
+    authorizationSignedAt: v.optional(v.number()),
+    authorizationSigner: v.optional(v.string()),
+    authorizationRulesVersion: v.optional(v.string()),
   }),
 });

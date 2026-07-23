@@ -1,12 +1,12 @@
-# Trawl — Self-Authorization & Scope Authorization Contract
+# Trawl — Self-Authorization & Scope Authorization Template
 
-> **Notice to Operators**: This document is a formal record of authorization required prior to executing any discovery or scanning activity with Trawl. Modify this template with your organisation's details and authorized assets before initiating live scans.
+> **Notice to Operators**: This document is a generic template for documenting authorized security testing scope. Modify this template with your organisation's details and authorized assets before executing scans.
 
 ---
 
 ## 1. Authorization Statement
 
-This document certifies that **Dayo Adetoye** (the "Operator") is fully authorized to perform continuous external attack surface monitoring, passive OSINT asset discovery, non-destructive network/service scanning, email authentication checks, and public repository secret scanning against the target assets enumerated in Section 2.
+This document certifies that **[OPERATOR / ORGANISATION NAME]** (the "Operator") is fully authorized to perform continuous external attack surface monitoring, passive OSINT asset discovery, non-destructive network/service scanning, email authentication checks, and public repository secret scanning against the target assets enumerated in Section 2.
 
 The authorization extends solely to non-destructive testing and passive analysis performed in accordance with the Rules of Engagement set forth in Section 3.
 
@@ -17,15 +17,13 @@ The authorization extends solely to non-destructive testing and passive analysis
 The scope of authorization is strictly limited to the following assets and their direct subdomains (where applicable):
 
 ### 2.1 Authorized Domains
-- `dayo-adetoye.com` (and all subdomains discovered via passive OSINT)
-- `example.com` *(Template placeholder — replace with authorized domain)*
+- `example.com` *(Replace with authorized domain)*
 
 ### 2.2 Authorized CIDR Ranges
-- `192.0.2.0/24` *(Template placeholder — replace with authorized IP range)*
+- `192.0.2.0/24` *(Replace with authorized IP range)*
 
 ### 2.3 Authorized Public Repositories
-- `https://github.com/adedayo/trawl`
-- `https://github.com/adedayo/trawl-private`
+- `https://github.com/example/repo` *(Replace with authorized repository)*
 
 ---
 
@@ -60,16 +58,9 @@ In addition to policy authorization, scope is programmatically enforced by the s
 
 ---
 
-## 5. SOC & Security Operations Coordination
+## 5. Authorization Sign-Off
 
-- **Scanner Origin IPs**: Scans will originate from dedicated container infrastructure configured by the Operator.
-- **EDR/SIEM Exclusions**: The Operator's SOC/Security Operations should whitelist scanner origin IPs to prevent triggering internal alert responses during automated checks.
-
----
-
-## 6. Authorization Sign-Off
-
-- **Authorized By**: Dayo Adetoye
-- **Role / Title**: Security Lead / System Owner
-- **Date**: 2026-07-23
-- **Status**: ACTIVE & AUTHORIZED
+- **Authorized By**: [AUTHORIZED INDIVIDUAL / CISO / SYSTEM OWNER]
+- **Role / Title**: [TITLE]
+- **Date**: [YYYY-MM-DD]
+- **Status**: TEMPLATE

@@ -22,6 +22,7 @@ This is a 0→1 build. Nothing exists yet, so this change proposes adding all fo
 - `portability-config` — enforced separation of engine code from instance-specific data
 - `deployment-packaging` — single-command, self-hostable Docker Compose packaging (self-hosted Convex) with config-only portability, plus a guided first-run setup command for turnkey self-hosting
 - `ci-cd-pipeline` — automated test/lint/type-check gate (Vitest + Playwright) on every change, plus dependency automation with a supply-chain cooldown and an AI-agent triage layer that recommends but never overrides the deterministic gate
+- `scope-authorization` — in-app authorization wizard, Convex backend authorization enforcement, and exportable audit scope contract
 
 ## Impact
 
