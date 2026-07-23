@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGradD" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#040711" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <linearGradient id="ringGradD" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4" />
+      <stop offset="50%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#8b5cf6" />
+    </linearGradient>
+    <filter id="glowD" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="10" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  <rect x="32" y="32" width="448" height="448" rx="96" fill="url(#bgGradD)" stroke="#1e293b" stroke-width="8" />
+
+  <!-- Outer Concentric Scanning Ring -->
+  <circle cx="256" cy="256" r="170" fill="none" stroke="url(#ringGradD)" stroke-width="8" stroke-dasharray="14 10" filter="url(#glowD)" />
+  <circle cx="256" cy="256" r="130" fill="none" stroke="#38bdf8" stroke-width="5" stroke-dasharray="8 6" opacity="0.7" />
+  <circle cx="256" cy="256" r="90" fill="none" stroke="#22d3ee" stroke-width="6" stroke-dasharray="4 4" opacity="0.9" />
+
+  <!-- Radar Crosshairs Sector Lines -->
+  <line x1="256" y1="60" x2="256" y2="452" stroke="#0ea5e9" stroke-width="3" stroke-dasharray="6 6" opacity="0.4" />
+  <line x1="60" y1="256" x2="452" y2="256" stroke="#0ea5e9" stroke-width="3" stroke-dasharray="6 6" opacity="0.4" />
+
+  <!-- Diagonal Sonar Target Rays -->
+  <line x1="135" y1="135" x2="377" y2="377" stroke="#38bdf8" stroke-width="2" opacity="0.3" />
+  <line x1="377" y1="135" x2="135" y2="377" stroke="#38bdf8" stroke-width="2" opacity="0.3" />
+
+  <!-- Central Pulsing Eye Beacon Core -->
+  <path d="M 160 256 Q 256 170 352 256 Q 256 342 160 256 Z" fill="none" stroke="#06b6d4" stroke-width="6" filter="url(#glowD)" />
+  <circle cx="256" cy="256" r="40" fill="#0284c7" fill-opacity="0.3" stroke="#38bdf8" stroke-width="5" />
+  <circle cx="256" cy="256" r="18" fill="#f43f5e" filter="url(#glowD)" />
+  <circle cx="256" cy="256" r="6" fill="#ffffff" />
+</svg>

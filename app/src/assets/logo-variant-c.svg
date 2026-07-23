@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGradC" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#090d16" />
+      <stop offset="100%" stop-color="#1e293b" />
+    </linearGradient>
+    <linearGradient id="anchorGradC" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="50%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#4f46e5" />
+    </linearGradient>
+    <filter id="glowC" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  <rect x="32" y="32" width="448" height="448" rx="96" fill="url(#bgGradC)" stroke="#475569" stroke-width="6" />
+
+  <!-- Geometric Minimal Shield -->
+  <path d="M 256 90 L 370 140 L 370 280 Q 256 420 256 420 Q 142 280 142 140 Z" fill="none" stroke="url(#anchorGradC)" stroke-width="10" stroke-linejoin="round" filter="url(#glowC)" />
+
+  <!-- Cyber Anchor Symbol -->
+  <circle cx="256" cy="165" r="20" fill="none" stroke="#38bdf8" stroke-width="6" />
+  <line x1="256" y1="185" x2="256" y2="340" stroke="url(#anchorGradC)" stroke-width="12" stroke-linecap="round" />
+  <line x1="190" y1="230" x2="322" y2="230" stroke="url(#anchorGradC)" stroke-width="10" stroke-linecap="round" />
+  
+  <!-- Anchor Flukes / Sonar Waves -->
+  <path d="M 180 300 Q 256 365 332 300" fill="none" stroke="#38bdf8" stroke-width="10" stroke-linecap="round" filter="url(#glowC)" />
+  <polyline points="165,285 180,300 195,285" fill="none" stroke="#38bdf8" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+  <polyline points="317,285 332,300 347,285" fill="none" stroke="#38bdf8" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Sonar Arc Sweeps at Top -->
+  <path d="M 190 135 A 80 80 0 0 1 322 135" fill="none" stroke="#22d3ee" stroke-width="4" stroke-dasharray="4 6" />
+</svg>

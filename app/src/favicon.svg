@@ -1,35 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
   <defs>
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="0%" stop-color="#0b1329" />
       <stop offset="100%" stop-color="#020617" />
     </linearGradient>
-    <linearGradient id="cyanBlueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#22d3ee" />
-      <stop offset="50%" stop-color="#3b82f6" />
+      <stop offset="60%" stop-color="#3b82f6" />
       <stop offset="100%" stop-color="#6366f1" />
     </linearGradient>
-    <radialGradient id="radarSweep" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.4" />
-      <stop offset="70%" stop-color="#3b82f6" stop-opacity="0.1" />
-      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0" />
+    <radialGradient id="sweepGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0" />
     </radialGradient>
     <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feGaussianBlur stdDeviation="6" result="blur" />
       <feComposite in="SourceGraphic" in2="blur" operator="over" />
     </filter>
   </defs>
-  <rect x="32" y="32" width="448" height="448" rx="96" fill="url(#bgGrad)" stroke="url(#cyanBlueGrad)" stroke-width="8" />
-  <path d="M 256 96 C 336 96, 384 120, 384 120 C 384 248, 352 352, 256 416 C 160 352, 128 248, 128 120 C 128 120, 176 96, 256 96 Z" 
-        fill="none" stroke="url(#cyanBlueGrad)" stroke-width="12" stroke-linejoin="round" />
-  <circle cx="256" cy="240" r="100" fill="none" stroke="#38bdf8" stroke-width="4" stroke-dasharray="6 8" opacity="0.6" />
-  <circle cx="256" cy="240" r="65" fill="none" stroke="#22d3ee" stroke-width="5" stroke-dasharray="4 6" opacity="0.8" />
-  <circle cx="256" cy="240" r="30" fill="none" stroke="#a5f3fc" stroke-width="6" opacity="0.9" />
-  <line x1="256" y1="120" x2="256" y2="360" stroke="#0284c7" stroke-width="4" stroke-linecap="round" opacity="0.5" />
-  <line x1="136" y1="240" x2="376" y2="240" stroke="#0284c7" stroke-width="4" stroke-linecap="round" opacity="0.5" />
-  <path d="M 256 240 L 326 170 A 100 100 0 0 0 256 140 Z" fill="url(#radarSweep)" />
-  <line x1="256" y1="240" x2="326" y2="170" stroke="#22d3ee" stroke-width="6" stroke-linecap="round" filter="url(#glow)" />
-  <circle cx="310" cy="190" r="9" fill="#f43f5e" filter="url(#glow)" />
-  <circle cx="310" cy="190" r="16" fill="none" stroke="#fb7185" stroke-width="3" opacity="0.8" />
-  <circle cx="256" cy="240" r="10" fill="#ffffff" filter="url(#glow)" />
+  <rect x="32" y="32" width="448" height="448" rx="96" fill="url(#bgGrad)" stroke="#1e293b" stroke-width="6" />
+  <path d="M 256 100 C 330 100, 370 120, 370 120 C 370 240, 340 340, 256 404 C 172 340, 142 240, 142 120 C 142 120, 182 100, 256 100 Z" 
+        fill="none" stroke="url(#shieldGrad)" stroke-width="14" stroke-linejoin="round" filter="url(#glow)" />
+  <circle cx="256" cy="235" r="75" fill="none" stroke="#38bdf8" stroke-width="5" stroke-dasharray="6 6" opacity="0.75" />
+  <path d="M 256 235 L 309 182 A 75 75 0 0 0 256 160 Z" fill="url(#sweepGrad)" />
+  <line x1="256" y1="235" x2="309" y2="182" stroke="#22d3ee" stroke-width="5" stroke-linecap="round" filter="url(#glow)" />
+  <circle cx="295" cy="195" r="10" fill="#f43f5e" filter="url(#glow)" />
+  <circle cx="256" cy="235" r="7" fill="#ffffff" />
 </svg>
