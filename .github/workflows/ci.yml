@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    name: Build, Typecheck & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install app dependencies
+        run: npm --prefix app ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run Unit Tests
+        run: npm test
+
+      - name: Build Dashboard
+        run: npm run build
+
+      - name: Verify Worker Allowlist Dry-Runs
+        run: |
+          chmod +x jobs/scan-worker/entrypoint.sh
+          chmod +x jobs/discovery-worker/entrypoint.sh
+          chmod +x jobs/repo-scan-worker/entrypoint.sh
+          SEED_DOMAINS="example.com" ./jobs/scan-worker/entrypoint.sh --dry-run
+          SEED_DOMAINS="example.com" ./jobs/discovery-worker/entrypoint.sh --dry-run
+          SEED_REPOS="https://github.com/example/repo" ./jobs/repo-scan-worker/entrypoint.sh --dry-run

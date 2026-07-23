@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  convex:
+    image: ghcr.io/get-convex/convex-backend:latest
+    container_name: trawl-convex
+    restart: unless-stopped
+    ports:
+      - "3210:3210"
+      - "3211:3211"
+    environment:
+      - CONVEX_CLOUD_ORIGIN=http://localhost:3210
+      - CONVEX_SITE_ORIGIN=http://localhost:3211
+    volumes:
+      - convex-data:/convex/data
+
+  dashboard:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/Dockerfile.dashboard
+    container_name: trawl-dashboard
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - convex
+
+  ofelia:
+    image: mcuadros/ofelia:latest
+    container_name: trawl-ofelia
+    restart: unless-stopped
+    depends_on:
+      - convex
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./ofelia.conf:/etc/ofelia/config.ini:ro
+
+  discovery-worker:
+    build:
+      context: ../../jobs/discovery-worker
+      dockerfile: Dockerfile
+    container_name: trawl-discovery-worker
+    profiles: ["workers"]
+    environment:
+      - CONVEX_INGEST_URL=${CONVEX_INGEST_URL:-http://convex:3210/api/ingest/discovery}
+      - SEED_DOMAINS=${SEED_DOMAINS:-}
+      - DRY_RUN=${DRY_RUN:-false}
+
+  scan-worker:
+    build:
+      context: ../../jobs/scan-worker
+      dockerfile: Dockerfile
+    container_name: trawl-scan-worker
+    profiles: ["workers"]
+    environment:
+      - CONVEX_INGEST_URL=${CONVEX_INGEST_URL:-http://convex:3210/api/ingest/scan}
+      - SEED_DOMAINS=${SEED_DOMAINS:-}
+      - SEED_CIDRS=${SEED_CIDRS:-}
+      - DRY_RUN=${DRY_RUN:-false}
+
+  repo-scan-worker:
+    build:
+      context: ../../jobs/repo-scan-worker
+      dockerfile: Dockerfile
+    container_name: trawl-repo-scan-worker
+    profiles: ["workers"]
+    environment:
+      - CONVEX_INGEST_URL=${CONVEX_INGEST_URL:-http://convex:3210/api/ingest/reposcan}
+      - SEED_REPOS=${SEED_REPOS:-}
+      - SECRET_VERIFICATION_ENABLED=${SECRET_VERIFICATION_ENABLED:-false}
+      - MAX_REPO_CLONE_SIZE_MB=${MAX_REPO_CLONE_SIZE_MB:-500}
+      - DRY_RUN=${DRY_RUN:-false}
+
+volumes:
+  convex-data:

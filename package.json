@@ -11,9 +11,9 @@
   "scripts": {
     "dev:convex": "npx convex dev",
     "dev:app": "npm --prefix app run start",
-    "test": "npx vitest run",
-    "lint": "npm --prefix app run lint",
-    "typecheck": "npm --prefix app run typecheck"
+    "build": "npm --prefix app run build",
+    "test": "npm --prefix app run test:ci",
+    "typecheck": "npm --prefix app run typecheck && npx tsc --noEmit --project tsconfig.json"
   },
   "bugs": {
     "url": "https://github.com/adedayo/trawl/issues"
