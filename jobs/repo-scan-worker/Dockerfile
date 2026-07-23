@@ -1,5 +1,6 @@
 FROM golang:1.24-alpine AS build-tools
 
+ENV GOTOOLCHAIN=auto
 RUN apk add --no-cache git
 
 RUN go install github.com/zricethezav/gitleaks/v8@latest
