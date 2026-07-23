@@ -126,6 +126,8 @@ export const updateScopeTargets = mutation({
       });
     }
 
+    const now = Date.now();
+
     // Auto-create active assets for any new seed domains not yet in database
     for (const domain of args.seedDomains) {
       const existing = await ctx.db
@@ -140,8 +142,48 @@ export const updateScopeTargets = mutation({
           source: "seed",
           confidence: "high",
           status: "active",
-          firstSeen: Date.now(),
-          lastSeen: Date.now(),
+          firstSeen: now,
+          lastSeen: now,
+        });
+      }
+    }
+
+    // Auto-create active assets for any new seed repos not yet in database
+    for (const repo of args.seedRepos) {
+      const existing = await ctx.db
+        .query("assets")
+        .withIndex("by_type_value", (q) => q.eq("type", "repository").eq("value", repo))
+        .first();
+
+      if (!existing) {
+        await ctx.db.insert("assets", {
+          type: "repository",
+          value: repo,
+          source: "seed",
+          confidence: "high",
+          status: "active",
+          firstSeen: now,
+          lastSeen: now,
+        });
+      }
+    }
+
+    // Auto-create active assets for any new seed CIDRs not yet in database
+    for (const cidr of args.seedCidrs) {
+      const existing = await ctx.db
+        .query("assets")
+        .withIndex("by_type_value", (q) => q.eq("type", "ip").eq("value", cidr))
+        .first();
+
+      if (!existing) {
+        await ctx.db.insert("assets", {
+          type: "ip",
+          value: cidr,
+          source: "seed",
+          confidence: "high",
+          status: "active",
+          firstSeen: now,
+          lastSeen: now,
         });
       }
     }

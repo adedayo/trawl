@@ -1,0 +1,52 @@
+services:
+  convex:
+    image: ghcr.io/get-convex/convex-backend:latest
+    container_name: trawl-convex-dev
+    restart: unless-stopped
+    ports:
+      - "3210:3210"
+      - "3211:3211"
+    environment:
+      - CONVEX_CLOUD_ORIGIN=http://localhost:3210
+      - CONVEX_SITE_ORIGIN=http://localhost:3211
+    volumes:
+      - convex-data-dev:/convex/data
+
+  dashboard-dev:
+    image: node:20-alpine
+    container_name: trawl-dashboard-dev
+    restart: unless-stopped
+    working_dir: /app
+    ports:
+      - "4200:4200"
+    volumes:
+      - ../../app:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    command: sh -c "npm install && npx ng serve --host 0.0.0.0 --port 4200"
+    depends_on:
+      - convex
+
+  scan-worker:
+    build:
+      context: ../../jobs/scan-worker
+      dockerfile: Dockerfile
+    container_name: trawl-scan-worker-dev
+    environment:
+      - CONVEX_INGEST_URL=http://convex:3210/http/api/ingest/scan
+      - SEED_DOMAINS=${SEED_DOMAINS:-example.com}
+      - DRY_RUN=${DRY_RUN:-false}
+
+  repo-scan-worker:
+    build:
+      context: ../../jobs/repo-scan-worker
+      dockerfile: Dockerfile
+    container_name: trawl-repo-scan-worker-dev
+    environment:
+      - CONVEX_INGEST_URL=http://convex:3210/http/api/ingest/scan
+      - SEED_REPOS=${SEED_REPOS:-https://github.com/example/repo}
+      - DRY_RUN=${DRY_RUN:-false}
+
+volumes:
+  convex-data-dev:
