@@ -27,12 +27,20 @@ fi
 echo "✔ Docker environment verified."
 echo ""
 
-# 2. Interactive prompt for configuration
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Determine ROOT_DIR robustly
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -d "${SCRIPT_DIR}/deploy/compose" ]; then
+    ROOT_DIR="${SCRIPT_DIR}"
+elif [ -d "${SCRIPT_DIR}/../../deploy/compose" ]; then
+    ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+else
+    ROOT_DIR="${SCRIPT_DIR}"
+fi
 
 ENV_FILE="${ROOT_DIR}/.env"
 CONFIG_FILE="${ROOT_DIR}/config/default.json"
 
+# 2. Interactive prompt for configuration
 if [ -f "${ENV_FILE}" ]; then
     read -rp ".env file already exists. Overwrite? (y/N): " OVERWRITE_ENV
     OVERWRITE_ENV="${OVERWRITE_ENV:-n}"

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   convex:
     image: ghcr.io/get-convex/convex-backend:latest
