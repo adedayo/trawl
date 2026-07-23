@@ -12,6 +12,7 @@ npm run typecheck
 
 # 2. Unit Tests
 echo "[2/4] Running Unit Tests (Vitest)..."
+npx vitest run convex/dedup.test.ts
 npm test
 
 # 3. Worker Allowlist & Script Dry-Runs
