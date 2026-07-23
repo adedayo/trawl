@@ -13,7 +13,8 @@
     "dev:app": "npm --prefix app run start",
     "build": "npm --prefix app run build",
     "test": "npm --prefix app run test:ci",
-    "typecheck": "npm --prefix app run typecheck && npx tsc --noEmit --project tsconfig.json"
+    "typecheck": "npm --prefix app run typecheck && npx tsc --noEmit --project tsconfig.json",
+    "check": "./test.sh"
   },
   "bugs": {
     "url": "https://github.com/adedayo/trawl/issues"
