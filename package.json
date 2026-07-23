@@ -9,6 +9,7 @@
     "url": "git+https://github.com/adedayo/trawl.git"
   },
   "scripts": {
+    "dev": "concurrently -n \"CONVEX,ANGULAR\" -c \"cyan,magenta\" \"npm run dev:convex\" \"npm run dev:app\"",
     "dev:convex": "npx convex dev",
     "dev:app": "npm --prefix app run start",
     "build": "npm --prefix app run build",
@@ -24,6 +25,7 @@
     "convex": "^1.42.3"
   },
   "devDependencies": {
+    "concurrently": "^10.0.3",
     "typescript": "^7.0.2"
   }
 }
