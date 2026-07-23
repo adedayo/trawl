@@ -1,4 +1,12 @@
-# Trawl
+<p align="center">
+  <img src="docs/logo.svg" alt="Trawl Logo" width="128" height="128" />
+</p>
+
+<h1 align="center">Trawl</h1>
+
+<p align="center">
+  <strong>External Attack Surface & Continuous Exposure Validation Engine</strong>
+</p>
 
 Continuous external attack surface monitoring **and** continuous external control validation — discover internet-facing assets through passive OSINT, scan them non-destructively, correlate findings against CISA KEV / NVD / EPSS, check email-authentication posture, scan public repositories for exposed secrets, detect when any tracked attribute quietly regresses between checks, use AI strictly as a triage/annotation layer, and alert before an attacker's window opens.
 
