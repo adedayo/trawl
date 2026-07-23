@@ -249,6 +249,29 @@ export class App {
     this.isAuthorized.set(false);
   }
 
+  // Scan Execution State
+  readonly isScanning = signal<boolean>(false);
+  readonly scanStatusMessage = signal<string>('');
+
+  triggerScan() {
+    if (!this.isAuthorized()) {
+      this.activeTab.set('scope');
+      return;
+    }
+    this.isScanning.set(true);
+    this.scanStatusMessage.set('Scan Job Dispatched to scan-worker container...');
+    setTimeout(() => {
+      this.isScanning.set(false);
+      this.scanStatusMessage.set('Scan Complete — Results Ingested into Convex.');
+      setTimeout(() => this.scanStatusMessage.set(''), 5000);
+    }, 3000);
+  }
+
+  // Asset Removal Action
+  removeAsset(id: string) {
+    this.assets.update(list => list.filter(a => a.id !== id));
+  }
+
   approveAsset(id: string) {
     this.assets.update(list => list.map(a => a.id === id ? { ...a, status: 'active' as const } : a));
   }

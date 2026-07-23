@@ -56,6 +56,21 @@ export const rejectAsset = mutation({
   },
 });
 
+// Mutation: Delete/remove an asset from tracked inventory
+export const deleteAsset = mutation({
+  args: {
+    assetId: v.id("assets"),
+  },
+  handler: async (ctx, args) => {
+    const asset = await ctx.db.get(args.assetId);
+    if (!asset) {
+      throw new Error(`Asset not found: ${args.assetId}`);
+    }
+    await ctx.db.delete(args.assetId);
+    return { success: true };
+  },
+});
+
 // Mutation: Insert or update discovered asset
 export const upsertDiscoveredAsset = mutation({
   args: {
