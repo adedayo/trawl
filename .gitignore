@@ -13,6 +13,9 @@ config/*.json
 # Build outputs
 dist/
 .angular/
+build/
+trawl
+trawl-server
 
 # Convex generated
 convex/_generated/

@@ -11,8 +11,9 @@ echo "[1/4] Checking TypeScript Types..."
 npm run typecheck
 
 # 2. Unit Tests
-echo "[2/4] Running Unit Tests (Vitest)..."
-npx vitest run convex/dedup.test.ts
+echo "[2/4] Running Unit Tests (Go & Vitest)..."
+go test -v ./pkg/store/sqlite/...
+go test -v ./pkg/event/...
 npm test
 
 # 3. Worker Allowlist & Script Dry-Runs

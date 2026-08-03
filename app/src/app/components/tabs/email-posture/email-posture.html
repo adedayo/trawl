@@ -1,0 +1,28 @@
+<div class="space-y-6">
+  <div [class]="theme() === 'dark' ? 'bg-slate-900/80 border border-slate-800 rounded-xl p-6 shadow-xl' : 'bg-white border border-slate-200 rounded-xl p-6 shadow-sm'">
+    <h2 [class]="theme() === 'dark' ? 'text-sm font-bold text-slate-200 uppercase tracking-wider mb-2' : 'text-sm font-bold text-slate-800 uppercase tracking-wider mb-2'">Email Authentication Posture</h2>
+    <p [class]="theme() === 'dark' ? 'text-xs text-slate-400 mb-6' : 'text-xs text-slate-600 mb-6'">SPF, DKIM, and DMARC verification performed via DNS-over-HTTPS. Missing or weak DMARC policy represents a domain spoofing precondition.</p>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      @for (posture of emailPostures(); track posture.domain) {
+        <div [class]="theme() === 'dark' ? 'bg-slate-950 border border-slate-800 rounded-lg p-5 space-y-3' : 'bg-slate-50 border border-slate-200 rounded-lg p-5 space-y-3'">
+          <div class="flex items-center justify-between">
+            <h3 [class]="theme() === 'dark' ? 'font-mono font-bold text-white text-sm' : 'font-mono font-bold text-slate-900 text-sm'">{{ posture.domain }}</h3>
+            @if (posture.dmarcPolicy === 'reject') {
+              <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded bg-emerald-950 border border-emerald-800 text-emerald-400 text-[10px] uppercase font-bold' : 'px-2 py-0.5 rounded bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] uppercase font-bold'">STRICT (REJECT)</span>
+            } @else if (posture.dmarcPolicy === 'quarantine') {
+              <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded bg-amber-950 border border-amber-800 text-amber-400 text-[10px] uppercase font-bold' : 'px-2 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-800 text-[10px] uppercase font-bold'">QUARANTINE</span>
+            } @else {
+              <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded bg-rose-950 border border-rose-800 text-rose-400 text-[10px] uppercase font-bold' : 'px-2 py-0.5 rounded bg-rose-100 border border-rose-300 text-rose-800 text-[10px] uppercase font-bold'">WEAK (NONE)</span>
+            }
+          </div>
+          <div [class]="theme() === 'dark' ? 'text-xs space-y-1 text-slate-300 font-mono' : 'text-xs space-y-1 text-slate-700 font-mono'">
+            <div class="flex justify-between"><span>SPF Record:</span> <strong [class]="posture.spfValid ? 'text-emerald-500' : 'text-rose-500'">{{ posture.spfValid ? 'Pass' : 'Missing/Weak' }}</strong></div>
+            <div class="flex justify-between"><span>DKIM Selectors:</span> <strong [class]="posture.dkimFound ? 'text-emerald-500' : 'text-rose-500'">{{ posture.dkimFound ? 'Found' : 'Not Found' }}</strong></div>
+            <div class="flex justify-between"><span>DMARC Policy:</span> <strong [class]="theme() === 'dark' ? 'text-white uppercase' : 'text-slate-900 uppercase'">{{ posture.dmarcPolicy }}</strong></div>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</div>

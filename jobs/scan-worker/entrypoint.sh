@@ -17,7 +17,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # ─── Argument parsing ──────────────────────────────────────────────────────────
 DRY_RUN="${DRY_RUN:-false}"
 
-if [[ "$1" == "--dry-run" ]]; then
+if [[ $# -gt 0 && "$1" == "--dry-run" ]]; then
   DRY_RUN="true"
   shift
 fi
@@ -33,82 +33,179 @@ if [[ "${DRY_RUN}" != "true" && -z "${CONVEX_INGEST_URL:-}" ]]; then
   exit 1
 fi
 
-# ─── Allowlist enforcement (defense-in-depth) ──────────────────────────────────
-# Build the authorised target list from config
-TARGETS_FILE=$(mktemp)
-trap 'rm -f "${TARGETS_FILE}"' EXIT
+# ─── Worker Polling Loop ───────────────────────────────────────────────────────
+echo "Starting scan-worker polling loop..."
 
-if [[ -n "${SEED_DOMAINS:-}" ]]; then
-  echo "${SEED_DOMAINS}" | tr ',' '\n' >> "${TARGETS_FILE}"
-fi
+while true; do
+  # Poll Convex for next job
+  JOB_JSON=$(curl -s -f -X GET "${CONVEX_INGEST_URL/ingest\/scan/jobs\/pop}?type=scan" || echo "")
 
-if [[ -n "${SEED_CIDRS:-}" ]]; then
-  echo "${SEED_CIDRS}" | tr ',' '\n' >> "${TARGETS_FILE}"
-fi
+  if [[ -z "$JOB_JSON" || "$JOB_JSON" == "{}" ]]; then
+    sleep 5
+    continue
+  fi
 
-echo "=== Authorised targets ==="
-cat "${TARGETS_FILE}"
-echo "=========================="
+  JOB_RUN_ID=$(echo "$JOB_JSON" | jq -r '._id')
+  TARGETS=$(echo "$JOB_JSON" | jq -r '.targets[]')
 
-if [[ "${DRY_RUN}" == "true" ]]; then
-  echo ""
-  echo "[DRY RUN] Would scan the following targets:"
-  cat "${TARGETS_FILE}"
-  echo ""
-  echo "[DRY RUN] Tools: naabu (port scan) → httpx (HTTP probe) → nuclei (vuln scan, KEV templates)"
-  echo "[DRY RUN] No packets sent. Exiting."
-  exit 0
-fi
+  if [[ -z "$JOB_RUN_ID" || "$JOB_RUN_ID" == "null" ]]; then
+    sleep 5
+    continue
+  fi
 
-# ─── Scan execution ────────────────────────────────────────────────────────────
-JOB_RUN_ID="scan-$(date -u +%Y%m%dT%H%M%SZ)-$$"
-RESULTS_DIR="/tmp/results/${JOB_RUN_ID}"
-mkdir -p "${RESULTS_DIR}"
+  echo "[${JOB_RUN_ID}] Picked up new scan job"
 
-echo "[${JOB_RUN_ID}] Starting scan..."
+  # Build the authorised target list
+  TARGETS_FILE=$(mktemp)
+  echo "$TARGETS" > "${TARGETS_FILE}"
 
-# Step 1: Port scan with naabu
-echo "[${JOB_RUN_ID}] Running naabu (port scan)..."
-naabu -list "${TARGETS_FILE}" -json -o "${RESULTS_DIR}/naabu.json" 2>/dev/null || true
+  if [[ "${DRY_RUN}" == "true" ]]; then
+    echo "[DRY RUN] Would scan targets:"
+    cat "${TARGETS_FILE}"
+    # Complete job as success
+    curl -s -X POST "${CONVEX_INGEST_URL/ingest\/scan/jobs\/complete}" -H "Content-Type: application/json" -d "{\"jobId\":\"${JOB_RUN_ID}\"}" >/dev/null
+    rm -f "${TARGETS_FILE}"
+    sleep 5
+    continue
+  fi
 
-# Step 2: HTTP probing with httpx
-echo "[${JOB_RUN_ID}] Running httpx (HTTP probe)..."
-httpx -list "${TARGETS_FILE}" -json -o "${RESULTS_DIR}/httpx.json" \
-  -td -title -status-code -tech-detect -tls-grab -cdn \
-  2>/dev/null || true
+  # ─── Scan execution ────────────────────────────────────────────────────────────
+  RESULTS_DIR="/tmp/results/${JOB_RUN_ID}"
+  mkdir -p "${RESULTS_DIR}"
 
-# Step 3: Nuclei scan (KEV-tagged templates first)
-echo "[${JOB_RUN_ID}] Running nuclei (vuln scan)..."
-nuclei -list "${TARGETS_FILE}" -jsonl -o "${RESULTS_DIR}/nuclei.json" \
-  -severity critical,high,medium \
-  2>/dev/null || true
+  echo "[${JOB_RUN_ID}] Starting scan..."
 
-# ─── Result ingestion ──────────────────────────────────────────────────────────
-echo "[${JOB_RUN_ID}] Posting results to Convex..."
+  # Step 1: Port scan with naabu
+  (
+    echo "[${JOB_RUN_ID}] Running naabu (port scan)..."
+    naabu -list "${TARGETS_FILE}" -json -o "${RESULTS_DIR}/naabu.json" 2>/dev/null || true
+    
+    AUTH_HEADER=""
+    if [[ -n "${CONVEX_AUTH_TOKEN:-}" ]]; then
+      AUTH_HEADER="-H \"Authorization: Bearer ${CONVEX_AUTH_TOKEN}\""
+    fi
 
-PAYLOAD=$(jq -n \
-  --arg jobRunId "${JOB_RUN_ID}" \
-  --slurpfile naabu "${RESULTS_DIR}/naabu.json" \
-  --slurpfile httpx "${RESULTS_DIR}/httpx.json" \
-  --slurpfile nuclei "${RESULTS_DIR}/nuclei.json" \
-  '{
-    jobRunId: $jobRunId,
-    naabu: $naabu,
-    httpx: $httpx,
-    nuclei: $nuclei
-  }' 2>/dev/null || echo '{}')
+    echo "[${JOB_RUN_ID}] Posting partial results (naabu) to Convex..."
+    PAYLOAD_NAABU=$(jq -n --arg jobRunId "${JOB_RUN_ID}" --slurpfile naabu "${RESULTS_DIR}/naabu.json" '{jobRunId: $jobRunId, naabu: $naabu}' 2>/dev/null || echo '{}')
+    curl -s -X POST "${CONVEX_INGEST_URL}" -H "Content-Type: application/json" ${AUTH_HEADER} -d "${PAYLOAD_NAABU}" >/dev/null || true
+  ) &
 
-AUTH_HEADER=""
-if [[ -n "${CONVEX_AUTH_TOKEN:-}" ]]; then
-  AUTH_HEADER="-H \"Authorization: Bearer ${CONVEX_AUTH_TOKEN}\""
-fi
+  # Step 2: HTTP probing with httpx
+  (
+    echo "[${JOB_RUN_ID}] Running httpx (HTTP probe)..."
+    httpx -list "${TARGETS_FILE}" -json -o "${RESULTS_DIR}/httpx.json" \
+      -td -title -status-code -tech-detect -tls-grab -cdn \
+      2>/dev/null || true
 
-curl -sf -X POST "${CONVEX_INGEST_URL}" \
-  -H "Content-Type: application/json" \
-  ${AUTH_HEADER} \
-  -d "${PAYLOAD}" || {
-    echo "ERROR: Failed to post results to Convex" >&2
-    exit 1
-  }
+    AUTH_HEADER=""
+    if [[ -n "${CONVEX_AUTH_TOKEN:-}" ]]; then
+      AUTH_HEADER="-H \"Authorization: Bearer ${CONVEX_AUTH_TOKEN}\""
+    fi
 
-echo "[${JOB_RUN_ID}] Scan complete."
+    echo "[${JOB_RUN_ID}] Posting partial results (httpx) to Convex..."
+    PAYLOAD_HTTPX=$(jq -n --arg jobRunId "${JOB_RUN_ID}" --slurpfile httpx "${RESULTS_DIR}/httpx.json" '{jobRunId: $jobRunId, httpx: $httpx}' 2>/dev/null || echo '{}')
+    curl -s -X POST "${CONVEX_INGEST_URL}" -H "Content-Type: application/json" ${AUTH_HEADER} -d "${PAYLOAD_HTTPX}" >/dev/null || true
+  ) &
+
+  # Step 2.5: Email Posture (DNS Checks)
+  (
+    echo "[${JOB_RUN_ID}] Running email posture checks..."
+    AUTH_HEADER=""
+    if [[ -n "${CONVEX_AUTH_TOKEN:-}" ]]; then
+      AUTH_HEADER="-H \"Authorization: Bearer ${CONVEX_AUTH_TOKEN}\""
+    fi
+
+    while IFS= read -r domain; do
+      if [[ -n "$domain" && "$domain" =~ [a-zA-Z] ]]; then
+        SPF_REC=$(dig +short TXT "$domain" | grep -i "v=spf1" || true)
+        SPF_VALID="false"
+        if [[ -n "$SPF_REC" ]]; then SPF_VALID="true"; fi
+
+        DMARC_REC=$(dig +short TXT "_dmarc.$domain" | grep -i "v=DMARC1" || true)
+        DMARC_POLICY="missing"
+        if echo "$DMARC_REC" | grep -qi "p=reject"; then
+          DMARC_POLICY="reject"
+        elif echo "$DMARC_REC" | grep -qi "p=quarantine"; then
+          DMARC_POLICY="quarantine"
+        elif echo "$DMARC_REC" | grep -qi "p=none"; then
+          DMARC_POLICY="none"
+        fi
+
+        DKIM_FOUND="false"
+        if dig +short TXT "default._domainkey.$domain" | grep -qi "v=DKIM1"; then
+          DKIM_FOUND="true"
+        elif dig +short TXT "google._domainkey.$domain" | grep -qi "v=DKIM1"; then
+          DKIM_FOUND="true"
+        elif dig +short TXT "selector1._domainkey.$domain" | grep -qi "v=DKIM1"; then
+          DKIM_FOUND="true"
+        fi
+
+        PRIORITY="low"
+        if [[ "$DMARC_POLICY" == "missing" || "$DMARC_POLICY" == "none" ]]; then
+          PRIORITY="high"
+        elif [[ "$SPF_VALID" == "false" ]]; then
+          PRIORITY="medium"
+        fi
+
+        PAYLOAD=$(jq -n \
+          --arg domain "$domain" \
+          --arg spf "$SPF_VALID" \
+          --arg dkim "$DKIM_FOUND" \
+          --arg dmarc "$DMARC_POLICY" \
+          --arg priority "$PRIORITY" \
+          '{
+            domain: $domain,
+            spfValid: ($spf == "true"),
+            dkimFound: ($dkim == "true"),
+            dmarcPolicy: $dmarc,
+            priority: $priority
+          }')
+        
+        curl -s -X POST "${CONVEX_INGEST_URL/ingest\/scan/ingest\/email-posture}" \
+          -H "Content-Type: application/json" \
+          ${AUTH_HEADER} \
+          -d "$PAYLOAD" >/dev/null || true
+      fi
+    done < "${TARGETS_FILE}"
+  ) &
+
+  # Step 3: Nuclei scan (KEV-tagged templates first)
+  (
+    echo "[${JOB_RUN_ID}] Running nuclei (vuln scan)..."
+    nuclei -list "${TARGETS_FILE}" -jsonl -o "${RESULTS_DIR}/nuclei.json" \
+      -severity critical,high,medium \
+      2>/dev/null || true
+
+    AUTH_HEADER=""
+    if [[ -n "${CONVEX_AUTH_TOKEN:-}" ]]; then
+      AUTH_HEADER="-H \"Authorization: Bearer ${CONVEX_AUTH_TOKEN}\""
+    fi
+
+    echo "[${JOB_RUN_ID}] Posting final results (nuclei) to Convex..."
+    PAYLOAD_NUCLEI=$(jq -n \
+      --arg jobRunId "${JOB_RUN_ID}" \
+      --slurpfile nuclei "${RESULTS_DIR}/nuclei.json" \
+      '{
+        jobRunId: $jobRunId,
+        nuclei: $nuclei
+      }' 2>/dev/null || echo '{}')
+
+    curl -sf -X POST "${CONVEX_INGEST_URL}" \
+      -H "Content-Type: application/json" \
+      ${AUTH_HEADER} \
+      -d "${PAYLOAD_NUCLEI}" || true
+  ) &
+
+  # Wait for all background scan jobs to finish
+  echo "[${JOB_RUN_ID}] Waiting for concurrent scans to finish..."
+  wait
+
+  # Mark job as complete
+  curl -s -X POST "${CONVEX_INGEST_URL/ingest\/scan/jobs\/complete}" -H "Content-Type: application/json" -d "{\"jobId\":\"${JOB_RUN_ID}\",\"status\":\"completed\"}" >/dev/null
+
+  echo "[${JOB_RUN_ID}] Scan complete."
+  rm -f "${TARGETS_FILE}"
+  rm -rf "${RESULTS_DIR}"
+  
+  sleep 5
+done

@@ -16,7 +16,7 @@
     "ignoreDeprecations": "6.0",
     "baseUrl": "./",
     "paths": {
-      "convex/*": ["../convex/*"]
+      "convex/*": ["./node_modules/convex/*"]
     }
   },
   "angularCompilerOptions": {

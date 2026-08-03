@@ -10,7 +10,7 @@ RUN go install github.com/projectdiscovery/naabu/v2/cmd/naabu@latest && \
 
 FROM alpine:3.22
 
-RUN apk add --no-cache ca-certificates curl jq bash
+RUN apk add --no-cache ca-certificates curl jq bash bind-tools
 
 COPY --from=build-tools /go/bin/naabu /usr/local/bin/
 COPY --from=build-tools /go/bin/httpx /usr/local/bin/

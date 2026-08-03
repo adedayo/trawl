@@ -7,7 +7,7 @@
   },
   "include": [
     "src/**/*.ts",
-    "../convex/**/*.ts"
+    "../convex/_generated/**/*.ts"
   ],
   "exclude": [
     "src/**/*.spec.ts"

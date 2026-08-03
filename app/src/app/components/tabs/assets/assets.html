@@ -1,0 +1,58 @@
+<div [class]="theme() === 'dark' ? 'bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden shadow-xl' : 'bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm'">
+  <div [class]="theme() === 'dark' ? 'px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900' : 'px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50'">
+    <h2 [class]="theme() === 'dark' ? 'text-sm font-bold text-slate-200 uppercase tracking-wider' : 'text-sm font-bold text-slate-800 uppercase tracking-wider'">Tracked Asset Inventory</h2>
+    <div class="flex items-center space-x-3">
+      <button (click)="wailsIpc.activeTab.set('scope')" class="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition flex items-center space-x-1">
+        <span>+ Add Target to Scope</span>
+      </button>
+      <span [class]="theme() === 'dark' ? 'text-xs text-slate-400 font-mono' : 'text-xs text-slate-500 font-mono'">{{ assets().length }} total assets</span>
+    </div>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="w-full text-left text-xs">
+      <thead [class]="theme() === 'dark' ? 'bg-slate-950/60 text-slate-400 font-mono uppercase tracking-wider border-b border-slate-800' : 'bg-slate-100 text-slate-600 font-mono uppercase tracking-wider border-b border-slate-200'">
+        <tr>
+          <th class="py-3.5 px-6">Asset Value</th>
+          <th class="py-3.5 px-6">Type</th>
+          <th class="py-3.5 px-6">Discovery Source</th>
+          <th class="py-3.5 px-6">Status</th>
+          <th class="py-3.5 px-6">First / Last Seen</th>
+          <th class="py-3.5 px-6 text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody [class]="theme() === 'dark' ? 'divide-y divide-slate-800' : 'divide-y divide-slate-200'">
+        @for (asset of assets(); track asset.id) {
+          <tr [class]="theme() === 'dark' ? 'hover:bg-slate-800/40 transition' : 'hover:bg-slate-50 transition'">
+            <td [class]="theme() === 'dark' ? 'py-4 px-6 font-mono font-bold text-white' : 'py-4 px-6 font-mono font-bold text-slate-900'">
+              {{ asset.value }}
+              @if (asset.dnsNames && asset.dnsNames.length > 0) {
+                <div [class]="theme() === 'dark' ? 'text-[10px] text-slate-400 font-normal mt-1' : 'text-[10px] text-slate-500 font-normal mt-1'">
+                  Resolved from: {{ asset.dnsNames.join(', ') }}
+                </div>
+              }
+            </td>
+            <td [class]="theme() === 'dark' ? 'py-4 px-6 uppercase text-slate-300 font-mono' : 'py-4 px-6 uppercase text-slate-700 font-mono'">{{ asset.type }}</td>
+            <td [class]="theme() === 'dark' ? 'py-4 px-6 text-slate-400 font-mono' : 'py-4 px-6 text-slate-500 font-mono'">{{ asset.source }}</td>
+            <td class="py-4 px-6">
+              @if (asset.status === 'active') {
+                <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 font-medium' : 'px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium'">Active</span>
+              } @else if (asset.status === 'pending') {
+                <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded-full bg-amber-950 text-amber-400 border border-amber-800 font-medium' : 'px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-medium'">Pending Review</span>
+              }
+            </td>
+            <td [class]="theme() === 'dark' ? 'py-4 px-6 text-slate-400' : 'py-4 px-6 text-slate-500'">{{ asset.firstSeen }} / {{ asset.lastSeen }}</td>
+            <td class="py-4 px-6 text-right space-x-2">
+              @if (asset.status === 'pending') {
+                <button (click)="approveAsset(asset.id)" class="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition">Approve</button>
+                <button (click)="rejectAsset(asset.id)" [class]="theme() === 'dark' ? 'px-2.5 py-1 rounded bg-slate-800 hover:bg-rose-900 text-rose-300 font-medium transition' : 'px-2.5 py-1 rounded bg-slate-200 hover:bg-rose-100 text-rose-700 font-medium transition'">Reject</button>
+              } @else {
+                <button (click)="removeAsset(asset.id)" [class]="theme() === 'dark' ? 'px-2 py-1 rounded bg-slate-800 hover:bg-rose-950 border border-slate-700 hover:border-rose-800 text-slate-300 hover:text-rose-400 font-medium transition' : 'px-2 py-1 rounded bg-slate-100 hover:bg-rose-50 border border-slate-300 hover:border-rose-300 text-slate-700 hover:text-rose-700 font-medium transition'">Remove</button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

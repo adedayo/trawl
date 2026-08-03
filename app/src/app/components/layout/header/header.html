@@ -1,0 +1,108 @@
+<header style="--wails-draggable:drag" [class]="theme() === 'dark' ? 'border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-50' : 'border-b border-slate-200 bg-white/90 backdrop-blur sticky top-0 z-50 shadow-sm'">
+  <div class="max-w-7xl mx-auto px-4 pl-20 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    
+    <!-- Brand Logo -->
+    <div class="flex items-center space-x-3">
+      <div class="w-11 h-11 flex items-center justify-center shrink-0">
+        <img src="favicon.svg" alt="Trawl Logo" class="w-full h-full object-contain filter drop-shadow">
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <h1 [class]="theme() === 'dark' ? 'text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent' : 'text-xl font-extrabold tracking-tight text-slate-900'">TRAWL</h1>
+          <span [class]="theme() === 'dark' ? 'text-xs px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-400 font-mono font-medium' : 'text-xs px-2 py-0.5 rounded-full bg-cyan-50 border border-cyan-200 text-cyan-700 font-mono font-medium'">v0.1.0-OSS</span>
+        </div>
+        <p [class]="theme() === 'dark' ? 'text-[11px] text-slate-400 font-medium' : 'text-[11px] text-slate-500 font-medium'">External Attack Surface & Posture Validation Engine</p>
+      </div>
+    </div>
+
+    <!-- Engine Status & Controls -->
+    <div class="flex items-center space-x-3">
+      
+      <!-- Light / Dark Theme Switcher Button -->
+      <button (click)="toggleTheme()" 
+        [class]="theme() === 'dark' ? 'p-2 rounded-lg bg-slate-800 border border-slate-700 text-amber-300 hover:bg-slate-700 transition' : 'p-2 rounded-lg bg-slate-100 border border-slate-300 text-slate-700 hover:bg-slate-200 transition'"
+        title="Toggle Light / Dark Theme">
+        @if (theme() === 'dark') {
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        } @else {
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+        }
+      </button>
+
+      <!-- Live Pulse -->
+      <div [class]="theme() === 'dark' ? 'flex items-center space-x-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700/60 text-xs' : 'flex items-center space-x-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-300 text-xs'">
+        <span class="relative flex h-2 w-2">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+        </span>
+        <span [class]="theme() === 'dark' ? 'text-slate-300 font-mono text-[11px]' : 'text-slate-700 font-mono text-[11px]'">ENGINE ONLINE</span>
+      </div>
+
+      <!-- Trigger Manual Scan Button -->
+      <button (click)="triggerScan()" [disabled]="isScanning()"
+        class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs shadow transition flex items-center space-x-1.5 disabled:opacity-50">
+        @if (isScanning()) {
+          <svg class="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          <span>Scanning...</span>
+        } @else {
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span>Trigger Scan</span>
+        }
+      </button>
+
+      <!-- Scope Auth Status -->
+      @if (isAuthorized()) {
+        <button (click)="wailsIpc.activeTab.set('scope')" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-xs hover:bg-emerald-900/60 transition">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          <span class="font-medium">Scope Authorized</span>
+        </button>
+      } @else {
+        <button (click)="wailsIpc.activeTab.set('scope')" [class]="theme() === 'dark' ? 'flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-amber-950/80 border border-amber-800 text-amber-300 text-xs hover:bg-amber-900/60 transition animate-pulse' : 'flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-300 text-amber-800 text-xs hover:bg-amber-100 transition animate-pulse'">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          <span class="font-medium">Action Required: Authorize Scope</span>
+        </button>
+      }
+    </div>
+
+  </div>
+
+  <!-- Navigation Tabs -->
+  <div [class]="theme() === 'dark' ? 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-slate-800/80' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-slate-200'">
+    <nav class="flex space-x-6">
+      <button (click)="wailsIpc.activeTab.set('overview')" 
+        [class]="activeTab() === 'overview' ? (theme() === 'dark' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-cyan-600 text-cyan-700 font-semibold') : (theme() === 'dark' ? 'border-transparent text-slate-400 hover:text-slate-200' : 'border-transparent text-slate-600 hover:text-slate-900')"
+        class="py-3 px-1 border-b-2 text-xs uppercase tracking-wider transition">
+        Overview
+      </button>
+      <button (click)="wailsIpc.activeTab.set('assets')" 
+        [class]="activeTab() === 'assets' ? (theme() === 'dark' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-cyan-600 text-cyan-700 font-semibold') : (theme() === 'dark' ? 'border-transparent text-slate-400 hover:text-slate-200' : 'border-transparent text-slate-600 hover:text-slate-900')"
+        class="py-3 px-1 border-b-2 text-xs uppercase tracking-wider transition flex items-center space-x-1.5">
+        <span>Assets</span>
+        <span [class]="theme() === 'dark' ? 'px-1.5 py-0.5 rounded-full bg-slate-800 text-[10px] text-slate-300' : 'px-1.5 py-0.5 rounded-full bg-slate-200 text-[10px] text-slate-700'">{{ activeAssetCount() }}</span>
+      </button>
+      <button (click)="wailsIpc.activeTab.set('findings')" 
+        [class]="activeTab() === 'findings' ? (theme() === 'dark' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-cyan-600 text-cyan-700 font-semibold') : (theme() === 'dark' ? 'border-transparent text-slate-400 hover:text-slate-200' : 'border-transparent text-slate-600 hover:text-slate-900')"
+        class="py-3 px-1 border-b-2 text-xs uppercase tracking-wider transition flex items-center space-x-1.5">
+        <span>Vulnerabilities</span>
+        @if (kevCount() > 0) {
+          <span [class]="theme() === 'dark' ? 'px-1.5 py-0.5 rounded-full bg-rose-950 border border-rose-800 text-rose-400 text-[10px] font-bold' : 'px-1.5 py-0.5 rounded-full bg-rose-100 border border-rose-300 text-rose-700 text-[10px] font-bold'">{{ kevCount() }} KEV</span>
+        }
+      </button>
+      <button (click)="wailsIpc.activeTab.set('email')" 
+        [class]="activeTab() === 'email' ? (theme() === 'dark' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-cyan-600 text-cyan-700 font-semibold') : (theme() === 'dark' ? 'border-transparent text-slate-400 hover:text-slate-200' : 'border-transparent text-slate-600 hover:text-slate-900')"
+        class="py-3 px-1 border-b-2 text-xs uppercase tracking-wider transition">
+        Email Posture
+      </button>
+      <button (click)="wailsIpc.activeTab.set('secrets')" 
+        [class]="activeTab() === 'secrets' ? (theme() === 'dark' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-cyan-600 text-cyan-700 font-semibold') : (theme() === 'dark' ? 'border-transparent text-slate-400 hover:text-slate-200' : 'border-transparent text-slate-600 hover:text-slate-900')"
+        class="py-3 px-1 border-b-2 text-xs uppercase tracking-wider transition">
+        Secret Scanning
+      </button>
+      <button (click)="wailsIpc.activeTab.set('scope')" 
+        [class]="activeTab() === 'scope' ? (theme() === 'dark' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-cyan-600 text-cyan-700 font-semibold') : (theme() === 'dark' ? 'border-transparent text-slate-400 hover:text-slate-200' : 'border-transparent text-slate-600 hover:text-slate-900')"
+        class="py-3 px-1 border-b-2 text-xs uppercase tracking-wider transition flex items-center space-x-1">
+        <span>Scope Authorization</span>
+      </button>
+    </nav>
+  </div>
+</header>

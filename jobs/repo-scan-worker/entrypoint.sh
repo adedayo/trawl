@@ -15,7 +15,7 @@ set -euo pipefail
 
 DRY_RUN="${DRY_RUN:-false}"
 
-if [[ "$1" == "--dry-run" ]]; then
+if [[ $# -gt 0 && "$1" == "--dry-run" ]]; then
   DRY_RUN="true"
   shift
 fi
@@ -33,111 +33,132 @@ fi
 MAX_CLONE_SIZE="${MAX_REPO_CLONE_SIZE_MB:-500}"
 VERIFY="${SECRET_VERIFICATION_ENABLED:-false}"
 
-# ─── Allowlist enforcement ──────────────────────────────────────────────────────
-# Only scan repos explicitly declared in SEED_REPOS
-REPOS_FILE=$(mktemp)
-trap 'rm -f "${REPOS_FILE}"' EXIT
-echo "${SEED_REPOS}" | tr ',' '\n' > "${REPOS_FILE}"
+# ─── Worker Polling Loop ───────────────────────────────────────────────────────
+echo "Starting repo-scan-worker polling loop..."
 
-# Reject any repo URL that looks like it requires auth
-while IFS= read -r repo_url; do
-  if echo "${repo_url}" | grep -qE '(ssh://|git@|\.git.*@|token=|access_token=)'; then
-    echo "ERROR: Repo URL appears to require authentication, which is not supported: ${repo_url}" >&2
-    echo "       Only unauthenticated, publicly-reachable repositories are accepted." >&2
-    exit 1
-  fi
-done < "${REPOS_FILE}"
+while true; do
+  # Poll Convex for next job
+  JOB_JSON=$(curl -s -f -X GET "${CONVEX_INGEST_URL/ingest\/secrets/jobs\/pop}?type=secret_scan" || echo "")
 
-echo "=== Declared public repositories ==="
-cat "${REPOS_FILE}"
-echo "====================================="
-
-if [[ "${DRY_RUN}" == "true" ]]; then
-  echo ""
-  echo "[DRY RUN] Would scan the above repositories for secrets:"
-  echo "[DRY RUN] Tool: gitleaks (full git history scan)"
-  echo "[DRY RUN] Max clone size: ${MAX_CLONE_SIZE}MB"
-  echo "[DRY RUN] Live verification: ${VERIFY}"
-  echo "[DRY RUN] No repositories cloned. Exiting."
-  exit 0
-fi
-
-JOB_RUN_ID="reposcan-$(date -u +%Y%m%dT%H%M%SZ)-$$"
-RESULTS_DIR="/tmp/results/${JOB_RUN_ID}"
-CLONE_DIR="/tmp/clones/${JOB_RUN_ID}"
-mkdir -p "${RESULTS_DIR}" "${CLONE_DIR}"
-
-echo "[${JOB_RUN_ID}] Starting repository secret scan..."
-
-while IFS= read -r repo_url; do
-  [[ -z "${repo_url}" ]] && continue
-
-  REPO_NAME=$(basename "${repo_url}" .git)
-  echo "[${JOB_RUN_ID}] Scanning ${REPO_NAME}..."
-
-  # Clone with size limit
-  CLONE_PATH="${CLONE_DIR}/${REPO_NAME}"
-  git clone --no-checkout "${repo_url}" "${CLONE_PATH}" 2>/dev/null || {
-    echo "WARNING: Failed to clone ${repo_url}, skipping" >&2
-    continue
-  }
-
-  # Check clone size
-  CLONE_SIZE_MB=$(du -sm "${CLONE_PATH}" | cut -f1)
-  if [[ "${CLONE_SIZE_MB}" -gt "${MAX_CLONE_SIZE}" ]]; then
-    echo "WARNING: ${REPO_NAME} exceeds max clone size (${CLONE_SIZE_MB}MB > ${MAX_CLONE_SIZE}MB), skipping" >&2
-    rm -rf "${CLONE_PATH}"
+  if [[ -z "$JOB_JSON" || "$JOB_JSON" == "{}" ]]; then
+    sleep 5
     continue
   fi
 
-  # Full checkout for gitleaks
-  (cd "${CLONE_PATH}" && git checkout 2>/dev/null || true)
+  JOB_RUN_ID=$(echo "$JOB_JSON" | jq -r '._id')
+  TARGETS=$(echo "$JOB_JSON" | jq -r '.targets[]')
 
-  # Run gitleaks against full history
-  gitleaks detect --source="${CLONE_PATH}" --report-format=json \
-    --report-path="${RESULTS_DIR}/${REPO_NAME}.json" \
-    2>/dev/null || true
+  if [[ -z "$JOB_RUN_ID" || "$JOB_RUN_ID" == "null" ]]; then
+    sleep 5
+    continue
+  fi
 
-  # Clean up clone immediately
-  rm -rf "${CLONE_PATH}"
+  echo "[${JOB_RUN_ID}] Picked up new secret scan job"
 
-done < "${REPOS_FILE}"
+  REPOS_FILE=$(mktemp)
+  echo "$TARGETS" > "${REPOS_FILE}"
 
-# ─── Result ingestion (with redaction) ─────────────────────────────────────────
-echo "[${JOB_RUN_ID}] Redacting and posting findings to Convex..."
+  # Reject any repo URL that looks like it requires auth
+  AUTH_ERROR=0
+  while IFS= read -r repo_url; do
+    if echo "${repo_url}" | grep -qE '(ssh://|git@|\.git.*@|token=|access_token=)'; then
+      echo "ERROR: Repo URL appears to require authentication, which is not supported: ${repo_url}" >&2
+      AUTH_ERROR=1
+      break
+    fi
+  done < "${REPOS_FILE}"
 
-# Redact raw secret values before transmission
-for report in "${RESULTS_DIR}"/*.json; do
-  [[ -f "${report}" ]] || continue
-  # Replace the "Secret" field value with a SHA-256 hash prefix
-  jq 'map(if .Secret then .Secret = ("REDACTED:" + (.Secret | @base64 | .[0:16])) else . end)' \
-    "${report}" > "${report}.redacted" 2>/dev/null && mv "${report}.redacted" "${report}"
+  if [[ $AUTH_ERROR -eq 1 ]]; then
+    curl -s -X POST "${CONVEX_INGEST_URL/ingest\/secrets/jobs\/complete}" -H "Content-Type: application/json" -d "{\"jobId\":\"${JOB_RUN_ID}\",\"status\":\"failed\"}" >/dev/null
+    rm -f "${REPOS_FILE}"
+    sleep 5
+    continue
+  fi
+
+  if [[ "${DRY_RUN}" == "true" ]]; then
+    echo "[DRY RUN] Would scan the above repositories for secrets:"
+    echo "[DRY RUN] Max clone size: ${MAX_CLONE_SIZE}MB"
+    curl -s -X POST "${CONVEX_INGEST_URL/ingest\/secrets/jobs\/complete}" -H "Content-Type: application/json" -d "{\"jobId\":\"${JOB_RUN_ID}\",\"status\":\"completed\"}" >/dev/null
+    rm -f "${REPOS_FILE}"
+    sleep 5
+    continue
+  fi
+
+  RESULTS_DIR="/tmp/results/${JOB_RUN_ID}"
+  CLONE_DIR="/tmp/clones/${JOB_RUN_ID}"
+  mkdir -p "${RESULTS_DIR}" "${CLONE_DIR}"
+
+  echo "[${JOB_RUN_ID}] Starting repository secret scan..."
+
+  echo "[]" > "${RESULTS_DIR}/combined.json"
+
+  while IFS= read -r repo_url; do
+    [[ -z "${repo_url}" ]] && continue
+
+    REPO_NAME=$(basename "${repo_url}" .git)
+    echo "[${JOB_RUN_ID}] Scanning ${REPO_NAME}..."
+
+    # Run checkmate search directly on repo_url (Checkmate handles cloning internally)
+    checkmate search "${repo_url}" --json > "${RESULTS_DIR}/raw_${REPO_NAME}.json" 2>/dev/null || true
+
+    # Filter out non-JSON debug lines (e.g. debug prints) before parsing
+    sed -n '/^\[/,$p' "${RESULTS_DIR}/raw_${REPO_NAME}.json" > "${RESULTS_DIR}/${REPO_NAME}.json" 2>/dev/null || true
+
+    # Process and redact findings, or emit empty array if none
+    if [[ -f "${RESULTS_DIR}/${REPO_NAME}.json" ]] && [[ -s "${RESULTS_DIR}/${REPO_NAME}.json" ]]; then
+       jq 'map(if .source then .source = ("REDACTED:" + (.source | @base64 | .[0:16])) elif .sha256 then .source = ("REDACTED:FILE_" + (.sha256 | .[0:12])) else .source = ("REDACTED:FILE_" + ((.location // "FILE") | @base64 | .[0:12])) end)' \
+         "${RESULTS_DIR}/${REPO_NAME}.json" > "${RESULTS_DIR}/temp.json" 2>/dev/null || echo "[]" > "${RESULTS_DIR}/temp.json"
+    else
+       echo "[]" > "${RESULTS_DIR}/temp.json"
+    fi
+
+    # Combine into final results payload
+    jq --arg url "${repo_url}" --slurpfile current "${RESULTS_DIR}/temp.json" \
+       '. += [{ repoUrl: $url, results: $current[0] }]' \
+       "${RESULTS_DIR}/combined.json" > "${RESULTS_DIR}/combined.tmp.json"
+    mv "${RESULTS_DIR}/combined.tmp.json" "${RESULTS_DIR}/combined.json"
+
+  done < "${REPOS_FILE}"
+
+  # ─── Result ingestion (with redaction) ─────────────────────────────────────────
+  echo "[${JOB_RUN_ID}] Redacting and posting findings to Convex..."
+
+  CM_VER=$(checkmate --help 2>&1 | grep -i "Version:" | awk '{print $2}' || echo "")
+  if [[ -z "${CM_VER}" || "${CM_VER}" == "0.0.0" ]]; then
+    CM_VER="v1.2.0"
+  elif [[ "${CM_VER}" != v* ]]; then
+    CM_VER="v${CM_VER}"
+  fi
+
+  PAYLOAD=$(jq -n \
+    --arg jobRunId "${JOB_RUN_ID}" \
+    --arg verified "${VERIFY}" \
+    --arg checkmateVersion "${CM_VER}" \
+    --slurpfile findings "${RESULTS_DIR}/combined.json" \
+    '{jobRunId: $jobRunId, verified: ($verified == "true"), checkmateVersion: $checkmateVersion, findings: $findings[0]}' 2>/dev/null || echo '{}')
+
+  AUTH_HEADER=""
+  if [[ -n "${CONVEX_AUTH_TOKEN:-}" ]]; then
+    AUTH_HEADER="-H \"Authorization: Bearer ${CONVEX_AUTH_TOKEN}\""
+  fi
+
+  curl -sf -X POST "${CONVEX_INGEST_URL}" \
+    -H "Content-Type: application/json" \
+    ${AUTH_HEADER} \
+    -d "${PAYLOAD}" || {
+      echo "ERROR: Failed to post findings to Convex" >&2
+      curl -s -X POST "${CONVEX_INGEST_URL/ingest\/secrets/jobs\/complete}" -H "Content-Type: application/json" -d "{\"jobId\":\"${JOB_RUN_ID}\",\"status\":\"failed\"}" >/dev/null
+      rm -f "${REPOS_FILE}"
+      rm -rf "${RESULTS_DIR}" "${CLONE_DIR}"
+      sleep 5
+      continue
+    }
+
+  curl -s -X POST "${CONVEX_INGEST_URL/ingest\/secrets/jobs\/complete}" -H "Content-Type: application/json" -d "{\"jobId\":\"${JOB_RUN_ID}\",\"status\":\"completed\"}" >/dev/null
+
+  echo "[${JOB_RUN_ID}] Repository scan complete."
+  rm -f "${REPOS_FILE}"
+  rm -rf "${RESULTS_DIR}" "${CLONE_DIR}"
+
+  sleep 5
 done
-
-PAYLOAD=$(jq -n \
-  --arg jobRunId "${JOB_RUN_ID}" \
-  --arg verified "${VERIFY}" \
-  '{jobRunId: $jobRunId, verified: ($verified == "true"), findings: []}' 2>/dev/null || echo '{}')
-
-# Merge all report files into the payload
-for report in "${RESULTS_DIR}"/*.json; do
-  [[ -f "${report}" ]] || continue
-  REPO_NAME=$(basename "${report}" .json)
-  PAYLOAD=$(echo "${PAYLOAD}" | jq --arg repo "${REPO_NAME}" --slurpfile findings "${report}" \
-    '.findings += [{ repo: $repo, results: $findings[0] }]' 2>/dev/null || echo "${PAYLOAD}")
-done
-
-AUTH_HEADER=""
-if [[ -n "${CONVEX_AUTH_TOKEN:-}" ]]; then
-  AUTH_HEADER="-H \"Authorization: Bearer ${CONVEX_AUTH_TOKEN}\""
-fi
-
-curl -sf -X POST "${CONVEX_INGEST_URL}" \
-  -H "Content-Type: application/json" \
-  ${AUTH_HEADER} \
-  -d "${PAYLOAD}" || {
-    echo "ERROR: Failed to post findings to Convex" >&2
-    exit 1
-  }
-
-echo "[${JOB_RUN_ID}] Repository scan complete."

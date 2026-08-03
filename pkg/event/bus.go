@@ -1,0 +1,73 @@
+package event
+
+import (
+	"context"
+	"sync"
+	"time"
+)
+
+// EventType defines the type of event being dispatched.
+type EventType string
+
+const (
+	EventAssetUpdated   EventType = "asset:updated"
+	EventFindingNew     EventType = "finding:new"
+	EventScanProgress   EventType = "scan:progress"
+	EventRegressionNew  EventType = "regression:new"
+)
+
+// Event represents a mutation or state change event.
+type Event struct {
+	Type      EventType   `json:"type"`
+	Payload   interface{} `json:"payload"`
+	Timestamp time.Time   `json:"timestamp"`
+}
+
+// Handler is a function that processes an event.
+type Handler func(ctx context.Context, e Event)
+
+// Bus represents an event dispatcher.
+type Bus interface {
+	Subscribe(eventType EventType, handler Handler)
+	Publish(ctx context.Context, e Event)
+}
+
+// MemoryBus is a thread-safe, in-memory event bus.
+type MemoryBus struct {
+	mu       sync.RWMutex
+	handlers map[EventType][]Handler
+}
+
+// NewMemoryBus creates a new MemoryBus.
+func NewMemoryBus() *MemoryBus {
+	return &MemoryBus{
+		handlers: make(map[EventType][]Handler),
+	}
+}
+
+// Subscribe registers a handler for a specific event type.
+func (b *MemoryBus) Subscribe(eventType EventType, handler Handler) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.handlers[eventType] = append(b.handlers[eventType], handler)
+}
+
+// Publish dispatches an event to all registered handlers for its type.
+// Handlers are executed synchronously. For async execution, the handler itself should spin up a goroutine.
+func (b *MemoryBus) Publish(ctx context.Context, e Event) {
+	if e.Timestamp.IsZero() {
+		e.Timestamp = time.Now()
+	}
+
+	b.mu.RLock()
+	handlers, ok := b.handlers[e.Type]
+	b.mu.RUnlock()
+
+	if !ok {
+		return
+	}
+
+	for _, h := range handlers {
+		h(ctx, e)
+	}
+}
