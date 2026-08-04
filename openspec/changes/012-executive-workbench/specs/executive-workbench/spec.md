@@ -95,6 +95,44 @@ The system SHALL report, across snapshots, whether credible intervals are narrow
 - **WHEN** it is displayed
 - **THEN** the change is marked and the series either re-baselines or declares the discontinuity
 
+### Requirement: Movements are attributed to world change, belief correction or parameter change
+Every change in a reported figure between snapshots SHALL be attributed to exactly one of: a change in the estate, a change in what is observed of an unchanged estate, or a change in model-pack parameters. The three SHALL be reported as separate components and SHALL NOT be combined into a single trend line.
+
+Improved instrumentation raises reported exposure without the estate having deteriorated. Unless the cause is named, the reporting penalises measurement and the rational response is to measure less. See RISK-ARC §5c.
+
+#### Scenario: New instrumentation reveals existing weaknesses
+- **GIVEN** a new sensor that detects weaknesses which the ledger shows were already present
+- **WHEN** the next snapshot is compared with the previous one
+- **THEN** the increase is attributed to belief correction, is labelled as a correction to the prior report rather than a deterioration in security, and is reported separately from world change
+
+#### Scenario: Genuine deterioration
+- **GIVEN** a control observed at full enforcement in one snapshot and observed relaxed in the next
+- **WHEN** the snapshots are compared
+- **THEN** the increase is attributed to world change
+
+#### Scenario: Ambient contact rate revised upward by a pack update
+- **GIVEN** a model-pack update revising the ambient contact rate for a service class, with no change to the estate and no change to observation
+- **WHEN** the snapshots are compared
+- **THEN** the movement is attributed to parameter change, cites the pack version and source, and is not reported as a change in the organisation's security posture
+
+#### Scenario: Combined movement
+- **GIVEN** a period containing an estate change, a new sensor and a pack update
+- **WHEN** the movement is reported
+- **THEN** the three components are decomposed and separately quantified
+
+### Requirement: Realised value of instrumentation is reported
+The system SHALL report, per sensor, the belief corrections it has produced and their magnitude, and SHALL identify sensors that have produced none.
+
+#### Scenario: Sensor has produced no corrections
+- **GIVEN** a sensor active across several snapshots that has produced no belief correction
+- **WHEN** instrumentation value is reported
+- **THEN** the sensor is identified as either observing a stable area or failing to report, and the two are not asserted to be distinguishable without further evidence
+
+#### Scenario: Sensor has produced corrections
+- **GIVEN** a sensor whose introduction produced a quantified belief correction
+- **WHEN** instrumentation value is reported
+- **THEN** the magnitude of the correction is reported as the realised counterpart to the expected value-of-information estimate that justified it
+
 ### Requirement: Challenge and recompute is available in the interface
 An operator SHALL be able to dispute and withdraw any ledger row from the interface and see the estimate recompute, with the challenge and its outcome retained.
 
@@ -131,6 +169,40 @@ Presentations depending on scenario independence, ambient-only contact modelling
 - **GIVEN** a portfolio exceedance curve
 - **WHEN** it is displayed
 - **THEN** it discloses that scenarios are treated as independent
+
+### Requirement: The board sees risk retired, risk accepted and capacity together
+The board view SHALL present the expected loss being actively retired, the aggregate expected loss held as accepted risk, and the stated remediation capacity, as three figures on the same page.
+
+#### Scenario: Accepted risk is material
+- **GIVEN** an aggregate accepted risk comparable to or exceeding the risk being retired
+- **WHEN** the board view is rendered
+- **THEN** both figures appear together in currency, and the accepted figure is not relegated to a subsidiary view
+
+#### Scenario: Capacity is the binding constraint
+- **GIVEN** a queue head reported as capacity-constrained
+- **WHEN** the board view is rendered
+- **THEN** the constraint is presented as a resourcing decision belonging to the board, distinct from any estimation uncertainty
+
+### Requirement: Finding counts are not presented as a measure of position or progress
+No view or export SHALL present counts of findings discovered, open or closed as a headline indicator of security position or of progress. Counts MAY appear as operational detail where accompanied by the loss reduction they represent.
+
+#### Scenario: Count offered as progress
+- **GIVEN** a period in which many low-ranked findings were closed and the highest-ranked findings were not
+- **WHEN** the board view is rendered
+- **THEN** the position is expressed as loss retired rather than as findings closed, and the unworked queue head is visible
+
+### Requirement: The price of deferral is presented without arbitrating the decision
+Where a remediation is deferred in favour of other work, the system SHALL present the priced expected loss of the deferral with its interval and calibration label, and SHALL NOT present a recommendation as to which work should proceed.
+
+#### Scenario: Deferral in favour of other work
+- **GIVEN** a remediation deferred beyond the capacity line
+- **WHEN** the position is presented
+- **THEN** the priced expected loss of deferring is shown with its interval and owner, and no recommendation to prioritise or deprioritise the competing work is emitted
+
+#### Scenario: Comparison with a non-risk estimate
+- **GIVEN** an externally supplied value estimate for competing work
+- **WHEN** it is displayed alongside a risk figure
+- **THEN** it is marked as externally supplied and outside the model's calibration, and the two are not combined into a single net figure
 
 ### Requirement: No composite risk score
 The system SHALL NOT produce a single composite risk score or index. All emitted quantities SHALL be probabilities, rates, monetary amounts, intervals or rankings with a stated derivation.

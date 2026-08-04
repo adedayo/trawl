@@ -93,6 +93,29 @@ Precision gain SHALL decay toward zero as the age of the observation increases, 
 - **WHEN** precision gain is computed
 - **THEN** no gain is applied and the class prior stands unmodified
 
+### Requirement: Ambient contact rates are versioned, dated and revisable
+Ambient contact rates SHALL be pack parameters carrying an observation date and source, SHALL NOT be embedded as engine constants, and SHALL be revisable by pack update alone. A revision SHALL be reportable as a parameter change distinct from any change in the assessed estate.
+
+The ambient rate is the adversary's parameter, not the defender's. It moves for reasons outside the estate — falling discovery cost, shortening disclosure-to-exploitation intervals — and a posture can degrade with nothing about the estate having changed. See RISK-ARC §5c.
+
+#### Scenario: Ambient rate revised upward
+- **GIVEN** a pack update raising the ambient contact rate for a service class, with no change to any assessed estate
+- **WHEN** contact probabilities are recomputed
+- **THEN** they increase, and the pack diff attributes the movement to the parameter revision with its source and observation date
+
+#### Scenario: Ambient rate is quoted with its vintage
+- **GIVEN** an ambient contact rate observed in a prior year
+- **WHEN** any estimate depending on it is presented
+- **THEN** the observation date of the rate accompanies the figure
+
+### Requirement: Ambient rate revisions do not propagate to conditional stage estimates
+A revision to an ambient contact rate SHALL affect the contact stage only, and SHALL NOT alter any conditional probability of attempt, success or impact given contact.
+
+#### Scenario: Ambient rate revision leaves susceptibility untouched
+- **GIVEN** a pack update revising ambient contact rates
+- **WHEN** the pack diff is produced
+- **THEN** no conditional stage estimate is changed by the revision, and any pack proposing to change both in one revision is rejected as conflating arrival rate with susceptibility
+
 ### Requirement: Scenario taxonomy mapping is explicit data
 The mapping from published incident patterns to the deployment's scenario list SHALL be recorded as pack data, with shares summing to one, and every expert-estimated residual carrying a rationale and a prior-strength exception marker.
 

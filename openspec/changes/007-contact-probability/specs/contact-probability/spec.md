@@ -48,6 +48,72 @@ Time at risk SHALL be derived from the system's own observation history, and SHA
 - **WHEN** time at risk is reported for a newly observed exposure
 - **THEN** the reported figure discloses the detection latency inherent in the cadence
 
+### Requirement: Observed and inferred exposure intervals are accounted separately
+Time at risk SHALL accrue over intervals bounded by successful assessments, and any interval during which the exposure was not successfully assessed SHALL be accounted as inferred rather than observed. Both figures SHALL be reported, and their sum SHALL NOT be presented as a single measured duration.
+
+Repeated observation of the same weakness does not sharpen any susceptibility estimate. It sustains the exposure premise: each successful re-assessment converts an interval of assumed exposure into an observed one, and is an opportunity for the premise to be falsified. See RISK-ARC §5b.
+
+#### Scenario: Continuous observation
+- **GIVEN** an exposure assessed successfully every day since first detection
+- **WHEN** time at risk is reported
+- **THEN** the whole duration is accounted as observed and the inferred component is zero
+
+#### Scenario: Monitoring lapses and resumes
+- **GIVEN** an exposure first seen in March, not assessed between April and August, and seen again in September
+- **WHEN** time at risk is reported
+- **THEN** the April-to-August interval is accounted as inferred, is disclosed as such, and is not reported as observed exposure
+
+#### Scenario: Two estates with equal total time at risk
+- **GIVEN** one estate assessed hourly and another assessed quarterly, both reporting the same total time at risk
+- **WHEN** either estimate is presented
+- **THEN** the observed and inferred split accompanies it, so the difference in evidential standing is visible
+
+### Requirement: Only a successful clean assessment closes an exposure window
+An exposure window SHALL be closed only by an assessment that ran and returned a clean result. An assessment that did not run, or that failed, SHALL leave the window open and SHALL extend the inferred component.
+
+#### Scenario: Finding disappears because the check failed
+- **GIVEN** an exposure previously observed, and a subsequent assessment returning `check_failed`
+- **WHEN** time at risk is recomputed
+- **THEN** the window remains open and the interval is accounted as inferred
+
+#### Scenario: Finding disappears because the check was not run
+- **GIVEN** an exposure previously observed, and a subsequent assessment in which the relevant check was `not_checked`
+- **WHEN** time at risk is recomputed
+- **THEN** the window remains open, and remediation is not recorded
+
+#### Scenario: Check runs and returns clean
+- **GIVEN** an exposure previously observed, and a subsequent assessment in which the relevant check returned `ok`
+- **WHEN** time at risk is recomputed
+- **THEN** the window is closed at that assessment's timestamp
+
+### Requirement: Blind time is separated from aware time
+Time at risk SHALL be decomposed into the interval before the weakness was detected and the interval after, and both SHALL be reported. The pre-detection interval SHALL be estimated from the assessment cadence in force at the time and SHALL be labelled as estimated rather than observed.
+
+Risk accrues over the whole of time at risk, but the organisation's stated position only tracked the post-detection interval. The pre-detection interval is therefore the measured size of a past understatement, not merely a gap in the record. See RISK-ARC §5c.
+
+#### Scenario: Weakness introduced between assessments
+- **GIVEN** an estate assessed on a 90-day cadence and a weakness first reported at an assessment
+- **WHEN** time at risk is reported
+- **THEN** the estimated blind interval is reported alongside the observed aware interval, with its cadence-derived basis stated, and the two are not presented as a single measured figure
+
+#### Scenario: Continuous assessment
+- **GIVEN** an estate assessed daily and a weakness first reported at an assessment
+- **WHEN** time at risk is reported
+- **THEN** the estimated blind interval is bounded by one day and is reported as such
+
+### Requirement: Expected detection latency is derived from cadence and reported
+The system SHALL derive an expected detection latency from the assessment cadence of each asset class, SHALL report it as a property of the monitoring programme rather than of any finding, and SHALL express the exposure attributable to it.
+
+#### Scenario: Cadence change is evaluated
+- **GIVEN** an asset class assessed quarterly, and the estate's observed rate of weakness introduction
+- **WHEN** a change to daily assessment is evaluated
+- **THEN** the system reports the resulting reduction in expected blind time and the corresponding reduction in expected contact probability
+
+#### Scenario: Detection latency is not remediation latency
+- **GIVEN** an estate with a short detection latency and a long unremediated backlog
+- **WHEN** the monitoring programme is reported
+- **THEN** detection latency and remediation latency are reported as separate figures and are not combined into a single responsiveness measure
+
 ### Requirement: Contact probability of an open exposure increases with elapsed time
 For an exposure that remains unremediated, the computed contact probability SHALL increase as wall-clock time elapses, without requiring any new finding.
 

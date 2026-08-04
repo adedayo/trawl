@@ -12,6 +12,13 @@
 - [ ] Left-censoring detection and flagging
 - [ ] Detection-latency derivation from assessment cadence
 - [ ] Live time-at-risk computation (grows with wall clock, not frozen at last scan)
+- [ ] Split accrual: `observedDuration` over intervals bounded by successful assessments, `inferredDuration` over gaps; the two are stored separately and never summed into a single "measured" figure
+- [ ] Window closure requires a check that ran and returned clean; `not_checked` and `check_failed` extend the inferred component and record no remediation
+- [ ] Property test: an exposure assessed continuously reports zero inferred duration; the same exposure with an observation gap reports the gap as inferred, and total time at risk is unchanged
+- [ ] Blind/aware split: cadence-derived estimate of pre-detection interval, labelled estimated, reported alongside the observed post-detection interval
+- [ ] `expectedDetectionLatency` per asset class from cadence (`C/2` expected, `C` worst case), reported as a property of the monitoring programme
+- [ ] Cadence what-if: given the ledger's observed weakness-introduction rate, compute the exposure reduction from a proposed cadence change
+- [ ] Detection latency and remediation latency stored and reported as separate figures; no combined responsiveness metric
 
 ## Phase 2 — Factor computation
 - [ ] Reachability gate from confirmed responding services; unknown suppresses the estimate

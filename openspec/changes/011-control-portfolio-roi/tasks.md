@@ -47,6 +47,23 @@
 - [ ] Ranking by expected narrowing per unit cost, with ranking-stability impact
 - [ ] Test: uncertainty reduction that cannot change the order ranks below one that can
 
+## Phase 8 — Remediation queue, acceptance and capacity
+- [ ] `remediationQueue`: rank by ΔE[loss] per unit remediation cost through the estimation chain; store severity order alongside and surface divergences
+- [ ] Ranking tests: access barrier inverts severity order; accrued time at risk outranks recency; instance aggregation saturates; high severity with negligible contact probability retires negligible risk
+- [ ] Cross-scenario credit summed per intervention; test that equal proportional reductions at contact and success stages price equally on a single scenario, and that breadth alone decides between them
+- [ ] `queueDisplacement` per detection source, per period; prohibit finding counts as a prioritisation metric
+- [ ] `acceptedRisks`: priced expected loss, owner, decision date, rationale, review date; validation reports undecided findings
+- [ ] Aggregate accepted-risk figure, computed and exported alongside risk actively retired
+- [ ] Automatic re-raise on material rank or expected-loss change, including change driven by elapsed time at risk alone; lapsed acceptances reported as lapsed
+- [ ] `remediationCapacity` as a stated input; detect a stable unworked queue head across periods and report capacity as the binding constraint
+- [ ] Test: with capacity unstated, the plan declares the queue head advisory only
+- [ ] Marginal value schedule for additional capacity increments; identify the increment at which value falls below stated cost; test that the schedule is non-increasing
+- [ ] Ratio ranking test: cheap-modest outranks expensive-large under a binding constraint
+- [ ] Commitment window: freeze the queue head, re-rank at boundaries, raise material breaches as explicit interrupts with the justifying comparison
+- [ ] Ranking-stability reporting in both directions — never-changes and always-changes are both findings
+- [ ] `committedValue` recorded at commitment with pack version; loss-retired credit reads it; retrospective revaluation refused
+- [ ] Risk-weighted backlog total as primary measure, count reported separately, divergence surfaced
+
 ## Exit Criteria
 
 The published worked example's control ranking, returns and reconciliation reproduce exactly; a control at partial measured coverage is ranked on its effective rather than nominal mitigation and reports the priced value of closing its gap; a relaxed policy on one sending domain produces a currency figure rather than a ticket; and the workbench can name the cheapest instrumentation action that would most narrow the uncertainty currently driving the funding order.
