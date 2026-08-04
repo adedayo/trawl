@@ -54,16 +54,20 @@ Posture-regression detection answers *"did something that used to be fine stop b
                                                      └──────────────────────────┘
 ```
 
-**Self-hosted, single-command deployment** — Convex backend, job scheduling, and the dashboard all run in Docker Compose. No cloud account required.
+**Self-hosted, single-command deployment** — the engine, job scheduling, and the dashboard all run in Docker Compose. No cloud account required. The same engine also ships as a single-binary desktop application.
 
 ## Tech Stack
 
 | Layer | Choice |
 |---|---|
-| Backend / data | [Convex](https://convex.dev) (self-hosted via `get-convex/convex-backend`) — real-time subscriptions, scheduled functions, HTTP actions |
-| Scanning | Container-based — naabu, httpx, nuclei, subfinder, amass, gitleaks |
+| Engine | Go — single statically linked binary, no runtime dependency |
+| Data | SQLite (WAL) via `modernc.org/sqlite` — pure Go, no cgo |
+| Desktop | Wails v2, with the Angular dashboard embedded via `go:embed` |
+| Real-time | In-process event bus, with Wails IPC and WebSocket adapters |
+| Scanning | subfinder (embedded), checkmate for repository secrets |
+| DNS / email / delegation | [vantage](https://github.com/adedayo/vantage) (BSD-3) embedded as a library |
 | Frontend | Angular (latest stable, signals, standalone, `@if`/`@for`), Tailwind CSS v4 + spartan/ui |
-| Testing | Vitest (unit), Playwright (e2e + accessibility) |
+| Testing | Go tests (engine), Vitest (unit), Playwright (e2e + accessibility) |
 | Vuln intel | CISA KEV, NVD, EPSS — all free, public |
 | AI | OpenAI-compatible client — BYOK cloud or local (Ollama/vLLM/llama.cpp) |
 | Job scheduling | Ofelia cron sidecar |
@@ -98,8 +102,14 @@ docker compose -f deploy/compose/docker-compose.yml up -d
 
 ```
 trawl/
+├── main.go, app.go         # Wails desktop binary
+├── cmd/trawl/              # Headless server binary (`trawl server`)
+├── pkg/
+│   ├── store/              # Store interface + SQLite implementation
+│   ├── event/              # In-process event bus
+│   ├── scanner/            # Scanning and assessment
+│   └── service/            # Orchestration
 ├── app/                    # Angular dashboard
-├── convex/                 # Convex schema, functions, actions
 ├── jobs/
 │   ├── discovery-worker/   # OSINT asset discovery
 │   ├── scan-worker/        # Port/service/vuln scanning
@@ -112,7 +122,7 @@ trawl/
 │       └── setup.sh        # Guided first-run setup
 ├── config/
 │   └── example.json        # Config template (no real values)
-└── openspec/               # Spec-driven design docs
+└── openspec/               # Spec-driven design docs + RISK-ARC reasoning
 ```
 
 ## Design Principles
@@ -155,9 +165,9 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 ### Dependency License Notice
 
 > [!IMPORTANT]
-> The self-hosted Convex backend (`get-convex/convex-backend`) is licensed under **FSL-1.1** (Functional Source License), which converts to Apache-2.0 two years after each release. FSL-1.1 is source-available and free to self-host and modify, but it is **not** an OSI-approved open-source license. This is disclosed here so adopters can make an informed decision about the full dependency tree's licensing terms.
+> The Docker Compose deployment still runs the self-hosted Convex backend (`get-convex/convex-backend`) as a runtime dependency, pending completion of the Go server migration (Change 005). It is licensed under **FSL-1.1** (Functional Source License), which converts to Apache-2.0 two years after each release. FSL-1.1 is source-available and free to self-host and modify, but it is **not** an OSI-approved open-source license. This is disclosed here so adopters can make an informed decision about the full dependency tree's licensing terms.
 >
-> All other dependencies use standard open-source licenses. See [NOTICE](NOTICE) for details.
+> The desktop application and the engine itself have no such dependency. All other dependencies use standard open-source licenses — including [vantage](https://github.com/adedayo/vantage) (BSD-3-Clause), which provides DNS, email and delegation assessment. See [NOTICE](NOTICE) for details.
 
 ## Contributing
 

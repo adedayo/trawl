@@ -46,6 +46,8 @@
 ## Phase 7 — Presentation guardrails
 - [ ] **Required check**: no composite score anywhere in any interface or export
 - [ ] **Required check**: no figure rendered without label, interval and coverage
+- [ ] **Required check**: no board or CISO headline figure is a mean-time-to-remediate or similar closed-finding time average; where remediation duration appears at engineer-level detail, detection coverage for the same class is shown alongside it
+- [ ] **Required check**: every board-level figure shows freshness (elapsed time since its newest contributing observation, or its stalest material input if aggregated) at headline level, not only via drill-down
 - [ ] Simplification disclosures bound to the figures relying on them
 - [ ] AI narrative attribution; test that figures are identical with commentary disabled
 - [ ] Playwright accessibility scanning across all three views

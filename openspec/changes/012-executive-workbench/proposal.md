@@ -31,6 +31,8 @@ These are requirements, not styling preferences, because the credibility of ever
 3. **Coverage travels.** Every aggregate states what share of its inputs were actually assessed. "We did not look" is never rendered as "it is fine".
 4. **Simplifications are disclosed** where they are relied upon: scenario independence, ambient-only contact, external vantage only.
 5. **No composite score.** The workbench SHALL NOT produce a single proprietary-style risk score. The source material's objection to black-box 0–1000 scores applies with full force to anything this tool might emit, and the prohibition belongs in the spec so it survives the first request for one.
+6. **No mean-time-to-remediate as a headline figure.** An item never detected never enters the average, so MTTR improves exactly when detection coverage drops — the same exclusion-bias failure mode as raw finding counts, and it gets the same treatment: detail only, always paired with detection coverage, never a board or CISO headline.
+7. **Freshness is a headline dial, not a drill-down fact.** How bad and how sure are already required at headline level (the point estimate and its interval); how fresh — how long ago the newest contributing observation was made — gets the same treatment rather than being left to a drill-down click.
 
 ## Explicitly Out of Scope
 
