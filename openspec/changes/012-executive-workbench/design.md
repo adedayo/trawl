@@ -91,6 +91,8 @@ This is the mechanism that earns engineering's trust, and the post is explicit a
 
 - **Interval as headline.** The rendering component takes an estimate type that cannot be constructed without one, so a bare point estimate is not expressible in the UI layer.
 - **No composite score.** Explicitly prohibited. The tool emits probabilities, currency, intervals and rankings — quantities with units and derivations. A 0–1000 index has neither, and every argument the source material makes against black-box scores would apply to one produced here.
+- **No mean-time-to-remediate headline.** Same exclusion-bias failure as raw finding counts, one level removed: an item never found never enters the average, so the average improves exactly when coverage drops. Treated identically to finding counts — operational detail only, always paired with the coverage figure for the same class, never promoted to board or CISO level.
+- **Freshness as headline, not drill-down.** "How bad" (the value) and "how sure" (the interval) are already headline-mandatory; "how fresh" (age of the newest contributing observation, or the stalest one for an aggregate) gets the same estimate-type treatment so it can't be silently omitted the way MTTR-style averages currently could be.
 - **Simplification disclosures** attach to the figures that rely on them: independence on aggregates, ambient-only on contact, external-vantage-only on coverage.
 - **AI narrative is attributed and inert.** Drafted prose is labelled as such and cannot alter a figure; the guardrail is tested at this layer because this is where the temptation to let it "summarise" a number is greatest.
 

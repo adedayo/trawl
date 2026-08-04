@@ -191,6 +191,32 @@ No view or export SHALL present counts of findings discovered, open or closed as
 - **WHEN** the board view is rendered
 - **THEN** the position is expressed as loss retired rather than as findings closed, and the unworked queue head is visible
 
+### Requirement: Average remediation time is not presented as a measure of position or progress
+No view or export SHALL present mean time to remediate, or any similar time-based average computed over closed findings, as a headline indicator of security position or programme performance. An item never detected never enters such an average, so an improving average cannot be distinguished from a coverage regression without the detection-coverage figure alongside it.
+
+#### Scenario: Average improves through reduced detection
+- **GIVEN** a period in which detection coverage decreased and no hard-to-find findings were newly reported
+- **WHEN** mean time to remediate is computed over findings closed in the period
+- **THEN** the system does not present the resulting improvement as a headline indicator of position, and reports detection coverage for the same period alongside it
+
+#### Scenario: Remediation duration as operational detail
+- **GIVEN** an operator viewing engineer-level detail for a specific finding class
+- **WHEN** remediation duration for that class is shown
+- **THEN** it MAY appear as operational detail alongside the class's detection coverage, but SHALL NOT be aggregated into a board-level or CISO-level headline figure
+
+### Requirement: Freshness is a headline dial, not a drill-down-only fact
+Every board-level figure SHALL display, alongside its value and interval, how long ago its most recent contributing observation was made, without requiring drill-down to see it.
+
+#### Scenario: Stale contributing observation
+- **GIVEN** a board figure with a contributing observation older than that component's freshness-decay constant (Change 008)
+- **WHEN** the figure is rendered
+- **THEN** the elapsed time since that observation is shown at the headline level, not only reachable through drill-down
+
+#### Scenario: Mixed freshness inputs
+- **GIVEN** a board figure aggregating inputs of differing observation ages
+- **WHEN** it is rendered
+- **THEN** the figure displays the age of its stalest material contributing input, not an average age or the most recent input's age alone
+
 ### Requirement: The price of deferral is presented without arbitrating the decision
 Where a remediation is deferred in favour of other work, the system SHALL present the priced expected loss of the deferral with its interval and calibration label, and SHALL NOT present a recommendation as to which work should proceed.
 
