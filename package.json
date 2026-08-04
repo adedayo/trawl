@@ -13,6 +13,7 @@
     "dev:app": "npm --prefix app run start",
     "build": "npm --prefix app run build",
     "test": "npm --prefix app run test:ci",
+    "test:classifier": "vitest run .github/scripts",
     "typecheck": "npm --prefix app run typecheck && npx tsc --noEmit --project tsconfig.json",
     "check": "./test.sh"
   },

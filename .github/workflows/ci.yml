@@ -33,6 +33,12 @@ jobs:
       - name: Run Unit Tests
         run: npm test
 
+      # The dependency gate decides what merges without a human. Its own tests run
+      # on every commit, not only on Renovate pull requests, so that a change which
+      # weakens the gate is caught in the pull request that makes it.
+      - name: Verify Dependency Gate Logic
+        run: npm run test:classifier
+
       - name: Build Dashboard
         run: npm run build
 
