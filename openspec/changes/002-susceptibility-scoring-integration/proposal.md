@@ -2,7 +2,13 @@
 
 ## Status
 
-**Proposed, not started.** Blocked by Change 001 (initial build) reaching Phase 4 (AI triage layer) implemented and archived. This is a future capability, scoped now so the design decision is recorded while it's fresh, not scheduled for immediate work.
+**Superseded by Change 009 (`exploit-probability-engine`). Do not implement as written.**
+
+This change scoped Trawl as a *feeder* for the exploit-probability calculators: compute Layer 1/2 inputs, format them for the Prior Estimator, hand off to a human for simulation. Change 007 removes the reason for that boundary by supplying the contact term from measurement rather than judgment, and Change 009 absorbs this change's requirements — adjustment bands as versioned data, evidence-ledger traceability, EPSS/attention deduplication, non-interference with deterministic severity — while replacing its "no simulation inside Trawl" prohibition with the stricter obligation that no number may be emitted without its calibration label, interval, coverage and ledger.
+
+Retained for the record because the reasoning it captures (and the boundary it drew) is the reasoning Change 009 had to argue past. See `openspec/RISK-ARC.md`.
+
+Original status, for context: *Proposed, not started. Blocked by Change 001 (initial build) reaching Phase 4 (AI triage layer) implemented and archived. This is a future capability, scoped now so the design decision is recorded while it's fresh, not scheduled for immediate work.*
 
 ## Why
 
