@@ -1,17 +1,15 @@
 {
   "compilerOptions": {
     "target": "ESNext",
-    "lib": ["ESNext", "DOM"],
+    "lib": ["ESNext"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
     "skipLibCheck": true,
     "allowJs": true,
-    "outDir": "./dist",
-    "paths": {
-      "convex/*": ["./node_modules/convex/*"]
-    }
+    "checkJs": false,
+    "noEmit": true
   },
-  "include": ["convex/**/*.ts"],
-  "exclude": ["node_modules", "convex/_generated"]
+  "include": ["vitest.config.mts", ".github/scripts/**/*.mjs"],
+  "exclude": ["node_modules", "app", "dist"]
 }
