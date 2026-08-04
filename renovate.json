@@ -1,0 +1,203 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    "helpers:pinGitHubActionDigests"
+  ],
+
+  "description": [
+    "Dependency update policy for Trawl. Implements the ci-cd-pipeline capability.",
+    "Two gates decide an auto-merge, and both must agree: the deterministic gate",
+    "(cooldown elapsed, update class eligible, required checks green) and the agentic",
+    "triage check. The agent can only WITHHOLD the triage check; it can never make an",
+    "ineligible update eligible. See .github/scripts/classify-update.mjs."
+  ],
+
+  "timezone": "Europe/London",
+  "schedule": ["before 6am on monday"],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "rebaseWhen": "conflicted",
+  "semanticCommitType": "chore",
+  "commitMessagePrefix": "chore(deps):",
+  "labels": ["dependencies"],
+  "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"],
+  "osvVulnerabilityAlerts": true,
+
+  "prBodyNotes": [
+    "<!-- trawl-update-facts",
+    "packageName={{{depName}}}",
+    "updateType={{{updateType}}}",
+    "currentVersion={{{currentVersion}}}",
+    "newVersion={{{newVersion}}}",
+    "depType={{{depType}}}",
+    "manager={{{manager}}}",
+    "releaseTimestamp={{{releaseTimestamp}}}",
+    "isSecurityAdvisory={{#if isVulnerabilityAlert}}true{{else}}false{{/if}}",
+    "-->",
+    "",
+    "---",
+    "",
+    "**Dependency gate.** This pull request is auto-merged only if the deterministic",
+    "classifier rules it eligible *and* the triage agent does not withhold. The agent",
+    "cannot promote an ineligible update; withholding is the only verdict it can return",
+    "that changes the outcome. See the `Dependency Gate` check for the record."
+  ],
+
+  "minimumReleaseAge": "3 days",
+
+  "packageRules": [
+    {
+      "description": "Baseline: every ecosystem inherits the 3-day floor. Nothing is exempt, including patch releases and container image tags.",
+      "matchManagers": ["gomod", "npm", "dockerfile", "docker-compose", "github-actions"],
+      "minimumReleaseAge": "3 days"
+    },
+
+    {
+      "description": "Higher-risk category 1 — direct runtime dependencies of the engine. 14 days.",
+      "matchManagers": ["gomod"],
+      "matchDepTypes": ["require"],
+      "matchPackageNames": [
+        "github.com/wailsapp/wails/v2",
+        "modernc.org/sqlite",
+        "github.com/miekg/dns",
+        "github.com/google/uuid"
+      ],
+      "minimumReleaseAge": "14 days",
+      "labels": ["dependencies", "runtime-critical"]
+    },
+
+    {
+      "description": "Higher-risk category 2 — npm packages run at build time with install/postinstall script capability. 14 days.",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["dependencies", "devDependencies"],
+      "matchPackageNames": [
+        "typescript",
+        "vitest",
+        "concurrently",
+        "/^@angular//",
+        "/^@playwright//",
+        "/^tailwindcss/"
+      ],
+      "minimumReleaseAge": "14 days",
+      "labels": ["dependencies", "build-critical"]
+    },
+
+    {
+      "description": "SECURITY-RELEVANT — cryptography, authentication, signing. Always human review, never auto-merge, 14-day cooldown.",
+      "matchPackageNames": [
+        "/^golang\\.org/x/crypto/",
+        "/^github\\.com/ProtonMail/go-crypto/",
+        "/^github\\.com/cloudflare/circl/",
+        "/^aead\\.dev/minisign/",
+        "/^golang\\.org/x/net/",
+        "/^golang\\.org/x/oauth2/"
+      ],
+      "minimumReleaseAge": "14 days",
+      "automerge": false,
+      "addLabels": ["security-relevant", "needs-human-review"],
+      "prPriority": 5
+    },
+
+    {
+      "description": "SECURITY-RELEVANT — the scanning and assessment tooling itself. A compromised scanner is a compromised estate. Always human review.",
+      "matchPackageNames": [
+        "/^github\\.com/projectdiscovery//",
+        "/^github\\.com/adedayo/checkmate/",
+        "/^github\\.com/adedayo/vantage/",
+        "/^github\\.com/owasp-amass//",
+        "/^github\\.com/zricethezav/gitleaks//",
+        "/^github\\.com/trufflesecurity//"
+      ],
+      "minimumReleaseAge": "14 days",
+      "automerge": false,
+      "addLabels": ["security-relevant", "scanning-tool", "needs-human-review"],
+      "prPriority": 5
+    },
+
+    {
+      "description": "Major versions always route to a human, in every ecosystem, regardless of test results or agent opinion.",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "addLabels": ["major-update", "needs-human-review"],
+      "minimumReleaseAge": "14 days"
+    },
+
+    {
+      "description": "Container base images — same discipline as packages. Digest pinning so a moved tag is a visible diff.",
+      "matchManagers": ["dockerfile", "docker-compose"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "minimumReleaseAge": "3 days",
+      "addLabels": ["container-image"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+
+    {
+      "description": "Go toolchain and Go directive — human review; a toolchain bump changes every build.",
+      "matchManagers": ["gomod"],
+      "matchDepTypes": ["golang", "toolchain"],
+      "automerge": false,
+      "addLabels": ["toolchain", "needs-human-review"],
+      "minimumReleaseAge": "14 days"
+    },
+
+    {
+      "description": "GitHub Actions — pinned by digest, grouped, auto-mergeable once both gates agree.",
+      "matchManagers": ["github-actions"],
+      "groupName": "github actions",
+      "minimumReleaseAge": "3 days",
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+
+    {
+      "description": "Eligible for auto-merge: patch and minor updates not otherwise labelled. Still requires BOTH required checks to pass, one of which is the agentic triage check.",
+      "matchUpdateTypes": ["patch", "minor"],
+      "matchCurrentVersion": "!/^0\\./",
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+
+    {
+      "description": "Pre-1.0 packages have no semver contract; a patch bump can break anything. Human review.",
+      "matchCurrentVersion": "/^0\\./",
+      "automerge": false,
+      "addLabels": ["pre-1.0", "needs-human-review"]
+    },
+
+    {
+      "description": "Go indirect dependencies — grouped to keep the dashboard legible; still gated identically.",
+      "matchManagers": ["gomod"],
+      "matchDepTypes": ["indirect"],
+      "groupName": "go indirect dependencies",
+      "minimumReleaseAge": "7 days"
+    }
+  ],
+
+  "vulnerabilityAlerts": {
+    "description": [
+      "Known-vulnerability fixes shorten the cooldown to 1 day but never to zero, and never",
+      "auto-merge. The tension is deliberate and documented: a shorter window trades",
+      "supply-chain detection time for exposure time. A human decides which risk is larger,",
+      "with the advisory in front of them."
+    ],
+    "enabled": true,
+    "minimumReleaseAge": "1 day",
+    "automerge": false,
+    "addLabels": ["security-advisory", "needs-human-review"],
+    "prPriority": 10
+  },
+
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on the first day of the month"],
+    "minimumReleaseAge": "3 days",
+    "automerge": false
+  }
+}

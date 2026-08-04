@@ -1,0 +1,122 @@
+name: Dependency Triage
+
+# Runs on every Renovate pull request. Produces one required status check whose
+# meaning is narrow and stated: "this update may auto-merge".
+#
+# Two gates decide it, and both must agree:
+#   1. The deterministic classifier (.github/scripts/classify-update.mjs)
+#   2. The agentic triage layer, which may only withhold
+#
+# The check fails only on a hard block, on policy drift between renovate.json and
+# the classifier, or where the agent withheld an otherwise-eligible update. PRs
+# routed to human review pass the check: they were never auto-merge candidates,
+# and failing them would only obstruct the human who is reading them.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: dependency-triage-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  triage:
+    name: Dependency Gate
+    # Only Renovate PRs. Everything else is out of scope for this check.
+    if: startsWith(github.head_ref, 'renovate/')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      # The classifier is the gate, so its own tests are a prerequisite for
+      # trusting anything it says about this PR.
+      - name: Verify the classifier itself
+        run: npm run test:classifier
+
+      # Wait for the CI workflow's verdict rather than assuming it. A gate that
+      # assumes tests passed is not a gate.
+      - name: Await required CI checks
+        id: ci
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const sha = context.payload.pull_request.head.sha;
+            const deadline = Date.now() + 20 * 60 * 1000;
+
+            while (Date.now() < deadline) {
+              const { data } = await github.rest.checks.listForRef({
+                owner, repo, ref: sha, per_page: 100,
+              });
+              const others = data.check_runs.filter(r => r.name !== 'Dependency Gate');
+              if (others.length > 0 && others.every(r => r.status === 'completed')) {
+                const passed = others.every(r =>
+                  ['success', 'skipped', 'neutral'].includes(r.conclusion));
+                core.setOutput('passed', String(passed));
+                core.info(`Required checks complete. Passed: ${passed}`);
+                return;
+              }
+              await new Promise(r => setTimeout(r, 20000));
+            }
+            core.setOutput('passed', 'false');
+            core.warning('Timed out awaiting required checks. Treating as not passed.');
+
+      - name: Classify and triage
+        id: triage
+        env:
+          TESTS_PASSED: ${{ steps.ci.outputs.passed }}
+          AI_BASE_URL: ${{ secrets.AI_BASE_URL }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_MODEL: ${{ secrets.AI_MODEL }}
+        run: node .github/scripts/triage-pr.mjs
+        continue-on-error: true
+
+      - name: Comment the triage record on the pull request
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- trawl-dependency-triage -->';
+            const summary = fs.existsSync(process.env.GITHUB_STEP_SUMMARY)
+              ? fs.readFileSync(process.env.GITHUB_STEP_SUMMARY, 'utf8')
+              : 'Triage produced no summary.';
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const body = `${marker}\n${summary}`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner, repo, issue_number, per_page: 100,
+            });
+            const existing = comments.find(c => c.body?.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+      # The gate's verdict is this job's conclusion. Restated as an explicit final
+      # step so the reason is legible in the check output, not buried in a log.
+      - name: Enforce the gate
+        if: steps.triage.outcome == 'failure'
+        run: |
+          echo "::error::Auto-merge withheld. See the triage comment on the pull request."
+          exit 1
