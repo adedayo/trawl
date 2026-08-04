@@ -26,6 +26,9 @@
 - [ ] Immutable `quarterlySnapshots` with pack version, tool versions, seed, decisions in force
 - [ ] Interval-narrowing trend read
 - [ ] Ranking-stability trend read, reporting instability as a finding
+- [ ] Movement attribution: decompose every snapshot-to-snapshot delta into world change, belief correction and parameter change; refuse to render a combined trend line
+- [ ] Belief-correction labelling in the UI — an increase caused by new instrumentation reads as a correction to the previous report, not a deterioration
+- [ ] Per-sensor realised value: belief corrections produced and their magnitude; flag sensors that have produced none
 - [ ] Pack-change marking with re-baseline or declared discontinuity
 - [ ] Immutability test against a later pack update
 

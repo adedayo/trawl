@@ -95,6 +95,8 @@ Each measured-state signal therefore carries:
 
 **4. Repetition is not accumulation.** Scanning a static configuration 500 times is not 500 observations. Persistence buys exactly two things: freshness stays at full weight, and the probability of unobserved drift between assessments falls. It must never inflate ESS. Encoded by making precision gain a function of the *current* observation and its age, with no accumulation term available in the schema at all — the safest place to prevent an error is where it cannot be expressed.
 
+Read this guardrail precisely, because it is easy to over-read. It says repetition is not evidence about *susceptibility* — the conditional stage probabilities, which are properties of how the world responds to an attack and which no amount of looking at your own configuration can inform. It does not say repetition is worthless. Repetition is evidence about *state*, and state includes time at risk, which is the one directly measured term in the contact model (007). Re-observation resets `Δt` in the decay term to zero; it does not raise `g`, which remains bounded by `capG`. The premise is sustained, the estimate is not sharpened. The two flows are kept apart structurally: precision gain reads only the current observation and its age, while time-at-risk accrual is a separate quantity owned by 007 and never routed through a pack parameter. See RISK-ARC §5b.
+
 ## Freshness decay
 
 Measured state is a timestamped measurement, so its precision gain decays:
