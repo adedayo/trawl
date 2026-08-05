@@ -1,34 +1,157 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "============================================================"
-echo "          Trawl — Rapid Development Test Runner             "
-echo "============================================================"
-echo ""
+# Trawl — local test runner.
+#
+# This mirrors .github/workflows/ci.yml step for step, so that a green run here
+# means a green run there. If you add a gate to CI, add it here too; a local
+# check that is weaker than the remote one is worse than no local check,
+# because it tells you that you are done when you are not.
+#
+# Usage:
+#   ./test.sh            # everything except the Docker image build
+#   ./test.sh --docker   # also build and smoke-test the server image
+#   ./test.sh --quick    # skip the production bundle build (the slow step)
 
-# 1. Typecheck
-echo "[1/4] Checking TypeScript Types..."
+WITH_DOCKER=false
+QUICK=false
+for arg in "$@"; do
+  case "${arg}" in
+    --docker) WITH_DOCKER=true ;;
+    --quick)  QUICK=true ;;
+    -h|--help)
+      sed -n '3,14p' "$0" | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    *) echo "Unknown option: ${arg}" >&2; exit 1 ;;
+  esac
+done
+
+STEP=0
+step() {
+  STEP=$((STEP + 1))
+  echo ""
+  echo "──────────────────────────────────────────────────────────────"
+  echo "  [${STEP}] $1"
+  echo "──────────────────────────────────────────────────────────────"
+}
+
+echo "============================================================"
+echo "          Trawl — Local Test Runner                        "
+echo "============================================================"
+
+# ─── Go engine ────────────────────────────────────────────────────────────────
+# ./... is deliberately not used: the root package embeds the built dashboard
+# via go:embed, so it cannot compile without a prior Angular build.
+
+step "Go — formatting"
+if [ -n "$(gofmt -l ./pkg ./cmd)" ]; then
+  echo "The following files are not formatted. Run: gofmt -w ./pkg ./cmd" >&2
+  gofmt -l ./pkg ./cmd >&2
+  exit 1
+fi
+echo "✔ gofmt clean"
+
+step "Go — vet"
+go vet ./pkg/... ./cmd/...
+echo "✔ vet clean"
+
+step "Go — build"
+go build ./pkg/... ./cmd/...
+echo "✔ engine builds"
+
+# -race is not optional here: the job queue is claimed concurrently by multiple
+# workers, and its exclusivity test spawns goroutines to prove it.
+step "Go — tests (race detector enabled)"
+go test -race -count=1 ./pkg/... ./cmd/...
+
+# ─── Frontend ─────────────────────────────────────────────────────────────────
+
+step "TypeScript — typecheck"
 npm run typecheck
 
-# 2. Unit Tests
-echo "[2/4] Running Unit Tests (Go & Vitest)..."
-go test -v ./pkg/store/sqlite/...
-go test -v ./pkg/event/...
+step "Frontend — unit tests"
 npm test
 
-# 3. Worker Allowlist & Script Dry-Runs
-echo "[3/4] Validating Worker Entrypoints (--dry-run)..."
+step "Dependency gate — classifier tests"
+npm run test:classifier
+
+# ─── Workers ──────────────────────────────────────────────────────────────────
+# These are polling loops in normal operation. --dry-run bounds them to a single
+# pass; if that guard regresses, this step hangs, which is the intended signal.
+
+step "Workers — dry-run validation"
 chmod +x jobs/scan-worker/entrypoint.sh jobs/discovery-worker/entrypoint.sh jobs/repo-scan-worker/entrypoint.sh
 SEED_DOMAINS="example.com" ./jobs/scan-worker/entrypoint.sh --dry-run > /dev/null
 SEED_DOMAINS="example.com" ./jobs/discovery-worker/entrypoint.sh --dry-run > /dev/null
 SEED_REPOS="https://github.com/example/repo" ./jobs/repo-scan-worker/entrypoint.sh --dry-run > /dev/null
-echo "✔ Worker dry-runs verified."
+echo "✔ worker dry-runs terminate"
 
-# 4. Production Bundle Build
-echo "[4/4] Verifying Angular Production Build..."
-npm run build > /dev/null
+# Assert the safety control actually fires, rather than trusting that a clean
+# exit means it was reached.
+step "Workers — authenticated-repo rejection"
+OUTPUT=$(SEED_REPOS="git@github.com:example/private.git" ./jobs/repo-scan-worker/entrypoint.sh --dry-run 2>&1)
+if ! echo "${OUTPUT}" | grep -q "appears to require authentication"; then
+  echo "FAIL: repo-scan-worker did not reject an authenticated repo URL" >&2
+  echo "${OUTPUT}" >&2
+  exit 1
+fi
+echo "✔ authenticated repo URLs are refused"
+
+# ─── Deployment ───────────────────────────────────────────────────────────────
+
+step "Compose — manifest validation"
+docker compose -f deploy/compose/docker-compose.yml config -q
+docker compose -f deploy/compose/docker-compose.dev.yml config -q
+echo "✔ compose manifests valid"
+
+if [ "${QUICK}" = false ]; then
+  step "Angular — production bundle"
+  npm run build > /dev/null
+  echo "✔ production bundle builds"
+else
+  echo ""
+  echo "  (skipping production bundle build — --quick)"
+fi
+
+if [ "${WITH_DOCKER}" = true ]; then
+  step "Server image — build and smoke test"
+  docker build -q -f deploy/compose/Dockerfile.server -t trawl-server:local . > /dev/null
+  docker rm -f trawl-local > /dev/null 2>&1 || true
+  docker run -d --name trawl-local -p 8099:8080 trawl-server:local > /dev/null
+  trap 'docker rm -f trawl-local > /dev/null 2>&1 || true' EXIT
+
+  HEALTHY=false
+  for _ in $(seq 1 30); do
+    if curl -sf http://127.0.0.1:8099/healthz > /dev/null; then HEALTHY=true; break; fi
+    sleep 1
+  done
+
+  if [ "${HEALTHY}" = false ]; then
+    echo "FAIL: server did not become healthy within 30s" >&2
+    docker logs trawl-local >&2
+    exit 1
+  fi
+
+  # Round-trip a job through the queue: enqueue, claim, then confirm the queue
+  # reports empty rather than erroring.
+  curl -sf -X POST http://127.0.0.1:8099/api/jobs \
+    -H 'Content-Type: application/json' \
+    -d '{"type":"scan","targets":["example.com"]}' > /dev/null
+  CLAIMED=$(curl -sf "http://127.0.0.1:8099/api/jobs/pop?type=scan")
+  echo "${CLAIMED}" | grep -q '"status":"running"' \
+    || { echo "FAIL: claimed job was not marked running: ${CLAIMED}" >&2; exit 1; }
+  EMPTY=$(curl -sf "http://127.0.0.1:8099/api/jobs/pop?type=scan")
+  [ "${EMPTY}" = "{}" ] \
+    || { echo "FAIL: drained queue returned '${EMPTY}', expected {}" >&2; exit 1; }
+
+  echo "✔ server image healthy; job round-trips through the queue"
+else
+  echo ""
+  echo "  (skipping server image build — pass --docker to include it)"
+fi
 
 echo ""
 echo "============================================================"
-echo "  ✔ ALL CHECKS PASSED — READY TO COMMIT!"
+echo "  ✔ ALL CHECKS PASSED — READY TO COMMIT"
 echo "============================================================"
