@@ -11,16 +11,19 @@ set -euo pipefail
 # Usage:
 #   ./test.sh            # everything except the Docker image build
 #   ./test.sh --docker   # also build and smoke-test the server image
+#   ./test.sh --desktop  # also build the Wails desktop application
 #   ./test.sh --quick    # skip the production bundle build (the slow step)
 
 WITH_DOCKER=false
+WITH_DESKTOP=false
 QUICK=false
 for arg in "$@"; do
   case "${arg}" in
-    --docker) WITH_DOCKER=true ;;
-    --quick)  QUICK=true ;;
+    --docker)  WITH_DOCKER=true ;;
+    --desktop) WITH_DESKTOP=true ;;
+    --quick)   QUICK=true ;;
     -h|--help)
-      sed -n '3,14p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '3,15p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *) echo "Unknown option: ${arg}" >&2; exit 1 ;;
@@ -149,6 +152,31 @@ if [ "${WITH_DOCKER}" = true ]; then
 else
   echo ""
   echo "  (skipping server image build — pass --docker to include it)"
+fi
+
+if [ "${WITH_DESKTOP}" = true ]; then
+  step "Wails — desktop application build"
+  export PATH="${PATH}:$(go env GOPATH)/bin"
+  if ! command -v wails > /dev/null; then
+    echo "FAIL: wails CLI not found. Install with:" >&2
+    echo "  go install github.com/wailsapp/wails/v2/cmd/wails@latest" >&2
+    exit 1
+  fi
+  wails build > /dev/null
+  echo "✔ desktop application builds"
+
+  # Regenerated bindings that differ from the committed ones mean the frontend
+  # is calling a backend surface that no longer matches. Catch it here rather
+  # than as a runtime "method not found" in the packaged app.
+  if ! git diff --quiet -- app/wailsjs; then
+    echo "FAIL: Wails bindings in app/wailsjs are stale — commit the regenerated files:" >&2
+    git diff --stat -- app/wailsjs >&2
+    exit 1
+  fi
+  echo "✔ committed Wails bindings match the bound Go methods"
+else
+  echo ""
+  echo "  (skipping desktop build — pass --desktop to include it)"
 fi
 
 echo ""
