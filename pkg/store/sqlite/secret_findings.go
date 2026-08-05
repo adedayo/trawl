@@ -27,7 +27,7 @@ func (s *SQLiteStore) GetSecretFindings(ctx context.Context, repoURL string) ([]
 	}
 	defer rows.Close()
 
-	var sfs []store.SecretFinding
+	sfs := []store.SecretFinding{}
 	for rows.Next() {
 		var sf store.SecretFinding
 		var verifiedInt, isReusedInt int

@@ -27,7 +27,7 @@ func (s *SQLiteStore) GetAssets(ctx context.Context, status store.AssetStatus) (
 	}
 	defer rows.Close()
 
-	var assets []store.Asset
+	assets := []store.Asset{}
 	for rows.Next() {
 		var a store.Asset
 		var firstSeen, lastSeen string
