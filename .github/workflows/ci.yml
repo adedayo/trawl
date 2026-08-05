@@ -7,9 +7,66 @@ on:
     branches: [ main ]
 
 jobs:
+  # The Go engine is the whole product: the store, the job queue, the ingest
+  # server. It ran ungated until now, which is how four files drifted out of
+  # gofmt without anyone noticing. This job runs in parallel with the frontend
+  # one so neither waits on the other.
+  go:
+    name: Go — Format, Vet, Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      # Reported as a diff rather than a bare list of filenames, so the fix is
+      # visible in the log instead of requiring a local run to discover.
+      - name: Check formatting
+        run: |
+          if [ -n "$(gofmt -l ./pkg ./cmd)" ]; then
+            echo "::error::The following files are not gofmt-formatted. Run: gofmt -w ./pkg ./cmd"
+            gofmt -d ./pkg ./cmd
+            exit 1
+          fi
+          echo "gofmt: clean"
+
+      - name: Vet
+        run: go vet ./pkg/... ./cmd/...
+
+      # ./... is deliberately not used: the root package embeds the built
+      # dashboard via go:embed, so building it here would require the Angular
+      # build this job intentionally does not depend on. The desktop build is
+      # covered by the packaging workflow.
+      - name: Build
+        run: go build ./pkg/... ./cmd/...
+
+      # -race matters here specifically: the job queue is claimed concurrently
+      # by multiple workers, and its exclusivity test spawns goroutines.
+      - name: Test
+        run: go test -race -count=1 ./pkg/... ./cmd/...
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      # Reports rather than blocks. There is a known reachable advisory with no
+      # published fix; failing the build on something no one can act on only
+      # teaches people to ignore a red pipeline. Reachability is reviewed via
+      # ./security-fix.sh, where it can be knowingly accepted instead.
+      - name: Vulnerability reachability report
+        continue-on-error: true
+        run: govulncheck ./pkg/... ./cmd/...
+
   validate:
     name: Build, Typecheck & Test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
@@ -42,7 +99,11 @@ jobs:
       - name: Build Dashboard
         run: npm run build
 
+      # These workers poll an unbounded loop in normal operation. The dry run is
+      # bounded to a single pass; the timeout is a backstop so a regression in
+      # that guard fails fast here instead of hanging the runner.
       - name: Verify Worker Allowlist Dry-Runs
+        timeout-minutes: 3
         run: |
           chmod +x jobs/scan-worker/entrypoint.sh
           chmod +x jobs/discovery-worker/entrypoint.sh
@@ -50,3 +111,60 @@ jobs:
           SEED_DOMAINS="example.com" ./jobs/scan-worker/entrypoint.sh --dry-run
           SEED_DOMAINS="example.com" ./jobs/discovery-worker/entrypoint.sh --dry-run
           SEED_REPOS="https://github.com/example/repo" ./jobs/repo-scan-worker/entrypoint.sh --dry-run
+
+      # A repo URL requiring authentication must be refused. This asserts the
+      # guard actually fires, rather than trusting that a clean exit meant it
+      # was reached — until the dry run was bounded, it never was.
+      - name: Verify Authenticated-Repo Rejection
+        timeout-minutes: 3
+        run: |
+          OUTPUT=$(SEED_REPOS="git@github.com:example/private.git" ./jobs/repo-scan-worker/entrypoint.sh --dry-run 2>&1)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "appears to require authentication" \
+            || { echo "::error::repo-scan-worker did not reject an authenticated repo URL"; exit 1; }
+
+  # The compose stack was migrated off its previous backend without ever being
+  # built. This asserts the manifests parse and the server image compiles.
+  compose:
+    name: Compose Stack — Config & Server Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate compose manifests
+        run: |
+          docker compose -f deploy/compose/docker-compose.yml config -q
+          docker compose -f deploy/compose/docker-compose.dev.yml config -q
+
+      - name: Build server image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/compose/Dockerfile.server
+          push: false
+          load: true
+          tags: trawl-server:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # A server that cannot answer /healthz is not deployed, it is merely
+      # running. This is the smallest end-to-end proof the image works.
+      - name: Smoke-test the server image
+        run: |
+          docker run -d --name trawl-ci -p 8080:8080 trawl-server:ci
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8080/healthz > /dev/null; then
+              echo "server healthy after ${i}s"
+              curl -sf http://127.0.0.1:8080/api/v1/assets
+              docker rm -f trawl-ci > /dev/null
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::server did not become healthy within 30s"
+          docker logs trawl-ci
+          docker rm -f trawl-ci > /dev/null
+          exit 1

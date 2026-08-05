@@ -37,16 +37,36 @@ fi
 # the ingest URL by default so a single variable configures the worker.
 TRAWL_API_BASE="${TRAWL_API_BASE:-${TRAWL_INGEST_URL%/api/ingest/*}}"
 
+# RUN_ONCE bounds the polling loop to a single pass. A dry run must terminate —
+# it is invoked by CI and by operators checking configuration, neither of which
+# can wait on an unbounded loop — so dry runs default to a single pass.
+RUN_ONCE="${RUN_ONCE:-${DRY_RUN}}"
+
 # ─── Worker Polling Loop ───────────────────────────────────────────────────────
 echo "Starting scan-worker polling loop..."
 
+ITERATION=0
 while true; do
+  ITERATION=$((ITERATION + 1))
+  if [[ "${RUN_ONCE}" == "true" && ${ITERATION} -gt 1 ]]; then
+    echo "RUN_ONCE set — exiting after a single pass."
+    exit 0
+  fi
+
   # Poll the Trawl server for the next job
   JOB_JSON=$(curl -s -f -X GET "${TRAWL_API_BASE}/api/jobs/pop?type=scan" || echo "")
 
   if [[ -z "$JOB_JSON" || "$JOB_JSON" == "{}" ]]; then
-    sleep 5
-    continue
+    if [[ "${DRY_RUN}" == "true" && -z "${TRAWL_API_BASE}" ]]; then
+      # No server configured. Synthesise a job from the seed config so the dry
+      # run still reports what would be scanned, rather than silently doing
+      # nothing and exiting zero.
+      JOB_JSON=$(jq -n --arg targets "${SEED_DOMAINS:-}${SEED_CIDRS:+,${SEED_CIDRS}}" \
+        '{_id: "dry-run", targets: ($targets | split(",") | map(select(length > 0)))}')
+    else
+      sleep 5
+      continue
+    fi
   fi
 
   JOB_RUN_ID=$(echo "$JOB_JSON" | jq -r '._id')
@@ -66,10 +86,10 @@ while true; do
   if [[ "${DRY_RUN}" == "true" ]]; then
     echo "[DRY RUN] Would scan targets:"
     cat "${TARGETS_FILE}"
-    # Complete job as success
-    curl -s -X POST "${TRAWL_API_BASE}/api/jobs/complete" -H "Content-Type: application/json" -d "{\"jobId\":\"${JOB_RUN_ID}\"}" >/dev/null
+    if [[ -n "${TRAWL_API_BASE}" ]]; then
+      curl -s -X POST "${TRAWL_API_BASE}/api/jobs/complete" -H "Content-Type: application/json" -d "{\"jobId\":\"${JOB_RUN_ID}\",\"status\":\"completed\"}" >/dev/null || true
+    fi
     rm -f "${TARGETS_FILE}"
-    sleep 5
     continue
   fi
 

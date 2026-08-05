@@ -74,7 +74,7 @@ func (s *SecretScanner) ScanRepo(ctx context.Context, repoURL string) error {
 	for f := range findingsChan {
 		// Clean up file path relative to repo root
 		cleanPath := strings.TrimPrefix(f.File, tempDir+"/")
-		
+
 		sf := store.SecretFinding{
 			ID:          uuid.New().String(),
 			AssetID:     repoAsset.ID,

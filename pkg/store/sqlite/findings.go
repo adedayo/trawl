@@ -27,7 +27,7 @@ func (s *SQLiteStore) GetFindings(ctx context.Context, assetID string) ([]store.
 	}
 	defer rows.Close()
 
-	var findings []store.Finding
+	findings := []store.Finding{}
 	for rows.Next() {
 		var f store.Finding
 		var kevInt int

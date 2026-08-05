@@ -27,15 +27,15 @@ const (
 
 // Asset represents a tracked attack-surface asset.
 type Asset struct {
-	ID             string      `json:"id"`
-	Type           AssetType   `json:"type"`
-	Value          string      `json:"value"`
-	Status         AssetStatus `json:"status"`
-	DiscoverySource string     `json:"discoverySource"`
-	Confidence     float64     `json:"confidence"`
-	FirstSeen      time.Time   `json:"firstSeen"`
-	LastSeen       time.Time   `json:"lastSeen"`
-	Metadata       string      `json:"metadata"` // JSON string
+	ID              string      `json:"id"`
+	Type            AssetType   `json:"type"`
+	Value           string      `json:"value"`
+	Status          AssetStatus `json:"status"`
+	DiscoverySource string      `json:"discoverySource"`
+	Confidence      float64     `json:"confidence"`
+	FirstSeen       time.Time   `json:"firstSeen"`
+	LastSeen        time.Time   `json:"lastSeen"`
+	Metadata        string      `json:"metadata"` // JSON string
 }
 
 // FindingSeverity defines the risk rating of a security finding.
@@ -51,46 +51,46 @@ const (
 
 // Finding represents a vulnerability or posture finding.
 type Finding struct {
-	ID             string          `json:"id"`
-	AssetID        string          `json:"assetId"`
-	Title          string          `json:"title"`
-	Description    string          `json:"description"`
-	Severity       FindingSeverity `json:"severity"`
-	Priority       string          `json:"priority"`
-	CVE            string          `json:"cve,omitempty"`
-	EPSS           float64         `json:"epss,omitempty"`
-	KEVListed      bool            `json:"kevListed"`
-	Category       string          `json:"category"`
-	Proof          string          `json:"proof"`
-	AIAnnotation   string          `json:"aiAnnotation,omitempty"`
-	FirstSeen      time.Time       `json:"firstSeen"`
-	LastSeen       time.Time       `json:"lastSeen"`
+	ID           string          `json:"id"`
+	AssetID      string          `json:"assetId"`
+	Title        string          `json:"title"`
+	Description  string          `json:"description"`
+	Severity     FindingSeverity `json:"severity"`
+	Priority     string          `json:"priority"`
+	CVE          string          `json:"cve,omitempty"`
+	EPSS         float64         `json:"epss,omitempty"`
+	KEVListed    bool            `json:"kevListed"`
+	Category     string          `json:"category"`
+	Proof        string          `json:"proof"`
+	AIAnnotation string          `json:"aiAnnotation,omitempty"`
+	FirstSeen    time.Time       `json:"firstSeen"`
+	LastSeen     time.Time       `json:"lastSeen"`
 }
 
 // SecretFinding represents exposed credentials or secrets scanned by CheckMate.
 type SecretFinding struct {
-	ID           string    `json:"id"`
-	AssetID      string    `json:"assetId"`
-	RepoURL      string    `json:"repoUrl"`
-	RuleID       string    `json:"ruleId"`
-	SecretType   string    `json:"secretType"`
-	RedactedRef  string    `json:"redactedRef"` // Redacted / hashed secret reference
-	FilePath     string    `json:"filePath"`
-	StartLine    int       `json:"startLine"`
-	Verified     bool      `json:"verified"`
-	IsReused     bool      `json:"isReused"`
-	FirstSeen    time.Time `json:"firstSeen"`
+	ID          string    `json:"id"`
+	AssetID     string    `json:"assetId"`
+	RepoURL     string    `json:"repoUrl"`
+	RuleID      string    `json:"ruleId"`
+	SecretType  string    `json:"secretType"`
+	RedactedRef string    `json:"redactedRef"` // Redacted / hashed secret reference
+	FilePath    string    `json:"filePath"`
+	StartLine   int       `json:"startLine"`
+	Verified    bool      `json:"verified"`
+	IsReused    bool      `json:"isReused"`
+	FirstSeen   time.Time `json:"firstSeen"`
 }
 
 // Regression represents a confirmed posture degradation between checks.
 type Regression struct {
-	ID             string    `json:"id"`
-	AssetID        string    `json:"assetId"`
-	AttributeType  string    `json:"attributeType"` // e.g. "tls_version", "dmarc_policy"
-	PreviousValue  string    `json:"previousValue"`
-	CurrentValue   string    `json:"currentValue"`
-	ConsecutiveFails int     `json:"consecutiveFails"`
-	ConfirmedAt    time.Time `json:"confirmedAt"`
+	ID               string    `json:"id"`
+	AssetID          string    `json:"assetId"`
+	AttributeType    string    `json:"attributeType"` // e.g. "tls_version", "dmarc_policy"
+	PreviousValue    string    `json:"previousValue"`
+	CurrentValue     string    `json:"currentValue"`
+	ConsecutiveFails int       `json:"consecutiveFails"`
+	ConfirmedAt      time.Time `json:"confirmedAt"`
 }
 
 // EmailPosture represents the email authentication posture for a domain.

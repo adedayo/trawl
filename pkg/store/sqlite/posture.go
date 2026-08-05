@@ -16,7 +16,7 @@ func (s *SQLiteStore) GetRegressions(ctx context.Context) ([]store.Regression, e
 	}
 	defer rows.Close()
 
-	var regressions []store.Regression
+	regressions := []store.Regression{}
 	for rows.Next() {
 		var r store.Regression
 		var confirmedAt string
@@ -90,7 +90,7 @@ func (s *SQLiteStore) GetEmailPostures(ctx context.Context) ([]store.EmailPostur
 	}
 	defer rows.Close()
 
-	var postures []store.EmailPosture
+	postures := []store.EmailPosture{}
 	for rows.Next() {
 		var p store.EmailPosture
 		var spfInt, dkimInt int

@@ -11,6 +11,6 @@ func main() {
 		runServer()
 		return
 	}
-	
+
 	log.Println("Usage: trawl server")
 }
