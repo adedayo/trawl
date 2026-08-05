@@ -128,6 +128,18 @@ func (s *SQLiteStore) migrate(ctx context.Context) error {
 		dane_valid INTEGER DEFAULT 0
 	);
 
+	CREATE TABLE IF NOT EXISTS jobs (
+		id TEXT PRIMARY KEY,
+		type TEXT NOT NULL,
+		status TEXT NOT NULL,
+		targets TEXT NOT NULL,
+		created_at DATETIME NOT NULL,
+		started_at DATETIME,
+		completed_at DATETIME,
+		error TEXT
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_jobs_pop ON jobs(type, status, created_at);
 
 	`
 

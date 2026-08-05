@@ -4,12 +4,12 @@ set -euo pipefail
 # repo-scan-worker entrypoint
 #
 # Required env vars:
-#   CONVEX_INGEST_URL           - Convex HTTP action URL for posting secret findings
+#   TRAWL_INGEST_URL           - Trawl server URL for posting secret findings
 #   SEED_REPOS                  - Comma-separated list of public git repo URLs
 #
 # Optional:
 #   DRY_RUN=true                - Show what would be scanned without cloning or scanning
-#   CONVEX_AUTH_TOKEN            - Auth token for the Convex ingest endpoint
+#   TRAWL_AUTH_TOKEN            - Auth token for the Trawl ingest endpoint
 #   SECRET_VERIFICATION_ENABLED  - "true" to attempt live verification of found secrets (default: false)
 #   MAX_REPO_CLONE_SIZE_MB       - Maximum clone size per repo in MB (default: 500)
 
@@ -25,10 +25,14 @@ if [[ -z "${SEED_REPOS:-}" ]]; then
   exit 1
 fi
 
-if [[ "${DRY_RUN}" != "true" && -z "${CONVEX_INGEST_URL:-}" ]]; then
-  echo "ERROR: CONVEX_INGEST_URL is required for non-dry-run execution" >&2
+if [[ "${DRY_RUN}" != "true" && -z "${TRAWL_INGEST_URL:-}" ]]; then
+  echo "ERROR: TRAWL_INGEST_URL is required for non-dry-run execution" >&2
   exit 1
 fi
+
+# Base URL of the Trawl server, used for the job queue endpoints. Derived from
+# the ingest URL by default so a single variable configures the worker.
+TRAWL_API_BASE="${TRAWL_API_BASE:-${TRAWL_INGEST_URL%/api/ingest/*}}"
 
 MAX_CLONE_SIZE="${MAX_REPO_CLONE_SIZE_MB:-500}"
 VERIFY="${SECRET_VERIFICATION_ENABLED:-false}"
@@ -37,8 +41,8 @@ VERIFY="${SECRET_VERIFICATION_ENABLED:-false}"
 echo "Starting repo-scan-worker polling loop..."
 
 while true; do
-  # Poll Convex for next job
-  JOB_JSON=$(curl -s -f -X GET "${CONVEX_INGEST_URL/ingest\/secrets/jobs\/pop}?type=secret_scan" || echo "")
+  # Poll the Trawl server for the next job
+  JOB_JSON=$(curl -s -f -X GET "${TRAWL_API_BASE}/api/jobs/pop?type=secret_scan" || echo "")
 
   if [[ -z "$JOB_JSON" || "$JOB_JSON" == "{}" ]]; then
     sleep 5
@@ -69,7 +73,7 @@ while true; do
   done < "${REPOS_FILE}"
 
   if [[ $AUTH_ERROR -eq 1 ]]; then
-    curl -s -X POST "${CONVEX_INGEST_URL/ingest\/secrets/jobs\/complete}" -H "Content-Type: application/json" -d "{\"jobId\":\"${JOB_RUN_ID}\",\"status\":\"failed\"}" >/dev/null
+    curl -s -X POST "${TRAWL_API_BASE}/api/jobs/complete" -H "Content-Type: application/json" -d "{\"jobId\":\"${JOB_RUN_ID}\",\"status\":\"failed\"}" >/dev/null
     rm -f "${REPOS_FILE}"
     sleep 5
     continue
@@ -78,7 +82,7 @@ while true; do
   if [[ "${DRY_RUN}" == "true" ]]; then
     echo "[DRY RUN] Would scan the above repositories for secrets:"
     echo "[DRY RUN] Max clone size: ${MAX_CLONE_SIZE}MB"
-    curl -s -X POST "${CONVEX_INGEST_URL/ingest\/secrets/jobs\/complete}" -H "Content-Type: application/json" -d "{\"jobId\":\"${JOB_RUN_ID}\",\"status\":\"completed\"}" >/dev/null
+    curl -s -X POST "${TRAWL_API_BASE}/api/jobs/complete" -H "Content-Type: application/json" -d "{\"jobId\":\"${JOB_RUN_ID}\",\"status\":\"completed\"}" >/dev/null
     rm -f "${REPOS_FILE}"
     sleep 5
     continue
@@ -121,7 +125,7 @@ while true; do
   done < "${REPOS_FILE}"
 
   # ─── Result ingestion (with redaction) ─────────────────────────────────────────
-  echo "[${JOB_RUN_ID}] Redacting and posting findings to Convex..."
+  echo "[${JOB_RUN_ID}] Redacting and posting findings to the Trawl server..."
 
   CM_VER=$(checkmate --help 2>&1 | grep -i "Version:" | awk '{print $2}' || echo "")
   if [[ -z "${CM_VER}" || "${CM_VER}" == "0.0.0" ]]; then
@@ -137,24 +141,24 @@ while true; do
     --slurpfile findings "${RESULTS_DIR}/combined.json" \
     '{jobRunId: $jobRunId, verified: ($verified == "true"), checkmateVersion: $checkmateVersion, findings: $findings[0]}' 2>/dev/null || echo '{}')
 
-  AUTH_HEADER=""
-  if [[ -n "${CONVEX_AUTH_TOKEN:-}" ]]; then
-    AUTH_HEADER="-H \"Authorization: Bearer ${CONVEX_AUTH_TOKEN}\""
+  AUTH_ARGS=()
+  if [[ -n "${TRAWL_AUTH_TOKEN:-}" ]]; then
+    AUTH_ARGS=(-H "Authorization: Bearer ${TRAWL_AUTH_TOKEN}")
   fi
 
-  curl -sf -X POST "${CONVEX_INGEST_URL}" \
+  curl -sf -X POST "${TRAWL_INGEST_URL}" \
     -H "Content-Type: application/json" \
-    ${AUTH_HEADER} \
+    "${AUTH_ARGS[@]}" \
     -d "${PAYLOAD}" || {
-      echo "ERROR: Failed to post findings to Convex" >&2
-      curl -s -X POST "${CONVEX_INGEST_URL/ingest\/secrets/jobs\/complete}" -H "Content-Type: application/json" -d "{\"jobId\":\"${JOB_RUN_ID}\",\"status\":\"failed\"}" >/dev/null
+      echo "ERROR: Failed to post findings to the Trawl server" >&2
+      curl -s -X POST "${TRAWL_API_BASE}/api/jobs/complete" -H "Content-Type: application/json" -d "{\"jobId\":\"${JOB_RUN_ID}\",\"status\":\"failed\"}" >/dev/null
       rm -f "${REPOS_FILE}"
       rm -rf "${RESULTS_DIR}" "${CLONE_DIR}"
       sleep 5
       continue
     }
 
-  curl -s -X POST "${CONVEX_INGEST_URL/ingest\/secrets/jobs\/complete}" -H "Content-Type: application/json" -d "{\"jobId\":\"${JOB_RUN_ID}\",\"status\":\"completed\"}" >/dev/null
+  curl -s -X POST "${TRAWL_API_BASE}/api/jobs/complete" -H "Content-Type: application/json" -d "{\"jobId\":\"${JOB_RUN_ID}\",\"status\":\"completed\"}" >/dev/null
 
   echo "[${JOB_RUN_ID}] Repository scan complete."
   rm -f "${REPOS_FILE}"

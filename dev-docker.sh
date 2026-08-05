@@ -7,7 +7,7 @@ echo "============================================================"
 echo "      Trawl — Docker Compose Hot-Reloading Dev Environment  "
 echo "============================================================"
 echo ""
-echo "🚀 Starting Convex Backend + Angular Dashboard (Hot-Reload) + Scan Workers..."
+echo "🚀 Starting Trawl Server (SQLite) + Angular Dashboard (Hot-Reload) + Scan Workers..."
 echo ""
 
 docker compose -f "${SCRIPT_DIR}/deploy/compose/docker-compose.dev.yml" up --build

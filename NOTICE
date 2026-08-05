@@ -10,29 +10,17 @@ THIRD-PARTY DEPENDENCY LICENSE NOTICE
 
 ================================================================================
 
-Self-Hosted Convex Backend
---------------------------
-This project's Docker Compose deployment uses the self-hosted Convex backend
-(get-convex/convex-backend) as a runtime dependency.
+Every dependency of Trawl — the engine, the desktop application, the dashboard,
+and the Docker Compose deployment — is under an OSI-approved open-source
+licence. There are no source-available or otherwise restricted components in
+the dependency tree. Notable direct dependencies include:
 
-The self-hosted Convex backend is licensed under the Functional Source License,
-Version 1.1 (FSL-1.1). FSL-1.1 is a source-available license that converts to
-Apache License 2.0 two years after each release date.
-
-Key points for adopters:
-
-  - FSL-1.1 is NOT an OSI-approved open-source license.
-  - You may freely self-host, modify, and use the Convex backend.
-  - The "Competing Use" restriction prohibits offering a substantially similar
-    product as a managed service (see the FSL-1.1 text for exact terms).
-  - Each release automatically converts to Apache-2.0 two years after its
-    release date, at which point no restrictions apply.
-
-For full FSL-1.1 terms, see:
-  https://github.com/get-convex/convex-backend/blob/main/LICENSE
-
-This disclosure is provided so that downstream adopters of Trawl can make an
-informed decision about the full dependency tree's licensing terms.
+  - modernc.org/sqlite        (BSD-3-Clause)  pure-Go SQLite, the storage engine
+  - vantage                   (BSD-3-Clause)  https://github.com/adedayo/vantage
+                                              DNS, email and delegation assessment
+  - checkmate                 (Apache-2.0)    https://github.com/adedayo/checkmate
+  - wails                     (MIT License)   https://github.com/wailsapp/wails
+  - Angular                   (MIT License)   https://github.com/angular/angular
 
 ================================================================================
 

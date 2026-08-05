@@ -17,9 +17,6 @@ build/
 trawl
 trawl-server
 
-# Convex generated
-convex/_generated/
-
 # IDE
 .idea/
 *.swp

@@ -60,7 +60,7 @@ if [[ "${OVERWRITE_ENV}" =~ ^[Yy]$ ]]; then
 LLM_API_KEY=${LLM_KEY_INPUT}
 SEED_DOMAINS=${SEED_DOMAINS_INPUT}
 WEBHOOK_URL=${WEBHOOK_INPUT}
-CONVEX_URL=http://localhost:3210
+TRAWL_API_URL=http://localhost:8081
 EOF
 
     mkdir -p "${ROOT_DIR}/config"
@@ -95,5 +95,5 @@ echo ""
 echo "============================================================"
 echo "  Trawl is starting up!"
 echo "  Dashboard URL: http://localhost:8080"
-echo "  Convex Backend: http://localhost:3210"
+echo "  Trawl API:     http://localhost:8081"
 echo "============================================================"

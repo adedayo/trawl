@@ -10,10 +10,20 @@ import (
 type EventType string
 
 const (
-	EventAssetUpdated   EventType = "asset:updated"
-	EventFindingNew     EventType = "finding:new"
-	EventScanProgress   EventType = "scan:progress"
-	EventRegressionNew  EventType = "regression:new"
+	EventAssetUpdated  EventType = "asset:updated"
+	EventFindingNew    EventType = "finding:new"
+	EventScanProgress  EventType = "scan:progress"
+	EventRegressionNew EventType = "regression:new"
+
+	// Job lifecycle, emitted by the headless server as workers claim and
+	// complete units of work.
+	EventJobEnqueued  EventType = "job:enqueued"
+	EventJobStarted   EventType = "job:started"
+	EventJobCompleted EventType = "job:completed"
+
+	// EventIngestReceived is emitted once a worker payload has been durably
+	// recorded, not when it is received — subscribers may assume persistence.
+	EventIngestReceived EventType = "ingest:received"
 )
 
 // Event represents a mutation or state change event.

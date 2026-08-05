@@ -14,10 +14,7 @@
     "target": "ES2022",
     "module": "preserve",
     "ignoreDeprecations": "6.0",
-    "baseUrl": "./",
-    "paths": {
-      "convex/*": ["./node_modules/convex/*"]
-    }
+    "baseUrl": "./"
   },
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,

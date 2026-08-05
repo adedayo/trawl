@@ -45,7 +45,7 @@ These are enforced in code, not just documented as policy.
 - `pkg/scanner/`, `pkg/service/` — scanning and assessment logic. `pkg/scanner/email.go` is interim: its hand-rolled DNS lookups are superseded by vantage under Change 006 and should not be extended.
 - `app/` — the Angular dashboard. Standalone/signals only; Tailwind + spartan/ui for all styling, no ad hoc CSS.
 - `jobs/<job-name>/` — containerised workers, each with its own Dockerfile and a mandatory `--dry-run` flag. Job code has no awareness of what scheduler invoked it.
-- `deploy/compose/` — Docker Compose files, Ofelia schedule config, nginx config, guided setup script. **Still runs the self-hosted Convex backend**, which the engine no longer uses; retiring it is Change 005 Phase 5, and it is the last Convex dependency in the project.
+- `deploy/compose/` — Docker Compose files, Ofelia schedule config, nginx config, guided setup script. The stack is `trawl-server` (Go + SQLite, the sole ingest target and job broker), the nginx-served dashboard, Ofelia, and the worker containers. There is no separate database service.
 - `config/` — one `config/<instance-name>.json` per deployment; nothing instance-specific lives elsewhere.
 - `.github/scripts/` — the dependency gate: a pure classifier plus its triage runner, both unit-tested.
 - `openspec/` — specs, changes and the RISK-ARC reasoning document.
