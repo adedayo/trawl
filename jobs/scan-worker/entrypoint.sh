@@ -4,13 +4,13 @@ set -euo pipefail
 # scan-worker entrypoint
 #
 # Required env vars:
-#   CONVEX_INGEST_URL   - Convex HTTP action URL for posting results
+#   TRAWL_INGEST_URL   - Trawl server URL for posting results
 #   SEED_DOMAINS        - Comma-separated list of domains to scan
 #   SEED_CIDRS          - Comma-separated list of CIDRs to scan
 #
 # Optional:
 #   DRY_RUN=true        - Resolve targets and print what would be scanned, without sending any packets
-#   CONVEX_AUTH_TOKEN    - Auth token for the Convex ingest endpoint
+#   TRAWL_AUTH_TOKEN    - Auth token for the Trawl ingest endpoint
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -28,17 +28,21 @@ if [[ -z "${SEED_DOMAINS:-}" && -z "${SEED_CIDRS:-}" ]]; then
   exit 1
 fi
 
-if [[ "${DRY_RUN}" != "true" && -z "${CONVEX_INGEST_URL:-}" ]]; then
-  echo "ERROR: CONVEX_INGEST_URL is required for non-dry-run execution" >&2
+if [[ "${DRY_RUN}" != "true" && -z "${TRAWL_INGEST_URL:-}" ]]; then
+  echo "ERROR: TRAWL_INGEST_URL is required for non-dry-run execution" >&2
   exit 1
 fi
+
+# Base URL of the Trawl server, used for the job queue endpoints. Derived from
+# the ingest URL by default so a single variable configures the worker.
+TRAWL_API_BASE="${TRAWL_API_BASE:-${TRAWL_INGEST_URL%/api/ingest/*}}"
 
 # ─── Worker Polling Loop ───────────────────────────────────────────────────────
 echo "Starting scan-worker polling loop..."
 
 while true; do
-  # Poll Convex for next job
-  JOB_JSON=$(curl -s -f -X GET "${CONVEX_INGEST_URL/ingest\/scan/jobs\/pop}?type=scan" || echo "")
+  # Poll the Trawl server for the next job
+  JOB_JSON=$(curl -s -f -X GET "${TRAWL_API_BASE}/api/jobs/pop?type=scan" || echo "")
 
   if [[ -z "$JOB_JSON" || "$JOB_JSON" == "{}" ]]; then
     sleep 5
@@ -63,7 +67,7 @@ while true; do
     echo "[DRY RUN] Would scan targets:"
     cat "${TARGETS_FILE}"
     # Complete job as success
-    curl -s -X POST "${CONVEX_INGEST_URL/ingest\/scan/jobs\/complete}" -H "Content-Type: application/json" -d "{\"jobId\":\"${JOB_RUN_ID}\"}" >/dev/null
+    curl -s -X POST "${TRAWL_API_BASE}/api/jobs/complete" -H "Content-Type: application/json" -d "{\"jobId\":\"${JOB_RUN_ID}\"}" >/dev/null
     rm -f "${TARGETS_FILE}"
     sleep 5
     continue
@@ -80,14 +84,14 @@ while true; do
     echo "[${JOB_RUN_ID}] Running naabu (port scan)..."
     naabu -list "${TARGETS_FILE}" -json -o "${RESULTS_DIR}/naabu.json" 2>/dev/null || true
     
-    AUTH_HEADER=""
-    if [[ -n "${CONVEX_AUTH_TOKEN:-}" ]]; then
-      AUTH_HEADER="-H \"Authorization: Bearer ${CONVEX_AUTH_TOKEN}\""
+    AUTH_ARGS=()
+    if [[ -n "${TRAWL_AUTH_TOKEN:-}" ]]; then
+      AUTH_ARGS=(-H "Authorization: Bearer ${TRAWL_AUTH_TOKEN}")
     fi
 
-    echo "[${JOB_RUN_ID}] Posting partial results (naabu) to Convex..."
+    echo "[${JOB_RUN_ID}] Posting partial results (naabu) to the Trawl server..."
     PAYLOAD_NAABU=$(jq -n --arg jobRunId "${JOB_RUN_ID}" --slurpfile naabu "${RESULTS_DIR}/naabu.json" '{jobRunId: $jobRunId, naabu: $naabu}' 2>/dev/null || echo '{}')
-    curl -s -X POST "${CONVEX_INGEST_URL}" -H "Content-Type: application/json" ${AUTH_HEADER} -d "${PAYLOAD_NAABU}" >/dev/null || true
+    curl -s -X POST "${TRAWL_INGEST_URL}" -H "Content-Type: application/json" "${AUTH_ARGS[@]}" -d "${PAYLOAD_NAABU}" >/dev/null || true
   ) &
 
   # Step 2: HTTP probing with httpx
@@ -97,22 +101,27 @@ while true; do
       -td -title -status-code -tech-detect -tls-grab -cdn \
       2>/dev/null || true
 
-    AUTH_HEADER=""
-    if [[ -n "${CONVEX_AUTH_TOKEN:-}" ]]; then
-      AUTH_HEADER="-H \"Authorization: Bearer ${CONVEX_AUTH_TOKEN}\""
+    AUTH_ARGS=()
+    if [[ -n "${TRAWL_AUTH_TOKEN:-}" ]]; then
+      AUTH_ARGS=(-H "Authorization: Bearer ${TRAWL_AUTH_TOKEN}")
     fi
 
-    echo "[${JOB_RUN_ID}] Posting partial results (httpx) to Convex..."
+    echo "[${JOB_RUN_ID}] Posting partial results (httpx) to the Trawl server..."
     PAYLOAD_HTTPX=$(jq -n --arg jobRunId "${JOB_RUN_ID}" --slurpfile httpx "${RESULTS_DIR}/httpx.json" '{jobRunId: $jobRunId, httpx: $httpx}' 2>/dev/null || echo '{}')
-    curl -s -X POST "${CONVEX_INGEST_URL}" -H "Content-Type: application/json" ${AUTH_HEADER} -d "${PAYLOAD_HTTPX}" >/dev/null || true
+    curl -s -X POST "${TRAWL_INGEST_URL}" -H "Content-Type: application/json" "${AUTH_ARGS[@]}" -d "${PAYLOAD_HTTPX}" >/dev/null || true
   ) &
 
   # Step 2.5: Email Posture (DNS Checks)
+  #
+  # INTERIM: these `dig` calls duplicate assessment logic that belongs upstream
+  # in vantage (see openspec/project.md and change 006). Do not extend this
+  # block — new email or DNS assessment goes into vantage, behind an egress
+  # profile, and reaches Trawl through the vantage library.
   (
     echo "[${JOB_RUN_ID}] Running email posture checks..."
-    AUTH_HEADER=""
-    if [[ -n "${CONVEX_AUTH_TOKEN:-}" ]]; then
-      AUTH_HEADER="-H \"Authorization: Bearer ${CONVEX_AUTH_TOKEN}\""
+    AUTH_ARGS=()
+    if [[ -n "${TRAWL_AUTH_TOKEN:-}" ]]; then
+      AUTH_ARGS=(-H "Authorization: Bearer ${TRAWL_AUTH_TOKEN}")
     fi
 
     while IFS= read -r domain; do
@@ -161,9 +170,9 @@ while true; do
             priority: $priority
           }')
         
-        curl -s -X POST "${CONVEX_INGEST_URL/ingest\/scan/ingest\/email-posture}" \
+        curl -s -X POST "${TRAWL_API_BASE}/api/ingest/email-posture" \
           -H "Content-Type: application/json" \
-          ${AUTH_HEADER} \
+          "${AUTH_ARGS[@]}" \
           -d "$PAYLOAD" >/dev/null || true
       fi
     done < "${TARGETS_FILE}"
@@ -176,12 +185,12 @@ while true; do
       -severity critical,high,medium \
       2>/dev/null || true
 
-    AUTH_HEADER=""
-    if [[ -n "${CONVEX_AUTH_TOKEN:-}" ]]; then
-      AUTH_HEADER="-H \"Authorization: Bearer ${CONVEX_AUTH_TOKEN}\""
+    AUTH_ARGS=()
+    if [[ -n "${TRAWL_AUTH_TOKEN:-}" ]]; then
+      AUTH_ARGS=(-H "Authorization: Bearer ${TRAWL_AUTH_TOKEN}")
     fi
 
-    echo "[${JOB_RUN_ID}] Posting final results (nuclei) to Convex..."
+    echo "[${JOB_RUN_ID}] Posting final results (nuclei) to the Trawl server..."
     PAYLOAD_NUCLEI=$(jq -n \
       --arg jobRunId "${JOB_RUN_ID}" \
       --slurpfile nuclei "${RESULTS_DIR}/nuclei.json" \
@@ -190,9 +199,9 @@ while true; do
         nuclei: $nuclei
       }' 2>/dev/null || echo '{}')
 
-    curl -sf -X POST "${CONVEX_INGEST_URL}" \
+    curl -sf -X POST "${TRAWL_INGEST_URL}" \
       -H "Content-Type: application/json" \
-      ${AUTH_HEADER} \
+      "${AUTH_ARGS[@]}" \
       -d "${PAYLOAD_NUCLEI}" || true
   ) &
 
@@ -201,7 +210,7 @@ while true; do
   wait
 
   # Mark job as complete
-  curl -s -X POST "${CONVEX_INGEST_URL/ingest\/scan/jobs\/complete}" -H "Content-Type: application/json" -d "{\"jobId\":\"${JOB_RUN_ID}\",\"status\":\"completed\"}" >/dev/null
+  curl -s -X POST "${TRAWL_API_BASE}/api/jobs/complete" -H "Content-Type: application/json" -d "{\"jobId\":\"${JOB_RUN_ID}\",\"status\":\"completed\"}" >/dev/null
 
   echo "[${JOB_RUN_ID}] Scan complete."
   rm -f "${TARGETS_FILE}"

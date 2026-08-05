@@ -4,12 +4,12 @@ set -euo pipefail
 # discovery-worker entrypoint
 #
 # Required env vars:
-#   CONVEX_INGEST_URL   - Convex HTTP action URL for posting candidate assets
+#   TRAWL_INGEST_URL   - Trawl server URL for posting candidate assets
 #   SEED_DOMAINS        - Comma-separated list of seed domains
 #
 # Optional:
 #   DRY_RUN=true        - Show what would be discovered without posting results
-#   CONVEX_AUTH_TOKEN    - Auth token for the Convex ingest endpoint
+#   TRAWL_AUTH_TOKEN    - Auth token for the Trawl ingest endpoint
 
 DRY_RUN="${DRY_RUN:-false}"
 
@@ -23,8 +23,8 @@ if [[ -z "${SEED_DOMAINS:-}" ]]; then
   exit 1
 fi
 
-if [[ "${DRY_RUN}" != "true" && -z "${CONVEX_INGEST_URL:-}" ]]; then
-  echo "ERROR: CONVEX_INGEST_URL is required for non-dry-run execution" >&2
+if [[ "${DRY_RUN}" != "true" && -z "${TRAWL_INGEST_URL:-}" ]]; then
+  echo "ERROR: TRAWL_INGEST_URL is required for non-dry-run execution" >&2
   exit 1
 fi
 
@@ -66,7 +66,7 @@ while IFS= read -r domain; do
 done < "${DOMAINS_FILE}"
 
 # ─── Result ingestion ──────────────────────────────────────────────────────────
-echo "[${JOB_RUN_ID}] Posting candidate assets to Convex..."
+echo "[${JOB_RUN_ID}] Posting candidate assets to the Trawl server..."
 
 PAYLOAD=$(jq -n \
   --arg jobRunId "${JOB_RUN_ID}" \
@@ -78,16 +78,16 @@ PAYLOAD=$(jq -n \
     amass: $amass
   }' 2>/dev/null || echo '{}')
 
-AUTH_HEADER=""
-if [[ -n "${CONVEX_AUTH_TOKEN:-}" ]]; then
-  AUTH_HEADER="-H \"Authorization: Bearer ${CONVEX_AUTH_TOKEN}\""
+AUTH_ARGS=()
+if [[ -n "${TRAWL_AUTH_TOKEN:-}" ]]; then
+  AUTH_ARGS=(-H "Authorization: Bearer ${TRAWL_AUTH_TOKEN}")
 fi
 
-curl -sf -X POST "${CONVEX_INGEST_URL}" \
+curl -sf -X POST "${TRAWL_INGEST_URL}" \
   -H "Content-Type: application/json" \
-  ${AUTH_HEADER} \
+  "${AUTH_ARGS[@]}" \
   -d "${PAYLOAD}" || {
-    echo "ERROR: Failed to post candidates to Convex" >&2
+    echo "ERROR: Failed to post candidates to the Trawl server" >&2
     exit 1
   }
 

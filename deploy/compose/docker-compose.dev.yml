@@ -1,25 +1,30 @@
-services:
-  convex:
-    image: node:22
-    container_name: trawl-convex-dev
-    restart: unless-stopped
-    stdin_open: true
-    working_dir: /workspace
-    ports:
-      - "3210:3212"
-      - "3211:3213"
-    environment:
-      - CONVEX_AGENT_MODE=anonymous
-      - CI=true
-      - CHOKIDAR_USEPOLLING=true
-    volumes:
-      - ../../:/workspace
-      - /workspace/node_modules
-    command: sh -c "npm install convex && apt-get update && apt-get install -y socat && (socat TCP-LISTEN:3212,fork,bind=$$(hostname -i) TCP:127.0.0.1:3210 &) && (socat TCP-LISTEN:3213,fork,bind=$$(hostname -i) TCP:127.0.0.1:3211 &) && npx convex dev"
+# Trawl — development stack with hot reload.
+#
+# The Go server runs under `go run` with the source bind-mounted, and the
+# Angular dashboard runs `ng serve`. State is a SQLite file on a named volume,
+# so restarting the server does not lose the database.
 
+services:
+  trawl-server:
+    image: golang:1.26-alpine
+    container_name: trawl-server-dev
+    restart: unless-stopped
+    working_dir: /src
+    ports:
+      - "8081:8080"
+    environment:
+      - CGO_ENABLED=0
+      - TRAWL_DB_PATH=/data/trawl.db
+      - TRAWL_LISTEN_ADDR=:8080
+      - TRAWL_AUTH_TOKEN=${TRAWL_AUTH_TOKEN:-}
+    volumes:
+      - ../../:/src
+      - trawl-data-dev:/data
+      - go-mod-cache:/go/pkg/mod
+    command: go run ./cmd/trawl server
 
   dashboard-dev:
-    image: node:22-alpine
+    image: node:24-alpine
     container_name: trawl-dashboard-dev
     restart: unless-stopped
     working_dir: /app
@@ -28,32 +33,38 @@ services:
     volumes:
       - ../../app:/app
       - /app/node_modules
-      - ../../convex:/convex
     environment:
       - CHOKIDAR_USEPOLLING=true
     command: sh -c "npm install && npx ng serve --host 0.0.0.0 --port 4200"
     depends_on:
-      - convex
+      - trawl-server
 
   scan-worker:
     build:
       context: ../../jobs/scan-worker
       dockerfile: Dockerfile
     container_name: trawl-scan-worker-dev
+    depends_on:
+      - trawl-server
     environment:
-      - CONVEX_INGEST_URL=http://convex:3211/api/ingest/scan
+      - TRAWL_INGEST_URL=http://trawl-server:8080/api/ingest/scan
+      - TRAWL_AUTH_TOKEN=${TRAWL_AUTH_TOKEN:-}
       - SEED_DOMAINS=${SEED_DOMAINS:-example.com}
-      - DRY_RUN=${DRY_RUN:-false}
+      - DRY_RUN=${DRY_RUN:-true}
 
   repo-scan-worker:
     build:
       context: ../../jobs/repo-scan-worker
       dockerfile: Dockerfile
     container_name: trawl-repo-scan-worker-dev
+    depends_on:
+      - trawl-server
     environment:
-      - CONVEX_INGEST_URL=http://convex:3211/api/ingest/secrets
+      - TRAWL_INGEST_URL=http://trawl-server:8080/api/ingest/secrets
+      - TRAWL_AUTH_TOKEN=${TRAWL_AUTH_TOKEN:-}
       - SEED_REPOS=${SEED_REPOS:-https://github.com/example/repo}
-      - DRY_RUN=${DRY_RUN:-false}
+      - DRY_RUN=${DRY_RUN:-true}
 
 volumes:
-  convex-data-dev:
+  trawl-data-dev:
+  go-mod-cache:

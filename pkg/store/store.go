@@ -107,6 +107,31 @@ type EmailPosture struct {
 	DANEValid   bool      `json:"daneValid"`
 }
 
+// JobStatus defines the lifecycle state of a queued worker job.
+type JobStatus string
+
+const (
+	JobStatusPending   JobStatus = "pending"
+	JobStatusRunning   JobStatus = "running"
+	JobStatusCompleted JobStatus = "completed"
+	JobStatusFailed    JobStatus = "failed"
+)
+
+// Job is a unit of work claimed by an external worker container.
+//
+// The JSON tag on ID is `_id` for wire compatibility with the worker
+// entrypoints, which were written against a document-store shape.
+type Job struct {
+	ID          string     `json:"_id"`
+	Type        string     `json:"type"` // "discovery" | "scan" | "secret_scan"
+	Status      JobStatus  `json:"status"`
+	Targets     []string   `json:"targets"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	StartedAt   *time.Time `json:"startedAt,omitempty"`
+	CompletedAt *time.Time `json:"completedAt,omitempty"`
+	Error       string     `json:"error,omitempty"`
+}
+
 // Store defines the interface for Trawl's universal storage engine.
 type Store interface {
 	// Assets
@@ -133,6 +158,16 @@ type Store interface {
 	// Settings
 	GetSetting(ctx context.Context, key string) (string, error)
 	SaveSetting(ctx context.Context, key string, value string) error
+
+	// Job queue
+	//
+	// PopJob atomically claims the oldest pending job of the given type and
+	// transitions it to running. It returns (nil, nil) when the queue is empty
+	// — an empty queue is the normal steady state, not an error.
+	EnqueueJob(ctx context.Context, jobType string, targets []string) (*Job, error)
+	PopJob(ctx context.Context, jobType string) (*Job, error)
+	CompleteJob(ctx context.Context, jobID string, status JobStatus, errMsg string) error
+	GetJobs(ctx context.Context, status JobStatus) ([]Job, error)
 
 	// Lifecycle & Health
 	Close() error

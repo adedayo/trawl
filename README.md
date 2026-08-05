@@ -30,29 +30,32 @@ Posture-regression detection answers *"did something that used to be fine stop b
 
 ```
                      ┌─────────────────────────┐
-   Ofelia (cron)  ──▶│  discovery-worker        │──▶ POST candidates
-                     │  (CT logs, subfinder,    │
-                     │   ASN/WHOIS pivots)      │
+   Ofelia (cron)  ──▶│  discovery-worker       │──▶ POST candidates
+                     │  (CT logs, subfinder,   │
+                     │   ASN/WHOIS pivots)     │
                      └─────────────────────────┘
                                                         │
                      ┌─────────────────────────┐        ▼
-   Ofelia (cron)  ──▶│  scan-worker             │   ┌──────────────────────────┐
-                     │  (naabu/httpx/nuclei,    │──▶│    Convex (self-hosted)   │
-                     │   KEV-tagged templates)  │   │  assets · scans           │
-                     └─────────────────────────┘   │  findings · reference     │
-                                                     │  (KEV/NVD/EPSS) · alerts  │
-   Ofelia (cron)  ──▶┌─────────────────────────┐   │  HTTP actions (ingest)    │
-                     │  repo-scan-worker        │──▶│  scheduled fns (feeds)    │
-                     │  (gitleaks/trufflehog)   │   │  actions (correlation,    │
-                     └─────────────────────────┘   │   AI triage, alerting)    │
+   Ofelia (cron)  ──▶│  scan-worker            │   ┌──────────────────────────┐
+                     │  (naabu/httpx/nuclei,   │──▶│  trawl-server (Go)       │
+                     │   KEV-tagged templates) │   │  SQLite (WAL) store:     │
+                     └─────────────────────────┘   │   assets · scans         │
+                                                     │   findings · reference   │
+   Ofelia (cron)  ──▶┌─────────────────────────┐   │   (KEV/NVD/EPSS)         │
+                     │  repo-scan-worker       │──▶│  job queue (pop/complete)│
+                     │  (checkmate)            │   │  ingest endpoints        │
+                     └─────────────────────────┘   │  correlation · AI triage │
+                                                     │  alerting               │
                                                      └──────────────┬───────────┘
-                                                                    │ real-time
-                                                                    ▼ subscription
+                                                                    │ event bus
+                                                                    ▼ (WebSocket)
                                                      ┌──────────────────────────┐
                                                      │   Angular dashboard      │
                                                      │   (nginx container)      │
                                                      └──────────────────────────┘
 ```
+
+Workers claim work from `GET /api/jobs/pop`, post results to `POST /api/ingest/*`, and report terminal status to `POST /api/jobs/complete`. The server is the only component holding state; there is no separate database service.
 
 **Self-hosted, single-command deployment** — the engine, job scheduling, and the dashboard all run in Docker Compose. No cloud account required. The same engine also ships as a single-binary desktop application.
 
@@ -164,10 +167,8 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 
 ### Dependency License Notice
 
-> [!IMPORTANT]
-> The Docker Compose deployment still runs the self-hosted Convex backend (`get-convex/convex-backend`) as a runtime dependency, pending completion of the Go server migration (Change 005). It is licensed under **FSL-1.1** (Functional Source License), which converts to Apache-2.0 two years after each release. FSL-1.1 is source-available and free to self-host and modify, but it is **not** an OSI-approved open-source license. This is disclosed here so adopters can make an informed decision about the full dependency tree's licensing terms.
->
-> The desktop application and the engine itself have no such dependency. All other dependencies use standard open-source licenses — including [vantage](https://github.com/adedayo/vantage) (BSD-3-Clause), which provides DNS, email and delegation assessment. See [NOTICE](NOTICE) for details.
+> [!NOTE]
+> Every dependency of Trawl — engine, desktop application, dashboard, and the Docker Compose deployment — is under an OSI-approved open-source licence, including [vantage](https://github.com/adedayo/vantage) (BSD-3-Clause), which provides DNS, email and delegation assessment. See [NOTICE](NOTICE) for details.
 
 ## Contributing
 

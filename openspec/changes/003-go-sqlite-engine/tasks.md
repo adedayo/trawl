@@ -15,6 +15,8 @@
 - [x] Wire the Wails IPC event emitter adapter (`app.go`).
 - [ ] Wire the WebSocket broadcaster adapter in `cmd/trawl/server.go` — the server currently has no subscriber attached to the bus
 
-## Phase 3 — Convex Cleanup
+## Phase 3 — Convex Cleanup — COMPLETE
 - [x] Remove Convex npm packages and `convex/` directory once Go store migration passes all unit tests.
 - [x] Remove the stale Convex references from `openspec/project.md` and the vestigial `convex/**/*.ts` include from the root `tsconfig.json`
+- [x] Remove the `convex/*` path mapping from `app/tsconfig.json`, the `convex/_generated` entry from `.gitignore`, and the `CONVEX_URL` variable from `.env.example` and both `setup.sh` copies
+- [x] Retire the Convex container from the Compose stack (see 005 Phase 5). No reference to Convex remains anywhere outside these historical records.
