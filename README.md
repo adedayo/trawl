@@ -101,6 +101,37 @@ cp .env.example .env
 docker compose -f deploy/compose/docker-compose.yml up -d
 ```
 
+### Desktop application
+
+The same engine ships as a single-binary desktop app. It needs no Docker, no
+server and no configuration — SQLite lives in `~/.trawl/trawl.db`.
+
+```bash
+go install github.com/wailsapp/wails/v2/cmd/wails@latest
+export PATH="$PATH:$(go env GOPATH)/bin"
+
+wails doctor          # verify toolchain prerequisites
+wails dev             # hot-reloading desktop window
+wails build           # produces build/bin/Trawl.app (macOS)
+```
+
+`wails dev` runs `ng serve` behind the native window, so both Go and Angular
+hot-reload. It also regenerates the TypeScript bindings in `app/wailsjs/` from
+the methods bound in `main.go` — commit those when you change `app.go`'s public
+surface, or the frontend calls a method the backend no longer exposes.
+
+Note that `go build ./...` requires a prior `npm run build`: `main.go` embeds
+the compiled dashboard with `go:embed`, so the engine cannot compile until
+`app/dist/` exists. `go build ./pkg/... ./cmd/...` skips that dependency.
+
+### Local checks
+
+```bash
+./test.sh              # mirrors CI exactly
+./test.sh --docker     # also build the server image and round-trip a job
+./test.sh --quick      # skip the production bundle
+```
+
 ## Project Structure
 
 ```
