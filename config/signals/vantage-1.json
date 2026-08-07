@@ -1,0 +1,826 @@
+{
+  "registryVersion": "v4",
+  "libraryMajor": "1",
+  "entries": [
+    {
+      "signalId": "SURF-AXFR-001",
+      "condition": "Zone transfer permitted — the entire zone is disclosed",
+      "weaknessClass": "delegation-integrity",
+      "scenario": "zone-disclosure",
+      "stage": "reconnaissance",
+      "dedupGroup": "axfr:delegation-integrity",
+      "control": "zone-transfer",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-AXFR-002",
+      "condition": "Zone transfer partially permitted — zone metadata disclosed",
+      "weaknessClass": "delegation-integrity",
+      "scenario": "zone-disclosure",
+      "stage": "reconnaissance",
+      "dedupGroup": "axfr:delegation-integrity",
+      "control": "zone-transfer",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-BIMI-001",
+      "condition": "BIMI record published without an enforcing DMARC policy",
+      "weaknessClass": "email-authentication",
+      "scenario": "brand-impersonation",
+      "stage": "delivery",
+      "dedupGroup": "bimi:email-authentication",
+      "control": "bimi",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-BIMI-002",
+      "condition": "BIMI logo location is missing or not HTTPS",
+      "weaknessClass": "email-authentication",
+      "scenario": "brand-impersonation",
+      "stage": "delivery",
+      "dedupGroup": "bimi:email-authentication",
+      "control": "bimi",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-BIMI-003",
+      "condition": "BIMI record has no Verified Mark Certificate",
+      "weaknessClass": "email-authentication",
+      "scenario": "brand-impersonation",
+      "stage": "delivery",
+      "dedupGroup": "bimi:email-authentication",
+      "control": "bimi",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-CAA-001",
+      "condition": "No CAA record at the domain or any ancestor",
+      "weaknessClass": "certificate-issuance",
+      "scenario": "certificate-mis-issuance",
+      "stage": "reconnaissance",
+      "dedupGroup": "caa:certificate-issuance",
+      "control": "caa",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-CAA-002",
+      "condition": "CAA policy restricts issuance but not wildcard issuance",
+      "weaknessClass": "certificate-issuance",
+      "scenario": "certificate-mis-issuance",
+      "stage": "reconnaissance",
+      "dedupGroup": "caa:certificate-issuance",
+      "control": "caa",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-CAA-003",
+      "condition": "CAA policy has no iodef reporting address",
+      "weaknessClass": "certificate-issuance",
+      "scenario": "certificate-mis-issuance",
+      "stage": "reconnaissance",
+      "dedupGroup": "caa:certificate-issuance",
+      "control": "caa",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-CAA-004",
+      "condition": "CAA record sets the critical flag on an unrecognised tag",
+      "weaknessClass": "certificate-issuance",
+      "scenario": "certificate-mis-issuance",
+      "stage": "reconnaissance",
+      "dedupGroup": "caa:certificate-issuance",
+      "control": "caa",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-CAA-005",
+      "condition": "CAA policy is inherited from an ancestor domain",
+      "weaknessClass": "certificate-issuance",
+      "scenario": "certificate-mis-issuance",
+      "stage": "reconnaissance",
+      "dedupGroup": "caa:certificate-issuance",
+      "control": "caa",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-CT-001",
+      "condition": "Certificates issued for hosts that no longer resolve",
+      "weaknessClass": "attack-surface-exposure",
+      "scenario": "forgotten-asset",
+      "stage": "reconnaissance",
+      "dedupGroup": "ct:attack-surface-exposure",
+      "control": "certificate-transparency",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-CT-002",
+      "condition": "Internal-looking hostnames disclosed in public certificates",
+      "weaknessClass": "attack-surface-exposure",
+      "scenario": "forgotten-asset",
+      "stage": "reconnaissance",
+      "dedupGroup": "ct:attack-surface-exposure",
+      "control": "certificate-transparency",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-CT-003",
+      "condition": "Wildcard certificate covering the apex",
+      "weaknessClass": "attack-surface-exposure",
+      "scenario": "forgotten-asset",
+      "stage": "reconnaissance",
+      "dedupGroup": "ct:attack-surface-exposure",
+      "control": "certificate-transparency",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-CT-004",
+      "condition": "Related domains discovered through shared certificates",
+      "weaknessClass": "attack-surface-exposure",
+      "scenario": "forgotten-asset",
+      "stage": "reconnaissance",
+      "dedupGroup": "ct:attack-surface-exposure",
+      "control": "certificate-transparency",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DKIM-001",
+      "condition": "No DKIM key found",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "dkim:email-authentication",
+      "control": "dkim",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DKIM-002",
+      "condition": "DKIM RSA key is shorter than 1024 bits",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "dkim:email-authentication",
+      "control": "dkim",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DKIM-003",
+      "condition": "DKIM RSA key is only 1024 bits",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "dkim:email-authentication",
+      "control": "dkim",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DKIM-004",
+      "condition": "DKIM key is revoked (empty p=)",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "dkim:email-authentication",
+      "control": "dkim",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DKIM-005",
+      "condition": "DKIM selector is in test mode (t=y)",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "dkim:email-authentication",
+      "control": "dkim",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DKIM-006",
+      "condition": "DKIM key record is malformed",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "dkim:email-authentication",
+      "control": "dkim",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DMARC-001",
+      "condition": "No DMARC record published",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "dmarc:email-authentication",
+      "control": "dmarc",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DMARC-002",
+      "condition": "DMARC policy is monitoring only (p=none)",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "dmarc:email-authentication",
+      "control": "dmarc",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DMARC-003",
+      "condition": "DMARC policy is applied to only a subset of mail (pct\u003c100)",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "dmarc:email-authentication",
+      "control": "dmarc",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DMARC-004",
+      "condition": "Subdomain policy is weaker than the domain policy",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "dmarc:email-authentication",
+      "control": "dmarc",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DMARC-005",
+      "condition": "No DMARC aggregate reporting address (rua)",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "dmarc:email-authentication",
+      "control": "dmarc",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DMARC-006",
+      "condition": "External reporting destination lacks an authorisation record",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "dmarc:email-authentication",
+      "control": "dmarc",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DMARC-007",
+      "condition": "Multiple DMARC records published",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "dmarc:email-authentication",
+      "control": "dmarc",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DMARC-008",
+      "condition": "DMARC record is syntactically invalid",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "dmarc:email-authentication",
+      "control": "dmarc",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DMARC-009",
+      "condition": "DMARC policy is inherited from the organisational domain",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "dmarc:email-authentication",
+      "control": "dmarc",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DNSSEC-001",
+      "condition": "DNSSEC is not enabled",
+      "weaknessClass": "domain-integrity",
+      "scenario": "dns-response-forgery",
+      "stage": "reconnaissance",
+      "dedupGroup": "dnssec:domain-integrity",
+      "control": "dnssec",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DNSSEC-002",
+      "condition": "Zone is signed but has no DS record at the parent",
+      "weaknessClass": "domain-integrity",
+      "scenario": "dns-response-forgery",
+      "stage": "reconnaissance",
+      "dedupGroup": "dnssec:domain-integrity",
+      "control": "dnssec",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DNSSEC-003",
+      "condition": "DS record does not match any published DNSKEY",
+      "weaknessClass": "domain-integrity",
+      "scenario": "dns-response-forgery",
+      "stage": "reconnaissance",
+      "dedupGroup": "dnssec:domain-integrity",
+      "control": "dnssec",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DNSSEC-004",
+      "condition": "Weak DNSSEC signing algorithm or key size",
+      "weaknessClass": "domain-integrity",
+      "scenario": "dns-response-forgery",
+      "stage": "reconnaissance",
+      "dedupGroup": "dnssec:domain-integrity",
+      "control": "dnssec",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DNSSEC-005",
+      "condition": "DNSSEC signature expires within seven days",
+      "weaknessClass": "domain-integrity",
+      "scenario": "dns-response-forgery",
+      "stage": "reconnaissance",
+      "dedupGroup": "dnssec:domain-integrity",
+      "control": "dnssec",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DNSSEC-006",
+      "condition": "DNSSEC signature has expired",
+      "weaknessClass": "domain-integrity",
+      "scenario": "dns-response-forgery",
+      "stage": "reconnaissance",
+      "dedupGroup": "dnssec:domain-integrity",
+      "control": "dnssec",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DNSSEC-007",
+      "condition": "Zone uses NSEC, permitting zone walking",
+      "weaknessClass": "domain-integrity",
+      "scenario": "zone-enumeration",
+      "stage": "reconnaissance",
+      "dedupGroup": "dnssec:domain-integrity",
+      "control": "dnssec",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DNSSEC-008",
+      "condition": "NSEC3 iteration count above current guidance",
+      "weaknessClass": "domain-integrity",
+      "scenario": "zone-enumeration",
+      "stage": "reconnaissance",
+      "dedupGroup": "dnssec:domain-integrity",
+      "control": "dnssec",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-MTASTS-001",
+      "condition": "No MTA-STS policy published",
+      "weaknessClass": "mail-transport",
+      "scenario": "email-interception",
+      "stage": "delivery",
+      "dedupGroup": "mtasts:mail-transport",
+      "control": "mta-sts",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-MTASTS-002",
+      "condition": "MTA-STS policy file is unreachable",
+      "weaknessClass": "mail-transport",
+      "scenario": "email-interception",
+      "stage": "delivery",
+      "dedupGroup": "mtasts:mail-transport",
+      "control": "mta-sts",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-MTASTS-003",
+      "condition": "MTA-STS policy is in testing mode",
+      "weaknessClass": "mail-transport",
+      "scenario": "email-interception",
+      "stage": "delivery",
+      "dedupGroup": "mtasts:mail-transport",
+      "control": "mta-sts",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-MTASTS-004",
+      "condition": "MTA-STS policy mode is none",
+      "weaknessClass": "mail-transport",
+      "scenario": "email-interception",
+      "stage": "delivery",
+      "dedupGroup": "mtasts:mail-transport",
+      "control": "mta-sts",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-MTASTS-005",
+      "condition": "MTA-STS policy does not cover the published mail exchangers",
+      "weaknessClass": "mail-transport",
+      "scenario": "email-interception",
+      "stage": "delivery",
+      "dedupGroup": "mtasts:mail-transport",
+      "control": "mta-sts",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-MTASTS-006",
+      "condition": "MTA-STS policy id does not match the TXT record",
+      "weaknessClass": "mail-transport",
+      "scenario": "email-interception",
+      "stage": "delivery",
+      "dedupGroup": "mtasts:mail-transport",
+      "control": "mta-sts",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-MTASTS-007",
+      "condition": "MTA-STS policy max_age is below the recommended minimum",
+      "weaknessClass": "mail-transport",
+      "scenario": "email-interception",
+      "stage": "delivery",
+      "dedupGroup": "mtasts:mail-transport",
+      "control": "mta-sts",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-MTASTS-008",
+      "condition": "MTA-STS policy is served with an invalid certificate",
+      "weaknessClass": "mail-transport",
+      "scenario": "email-interception",
+      "stage": "delivery",
+      "dedupGroup": "mtasts:mail-transport",
+      "control": "mta-sts",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-MX-001",
+      "condition": "MX host does not resolve",
+      "weaknessClass": "mail-delivery",
+      "scenario": "mail-delivery-failure",
+      "stage": "delivery",
+      "dedupGroup": "mx:mail-delivery",
+      "control": "mx",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-MX-002",
+      "condition": "MX record points at a CNAME",
+      "weaknessClass": "mail-transport",
+      "scenario": "email-interception",
+      "stage": "delivery",
+      "dedupGroup": "mx:mail-transport",
+      "control": "mx",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-MX-003",
+      "condition": "Non-mail domain does not publish a null MX",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "mx:email-authentication",
+      "control": "mx",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-MX-004",
+      "condition": "Only one mail exchanger is published",
+      "weaknessClass": "mail-delivery",
+      "scenario": "mail-delivery-failure",
+      "stage": "delivery",
+      "dedupGroup": "mx:mail-delivery",
+      "control": "mx",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-MX-005",
+      "condition": "All mail exchangers operated by a single provider",
+      "weaknessClass": "mail-delivery",
+      "scenario": "mail-delivery-failure",
+      "stage": "delivery",
+      "dedupGroup": "mx:mail-delivery",
+      "control": "mx",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-NET-001",
+      "condition": "Host is served from a provider outside the domain's own estate",
+      "weaknessClass": "infrastructure-attribution",
+      "scenario": "jurisdiction-exposure",
+      "stage": "reconnaissance",
+      "dedupGroup": "net:infrastructure-attribution",
+      "control": "hosting",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-NET-002",
+      "condition": "Public name resolves into private or non-routable address space",
+      "weaknessClass": "attack-surface-exposure",
+      "scenario": "information-disclosure",
+      "stage": "reconnaissance",
+      "dedupGroup": "net:attack-surface-exposure",
+      "control": "hosting",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-NET-003",
+      "condition": "Host is served from a jurisdiction outside the declared expectation",
+      "weaknessClass": "infrastructure-attribution",
+      "scenario": "jurisdiction-exposure",
+      "stage": "reconnaissance",
+      "dedupGroup": "net:infrastructure-attribution",
+      "control": "hosting",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-NS-001",
+      "condition": "Single authoritative nameserver",
+      "weaknessClass": "delegation-integrity",
+      "scenario": "dns-availability",
+      "stage": "reconnaissance",
+      "dedupGroup": "ns:delegation-integrity",
+      "control": "delegation",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-NS-002",
+      "condition": "All nameservers operated by a single provider",
+      "weaknessClass": "delegation-integrity",
+      "scenario": "dns-availability",
+      "stage": "reconnaissance",
+      "dedupGroup": "ns:delegation-integrity",
+      "control": "delegation",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-NS-003",
+      "condition": "All nameservers within a single /24",
+      "weaknessClass": "delegation-integrity",
+      "scenario": "dns-availability",
+      "stage": "reconnaissance",
+      "dedupGroup": "ns:delegation-integrity",
+      "control": "delegation",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-NS-004",
+      "condition": "Parent and child nameserver sets disagree",
+      "weaknessClass": "delegation-integrity",
+      "scenario": "domain-hijack",
+      "stage": "reconnaissance",
+      "dedupGroup": "ns:delegation-integrity",
+      "control": "delegation",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-NS-005",
+      "condition": "Lame delegation — nameserver does not answer authoritatively",
+      "weaknessClass": "delegation-integrity",
+      "scenario": "dns-availability",
+      "stage": "reconnaissance",
+      "dedupGroup": "ns:delegation-integrity",
+      "control": "delegation",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-NS-006",
+      "condition": "Missing glue for an in-bailiwick nameserver",
+      "weaknessClass": "delegation-integrity",
+      "scenario": "dns-availability",
+      "stage": "reconnaissance",
+      "dedupGroup": "ns:delegation-integrity",
+      "control": "delegation",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-NS-007",
+      "condition": "Authoritative nameserver is openly recursive",
+      "weaknessClass": "domain-integrity",
+      "scenario": "dns-response-forgery",
+      "stage": "reconnaissance",
+      "dedupGroup": "ns:domain-integrity",
+      "control": "delegation",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-NS-008",
+      "condition": "SOA serial differs between nameservers",
+      "weaknessClass": "delegation-integrity",
+      "scenario": "dns-availability",
+      "stage": "reconnaissance",
+      "dedupGroup": "ns:delegation-integrity",
+      "control": "delegation",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-SPF-001",
+      "condition": "No SPF record published",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "spf:email-authentication",
+      "control": "spf",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-SPF-002",
+      "condition": "Multiple SPF records published",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "spf:email-authentication",
+      "control": "spf",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-SPF-003",
+      "condition": "SPF record has a neutral or missing terminal mechanism",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "spf:email-authentication",
+      "control": "spf",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-SPF-004",
+      "condition": "SPF record permits all senders (+all)",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "spf:email-authentication",
+      "control": "spf",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-SPF-005",
+      "condition": "SPF record uses softfail (~all) rather than fail (-all)",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "spf:email-authentication",
+      "control": "spf",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-SPF-006",
+      "condition": "SPF evaluation exceeds the ten-lookup limit",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "spf:email-authentication",
+      "control": "spf",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-SPF-007",
+      "condition": "SPF evaluation exceeds the two void-lookup limit",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "spf:email-authentication",
+      "control": "spf",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-SPF-008",
+      "condition": "SPF record uses the deprecated ptr mechanism",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "spf:email-authentication",
+      "control": "spf",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-SPF-009",
+      "condition": "SPF include target publishes no usable record",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "spf:email-authentication",
+      "control": "spf",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-SPF-010",
+      "condition": "SPF record exceeds recommended length limits",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "spf:email-authentication",
+      "control": "spf",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-SPF-011",
+      "condition": "SPF record authorises an overly broad address range",
+      "weaknessClass": "email-authentication",
+      "scenario": "email-spoofing",
+      "stage": "delivery",
+      "dedupGroup": "spf:email-authentication",
+      "control": "spf",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-TKO-001",
+      "condition": "Subdomain takeover: alias to an unclaimed name on a known service",
+      "weaknessClass": "subdomain-takeover",
+      "scenario": "subdomain-takeover",
+      "stage": "exploitation",
+      "dedupGroup": "tko:subdomain-takeover",
+      "control": "alias-hygiene",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-TKO-002",
+      "condition": "Alias to a third-party service that reports the name as unclaimed",
+      "weaknessClass": "subdomain-takeover",
+      "scenario": "subdomain-takeover",
+      "stage": "exploitation",
+      "dedupGroup": "tko:subdomain-takeover",
+      "control": "alias-hygiene",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-TKO-003",
+      "condition": "Alias to a third-party service that DNS alone cannot verify",
+      "weaknessClass": "subdomain-takeover",
+      "scenario": "subdomain-takeover",
+      "stage": "exploitation",
+      "dedupGroup": "tko:subdomain-takeover",
+      "control": "alias-hygiene",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-TKO-004",
+      "condition": "Dangling CNAME to a target that does not exist",
+      "weaknessClass": "subdomain-takeover",
+      "scenario": "subdomain-takeover",
+      "stage": "exploitation",
+      "dedupGroup": "tko:subdomain-takeover",
+      "control": "alias-hygiene",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-TKO-005",
+      "condition": "Delegation to a nameserver whose name does not exist",
+      "weaknessClass": "subdomain-takeover",
+      "scenario": "subdomain-takeover",
+      "stage": "exploitation",
+      "dedupGroup": "tko:subdomain-takeover",
+      "control": "alias-hygiene",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-TLSRPT-001",
+      "condition": "No TLS-RPT record published",
+      "weaknessClass": "mail-transport",
+      "scenario": "email-interception",
+      "stage": "delivery",
+      "dedupGroup": "tlsrpt:mail-transport",
+      "control": "tls-rpt",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-TLSRPT-002",
+      "condition": "TLS-RPT record is malformed or has no reporting destination",
+      "weaknessClass": "mail-transport",
+      "scenario": "email-interception",
+      "stage": "delivery",
+      "dedupGroup": "tlsrpt:mail-transport",
+      "control": "tls-rpt",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-WILD-001",
+      "condition": "Wildcard address record present",
+      "weaknessClass": "dns-hygiene",
+      "scenario": "subdomain-takeover",
+      "stage": "reconnaissance",
+      "dedupGroup": "wild:dns-hygiene",
+      "control": "wildcard",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-WILD-002",
+      "condition": "Wildcard MX record present",
+      "weaknessClass": "dns-hygiene",
+      "scenario": "subdomain-takeover",
+      "stage": "reconnaissance",
+      "dedupGroup": "wild:dns-hygiene",
+      "control": "wildcard",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-WILD-003",
+      "condition": "Wildcard CNAME to a third-party service",
+      "weaknessClass": "dns-hygiene",
+      "scenario": "subdomain-takeover",
+      "stage": "reconnaissance",
+      "dedupGroup": "wild:dns-hygiene",
+      "control": "wildcard",
+      "direction": "aggravating"
+    }
+  ]
+}

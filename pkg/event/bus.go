@@ -24,6 +24,15 @@ const (
 	// EventIngestReceived is emitted once a worker payload has been durably
 	// recorded, not when it is received — subscribers may assume persistence.
 	EventIngestReceived EventType = "ingest:received"
+
+	// EventDataErased is emitted once the discovered estate has been cleared.
+	//
+	// It is emitted after the erasure commits, so a subscriber that reloads on
+	// receipt cannot read the state it was about to be told had gone. Every
+	// view must refresh from the store rather than clear itself: a view that
+	// emptied its own state would be asserting the erasure happened, and the
+	// two differ precisely when it did not.
+	EventDataErased EventType = "data:erased"
 )
 
 // Event represents a mutation or state change event.

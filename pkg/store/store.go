@@ -17,12 +17,16 @@ const (
 )
 
 // AssetStatus defines the lifecycle status of an asset.
+//
+// There is only one status. Discovery is high-fidelity, so an asset is not
+// held pending approval, and the operator's only ruling is removal, which
+// deletes the record rather than archiving it. The field is kept as a named
+// type so that a future state has somewhere to go, but naming states nothing
+// ever sets would imply a review workflow that does not exist.
 type AssetStatus string
 
 const (
-	AssetStatusActive   AssetStatus = "active"
-	AssetStatusPending  AssetStatus = "pending"
-	AssetStatusArchived AssetStatus = "archived"
+	AssetStatusActive AssetStatus = "active"
 )
 
 // Asset represents a tracked attack-surface asset.
@@ -48,6 +52,36 @@ const (
 	SeverityLow      FindingSeverity = "low"
 	SeverityInfo     FindingSeverity = "info"
 )
+
+// Rank orders severities so they can be compared and maximised. An unknown or
+// empty severity ranks below info: it is the absence of a rating, and must not
+// sort above one that was actually assigned.
+func (s FindingSeverity) Rank() int {
+	switch s {
+	case SeverityCritical:
+		return 5
+	case SeverityHigh:
+		return 4
+	case SeverityMedium:
+		return 3
+	case SeverityLow:
+		return 2
+	case SeverityInfo:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// Significant reports whether a severity is high enough to warrant attention
+// on its own. The line sits at medium because that is where vantage's
+// catalogue stops describing preferences and starts describing weaknesses.
+//
+// This is a presentation threshold, not a filter: nothing below it is hidden
+// or discarded anywhere. It exists only so that an aggregate can distinguish
+// "one control has a problem" from "one control has a preference recorded
+// against it", which the posture model alone cannot express.
+func (s FindingSeverity) Significant() bool { return s.Rank() >= SeverityMedium.Rank() }
 
 // Finding represents a vulnerability or posture finding.
 type Finding struct {
@@ -139,6 +173,13 @@ type Store interface {
 	GetAssetByID(ctx context.Context, id string) (*Asset, error)
 	SaveAsset(ctx context.Context, asset *Asset) error
 
+	// DeleteAsset removes an asset and everything recorded against it.
+	//
+	// Discovery is high-fidelity, so an asset is not held for approval;
+	// deletion is the operator's only ruling. The record is discarded
+	// entirely, so a later discovery may legitimately surface it again as new.
+	DeleteAsset(ctx context.Context, id string) error
+
 	// Findings
 	GetFindings(ctx context.Context, assetID string) ([]Finding, error)
 	SaveFinding(ctx context.Context, finding *Finding) error
@@ -155,9 +196,42 @@ type Store interface {
 	GetEmailPostures(ctx context.Context) ([]EmailPosture, error)
 	SaveEmailPosture(ctx context.Context, ep *EmailPosture) error
 
+	// Measured-state signals and assessment coverage.
+	//
+	// SaveSignalObservation upserts on (assetId, signalId), preserving
+	// FirstSeen. ReplaceSignalRegistry swaps the registry atomically so that
+	// no observation is ever mapped against a half-loaded registry.
+	SaveSignalObservation(ctx context.Context, obs *SignalObservation) error
+	GetSignalObservations(ctx context.Context, assetID string) ([]SignalObservation, error)
+	ReplaceSignalRegistry(ctx context.Context, entries []SignalRegistryEntry) error
+	GetSignalRegistry(ctx context.Context) ([]SignalRegistryEntry, error)
+	GetSignalRegistryEntry(ctx context.Context, signalID string) (*SignalRegistryEntry, error)
+	RecordAssessmentCoverage(ctx context.Context, cov *AssessmentCoverage) error
+	GetAssessmentCoverage(ctx context.Context, assetID string) ([]AssessmentCoverage, error)
+	ComputeCoverage(ctx context.Context, assetID string) (CoverageSummary, error)
+
+	// Assessment runs.
+	//
+	// RecordAssessmentRun upserts on assetId: only the latest run is kept.
+	// GetAssessmentRuns follows the coverage convention, where an empty
+	// assetId means every asset, so a portfolio view fetches once.
+	RecordAssessmentRun(ctx context.Context, run *AssessmentRun) error
+	GetAssessmentRuns(ctx context.Context, assetID string) ([]AssessmentRun, error)
+
 	// Settings
 	GetSetting(ctx context.Context, key string) (string, error)
 	SaveSetting(ctx context.Context, key string, value string) error
+
+	// EraseDiscoveredData removes everything the engine observed about the
+	// estate — assets and everything hanging off them, email postures, and any
+	// queued or completed work — while preserving what the operator
+	// configured: settings, authorised scope, and the signal registry.
+	//
+	// It is one call rather than a sequence the caller composes, because the
+	// erasure must be atomic. A partial wipe leaves findings attached to
+	// assets that no longer exist, and an operator who asked to start over
+	// would be left with a state neither they nor the engine can account for.
+	EraseDiscoveredData(ctx context.Context) error
 
 	// Job queue
 	//
