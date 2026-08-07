@@ -122,18 +122,313 @@
     </div>
   </div>
 
-  <!-- Section C: Advanced Settings (Danger Zone) -->
+  <!-- Section C: Discover related domains, then authorise them -->
+  <div [class]="theme() === 'dark' ? 'border-t border-slate-800 pt-6 space-y-4' : 'border-t border-slate-200 pt-6 space-y-4'">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <h3 [class]="theme() === 'dark' ? 'font-bold text-sm text-slate-200 uppercase tracking-wider' : 'font-bold text-sm text-slate-800 uppercase tracking-wider'">
+          4. Discover Related Domains
+        </h3>
+        <p [class]="theme() === 'dark' ? 'text-xs text-slate-400 mt-1 max-w-2xl' : 'text-xs text-slate-500 mt-1 max-w-2xl'">
+          Public certificate logs reveal domains certified alongside your own, which usually means
+          you own them too. Searching reads those logs only &mdash; nothing is scanned, and no
+          traffic reaches a discovered domain until you authorise it.
+        </p>
+      </div>
+      <button (click)="showTuning.set(!showTuning())"
+        [class]="theme() === 'dark' ? 'shrink-0 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition' : 'shrink-0 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs font-medium transition'">
+        {{ showTuning() ? 'Hide search settings' : 'Search settings' }}
+      </button>
+    </div>
+
+    <!-- Tuning panel -->
+    @if (showTuning()) {
+      <div [class]="theme() === 'dark' ? 'rounded-xl border border-slate-800 bg-slate-950/60 p-5 space-y-5' : 'rounded-xl border border-slate-200 bg-slate-50 p-5 space-y-5'">
+
+        <!-- Presets -->
+        <div class="space-y-2">
+          <label [class]="theme() === 'dark' ? 'block text-xs font-semibold text-slate-300' : 'block text-xs font-semibold text-slate-700'">
+            Search breadth
+          </label>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            @for (preset of presets; track preset.id) {
+              <button (click)="applyPreset(preset.id)"
+                [class]="activePreset() === preset.id
+                  ? (theme() === 'dark' ? 'text-left p-3 rounded-lg border-2 border-cyan-500 bg-cyan-950/50 transition' : 'text-left p-3 rounded-lg border-2 border-cyan-600 bg-cyan-50 transition')
+                  : (theme() === 'dark' ? 'text-left p-3 rounded-lg border border-slate-700 bg-slate-900 hover:border-slate-600 transition' : 'text-left p-3 rounded-lg border border-slate-300 bg-white hover:border-slate-400 transition')">
+                <div [class]="theme() === 'dark' ? 'text-xs font-bold text-white' : 'text-xs font-bold text-slate-900'">
+                  {{ preset.name }}
+                </div>
+                <div [class]="theme() === 'dark' ? 'text-[11px] text-slate-400 mt-1 leading-snug' : 'text-[11px] text-slate-500 mt-1 leading-snug'">
+                  {{ preset.summary }}
+                </div>
+              </button>
+            }
+          </div>
+          @if (activePreset() === null) {
+            <p [class]="theme() === 'dark' ? 'text-[11px] text-slate-400' : 'text-[11px] text-slate-500'">
+              Custom settings.
+            </p>
+          }
+        </div>
+
+        <!-- Individual controls, each with its trade-off stated -->
+        <div class="space-y-4">
+
+          <!-- Depth -->
+          <div class="space-y-1.5">
+            <div class="flex items-baseline justify-between">
+              <label [class]="theme() === 'dark' ? 'text-xs font-semibold text-slate-300' : 'text-xs font-semibold text-slate-700'">
+                How far to follow the evidence
+              </label>
+              <span [class]="theme() === 'dark' ? 'text-xs font-mono text-cyan-400' : 'text-xs font-mono text-cyan-700'">
+                {{ depth() }} {{ depth() === 1 ? 'hop' : 'hops' }}
+              </span>
+            </div>
+            <input type="range" min="1" max="4" step="1" [value]="depth()"
+              (input)="depth.set(+$any($event.target).value)"
+              class="w-full accent-cyan-600">
+            <p [class]="theme() === 'dark' ? 'text-[11px] text-slate-400 leading-relaxed' : 'text-[11px] text-slate-500 leading-relaxed'">
+              <strong>1 hop</strong> finds domains that shared a certificate with one of yours.
+              Each further hop searches the domains just found, so a group structure is uncovered
+              in full &mdash; but a single wrong match becomes the starting point for the next
+              round, and mistakes compound.
+            </p>
+          </div>
+
+          <!-- Max SANs: the one that changes whether the inference is sound -->
+          <div class="space-y-1.5">
+            <div class="flex items-baseline justify-between">
+              <label [class]="theme() === 'dark' ? 'text-xs font-semibold text-slate-300' : 'text-xs font-semibold text-slate-700'">
+                Largest certificate to trust as evidence
+              </label>
+              <span [class]="theme() === 'dark' ? 'text-xs font-mono text-cyan-400' : 'text-xs font-mono text-cyan-700'">
+                {{ maxSans() }} names
+              </span>
+            </div>
+            <input type="range" min="5" max="100" step="5" [value]="maxSans()"
+              (input)="maxSans.set(+$any($event.target).value)"
+              class="w-full accent-cyan-600">
+            <p [class]="theme() === 'dark' ? 'text-[11px] text-slate-400 leading-relaxed' : 'text-[11px] text-slate-500 leading-relaxed'">
+              A certificate naming a few domains together is a statement of ownership. One naming
+              dozens is usually a hosting provider bundling unrelated customers. This is the
+              setting to be most careful with: raising it does not simply find more, it weakens
+              the reasoning behind every result, and can pull in strangers' domains.
+            </p>
+          </div>
+
+          <!-- Budget -->
+          <div class="space-y-1.5">
+            <div class="flex items-baseline justify-between">
+              <label [class]="theme() === 'dark' ? 'text-xs font-semibold text-slate-300' : 'text-xs font-semibold text-slate-700'">
+                Maximum domains per search
+              </label>
+              <span [class]="theme() === 'dark' ? 'text-xs font-mono text-cyan-400' : 'text-xs font-mono text-cyan-700'">
+                {{ budget() }}
+              </span>
+            </div>
+            <input type="range" min="10" max="300" step="10" [value]="budget()"
+              (input)="budget.set(+$any($event.target).value)"
+              class="w-full accent-cyan-600">
+            <p [class]="theme() === 'dark' ? 'text-[11px] text-slate-400 leading-relaxed' : 'text-[11px] text-slate-500 leading-relaxed'">
+              A safety limit on how much one search will do. Raising it costs only time and
+              queries to the public log services; the search stops at the limit and tells you it
+              did, so a low value never hides anything silently.
+            </p>
+          </div>
+        </div>
+
+        <!-- Risk banner: the combined effect, not the individual numbers -->
+        <div [class]="riskLevel() === 'high'
+          ? (theme() === 'dark' ? 'rounded-lg border border-amber-700 bg-amber-950/40 p-3' : 'rounded-lg border border-amber-300 bg-amber-50 p-3')
+          : riskLevel() === 'moderate'
+            ? (theme() === 'dark' ? 'rounded-lg border border-slate-700 bg-slate-900 p-3' : 'rounded-lg border border-slate-300 bg-white p-3')
+            : (theme() === 'dark' ? 'rounded-lg border border-emerald-800 bg-emerald-950/30 p-3' : 'rounded-lg border border-emerald-200 bg-emerald-50 p-3')">
+          <div class="flex items-center gap-2 mb-1">
+            <span [class]="riskLevel() === 'high'
+              ? (theme() === 'dark' ? 'text-[11px] font-bold uppercase tracking-wider text-amber-400' : 'text-[11px] font-bold uppercase tracking-wider text-amber-700')
+              : riskLevel() === 'moderate'
+                ? (theme() === 'dark' ? 'text-[11px] font-bold uppercase tracking-wider text-slate-300' : 'text-[11px] font-bold uppercase tracking-wider text-slate-600')
+                : (theme() === 'dark' ? 'text-[11px] font-bold uppercase tracking-wider text-emerald-400' : 'text-[11px] font-bold uppercase tracking-wider text-emerald-700')">
+              {{ riskLevel() === 'high' ? 'Expect false matches' : riskLevel() === 'moderate' ? 'Review recommended' : 'High confidence' }}
+            </span>
+          </div>
+          <p [class]="theme() === 'dark' ? 'text-[11px] text-slate-300 leading-relaxed' : 'text-[11px] text-slate-600 leading-relaxed'">
+            {{ riskExplanation() }}
+          </p>
+        </div>
+      </div>
+    }
+
+    <!-- Run -->
+    <div class="flex items-center gap-3">
+      <button (click)="runDiscovery()" [disabled]="isDiscovering() || !isAuthorized()"
+        [class]="theme() === 'dark' ? 'px-4 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold text-xs transition' : 'px-4 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-xs transition'">
+        {{ isDiscovering() ? 'Searching certificate logs…' : 'Search for related domains' }}
+      </button>
+      @if (!isAuthorized()) {
+        <span [class]="theme() === 'dark' ? 'text-[11px] text-amber-400' : 'text-[11px] text-amber-700'">
+          Sign the authorisation above before searching.
+        </span>
+      }
+    </div>
+
+    @if (discoveryMessage()) {
+      <div role="status" [class]="discoveryFailed()
+        ? (theme() === 'dark' ? 'text-[11px] text-rose-300' : 'text-[11px] text-rose-700')
+        : (theme() === 'dark' ? 'text-[11px] text-emerald-400' : 'text-[11px] text-emerald-700')">
+        {{ discoveryMessage() }}
+      </div>
+    }
+
+    <!-- Proposals awaiting a decision -->
+    @if (proposedDomains().length > 0) {
+      <div [class]="theme() === 'dark' ? 'rounded-xl border border-slate-800 overflow-hidden' : 'rounded-xl border border-slate-200 overflow-hidden'">
+        <div [class]="theme() === 'dark' ? 'flex items-center justify-between gap-3 px-4 py-3 bg-slate-950/60 border-b border-slate-800' : 'flex items-center justify-between gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200'">
+          <div [class]="theme() === 'dark' ? 'text-xs font-semibold text-slate-200' : 'text-xs font-semibold text-slate-700'">
+            {{ proposedDomains().length }} awaiting your decision
+            @if (selectionCount() > 0) {
+              <span [class]="theme() === 'dark' ? 'text-cyan-400' : 'text-cyan-700'">
+                &middot; {{ selectionCount() }} selected
+              </span>
+            }
+          </div>
+          <div class="flex gap-2">
+            <button (click)="selectAllProposals()"
+              [class]="theme() === 'dark' ? 'text-[11px] text-slate-400 hover:text-slate-200 transition' : 'text-[11px] text-slate-500 hover:text-slate-800 transition'">
+              Select all
+            </button>
+            <button (click)="clearSelection()"
+              [class]="theme() === 'dark' ? 'text-[11px] text-slate-400 hover:text-slate-200 transition' : 'text-[11px] text-slate-500 hover:text-slate-800 transition'">
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <div [class]="theme() === 'dark' ? 'divide-y divide-slate-800' : 'divide-y divide-slate-100'">
+          @for (proposal of proposedDomains(); track proposal.domain) {
+            <label [class]="isSelected(proposal.domain)
+              ? (theme() === 'dark' ? 'flex items-start gap-3 px-4 py-3 bg-cyan-950/30 cursor-pointer transition' : 'flex items-start gap-3 px-4 py-3 bg-cyan-50/60 cursor-pointer transition')
+              : (theme() === 'dark' ? 'flex items-start gap-3 px-4 py-3 hover:bg-slate-900/50 cursor-pointer transition' : 'flex items-start gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer transition')">
+              <input type="checkbox" [checked]="isSelected(proposal.domain)"
+                (change)="toggleProposal(proposal.domain)"
+                class="mt-0.5 accent-cyan-600 w-4 h-4 shrink-0">
+
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span [class]="theme() === 'dark' ? 'text-xs font-mono font-bold text-white' : 'text-xs font-mono font-bold text-slate-900'">
+                    {{ proposal.domain }}
+                  </span>
+                  <span [title]="confidenceHint(proposal.depth)"
+                    [class]="proposal.depth <= 1
+                      ? (theme() === 'dark' ? 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 border border-emerald-800 text-emerald-400' : 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 border border-emerald-200 text-emerald-700')
+                      : proposal.depth === 2
+                        ? (theme() === 'dark' ? 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 border border-slate-700 text-slate-300' : 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 border border-slate-300 text-slate-600')
+                        : (theme() === 'dark' ? 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-950 border border-amber-800 text-amber-400' : 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 border border-amber-200 text-amber-700')">
+                    {{ confidenceLabel(proposal.depth) }}
+                  </span>
+                  @if (proposal.hostnames?.length) {
+                    <span [class]="theme() === 'dark' ? 'text-[11px] text-slate-500' : 'text-[11px] text-slate-400'">
+                      {{ proposal.hostnames.length }} {{ proposal.hostnames.length === 1 ? 'hostname' : 'hostnames' }}
+                    </span>
+                  }
+                </div>
+
+                <!-- The evidence. Without it the operator is guessing. -->
+                <div [class]="theme() === 'dark' ? 'text-[11px] text-slate-400 mt-1' : 'text-[11px] text-slate-500 mt-1'">
+                  Shared a certificate with
+                  <span [class]="theme() === 'dark' ? 'font-mono text-slate-300' : 'font-mono text-slate-700'">{{ proposal.via }}</span>
+                  @if (proposal.issuer) {
+                    <span>, issued by {{ proposal.issuer }}</span>
+                  }
+                </div>
+                <div [class]="theme() === 'dark' ? 'text-[11px] text-slate-500 mt-0.5' : 'text-[11px] text-slate-400 mt-0.5'">
+                  {{ confidenceHint(proposal.depth) }}
+                </div>
+              </div>
+            </label>
+          }
+        </div>
+
+        <!-- Decision bar, only once something is selected -->
+        @if (selectionCount() > 0) {
+          <div [class]="theme() === 'dark' ? 'flex items-center gap-2 px-4 py-3 bg-slate-950/60 border-t border-slate-800' : 'flex items-center gap-2 px-4 py-3 bg-slate-50 border-t border-slate-200'">
+            <button (click)="authoriseSelected()"
+              class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition">
+              Authorise {{ selectionCount() }}
+            </button>
+            <button (click)="dismissSelected()"
+              [class]="theme() === 'dark' ? 'px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition' : 'px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs font-medium transition'">
+              Not mine &mdash; dismiss
+            </button>
+            <span [class]="theme() === 'dark' ? 'text-[11px] text-slate-500 ml-1' : 'text-[11px] text-slate-400 ml-1'">
+              Authorising confirms these are yours and brings them into future scans.
+            </span>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Dismissed, kept reversible -->
+    @if (dismissedDomains().length > 0) {
+      <div>
+        <button (click)="showDismissed.set(!showDismissed())"
+          [class]="theme() === 'dark' ? 'text-[11px] text-slate-400 hover:text-slate-200 transition' : 'text-[11px] text-slate-500 hover:text-slate-800 transition'">
+          {{ showDismissed() ? 'Hide' : 'Show' }} {{ dismissedDomains().length }} dismissed
+          {{ dismissedDomains().length === 1 ? 'domain' : 'domains' }}
+        </button>
+        @if (showDismissed()) {
+          <div class="flex flex-wrap gap-2 pt-2">
+            @for (domain of dismissedDomains(); track domain) {
+              <span [class]="theme() === 'dark' ? 'inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-slate-900 border border-slate-700 text-slate-400 text-xs font-mono' : 'inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-300 text-slate-500 text-xs font-mono'">
+                <span>{{ domain }}</span>
+                <button (click)="restoreDismissed(domain)" title="Restore to consideration"
+                  [class]="theme() === 'dark' ? 'text-slate-500 hover:text-cyan-400 font-bold ml-1' : 'text-slate-400 hover:text-cyan-600 font-bold ml-1'">↺</button>
+              </span>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- Section D: Advanced Settings (Danger Zone) -->
   <div [class]="theme() === 'dark' ? 'space-y-4 text-xs text-slate-300 border-t border-slate-800 pt-6' : 'space-y-4 text-xs text-slate-700 border-t border-slate-200 pt-6'">
-    <h3 [class]="theme() === 'dark' ? 'font-bold text-rose-400 uppercase tracking-wider' : 'font-bold text-rose-600 uppercase tracking-wider'">4. Advanced Settings (Danger Zone)</h3>
+    <h3 [class]="theme() === 'dark' ? 'font-bold text-rose-400 uppercase tracking-wider' : 'font-bold text-rose-600 uppercase tracking-wider'">5. Advanced Settings (Danger Zone)</h3>
     <div [class]="theme() === 'dark' ? 'p-4 rounded-lg bg-rose-950/30 border border-rose-900/50 space-y-3' : 'p-4 rounded-lg bg-rose-50 border border-rose-200 space-y-3'">
       <div [class]="theme() === 'dark' ? 'font-semibold text-rose-300' : 'font-semibold text-rose-800'">Reset Engine State</div>
       <p [class]="theme() === 'dark' ? 'text-[11px] text-slate-400' : 'text-[11px] text-slate-600'">
         This action will permanently erase all discovered assets, security findings, email postures, repository secrets, and alerts.
         Your configuration and target scope (domains, CIDRs, repos) will be preserved.
       </p>
-      <button (click)="wipeAllData()" [class]="theme() === 'dark' ? 'px-4 py-2 rounded bg-rose-900 hover:bg-rose-800 text-white font-bold text-xs transition' : 'px-4 py-2 rounded bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition'">
-        Erase All Discovered Data
+      <button (click)="requestWipe()" [disabled]="wiping() || confirmingWipe()" [class]="theme() === 'dark' ? 'px-4 py-2 rounded bg-rose-900 hover:bg-rose-800 disabled:opacity-50 text-white font-bold text-xs transition' : 'px-4 py-2 rounded bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-bold text-xs transition'">
+        {{ wiping() ? 'Erasing…' : 'Erase All Discovered Data' }}
       </button>
+
+      @if (confirmingWipe()) {
+        <div [class]="theme() === 'dark' ? 'p-3 rounded border border-rose-800 bg-slate-950 space-y-2' : 'p-3 rounded border border-rose-300 bg-white space-y-2'">
+          <div [class]="theme() === 'dark' ? 'text-[11px] text-rose-300' : 'text-[11px] text-rose-700'">
+            This cannot be undone. Every discovered asset, finding, email posture, repository secret and alert will be deleted.
+            Your configuration and target scope will be preserved.
+          </div>
+          <div class="flex gap-2">
+            <button (click)="wipeAllData()" [class]="theme() === 'dark' ? 'px-3 py-1.5 rounded bg-rose-700 hover:bg-rose-600 text-white font-bold text-xs transition' : 'px-3 py-1.5 rounded bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition'">
+              Yes, erase everything
+            </button>
+            <button (click)="cancelWipe()" [class]="theme() === 'dark' ? 'px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition' : 'px-3 py-1.5 rounded bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs font-medium transition'">
+              Cancel
+            </button>
+          </div>
+        </div>
+      }
+
+      @if (wipeMessage()) {
+        <div role="status" [class]="wipeFailed()
+          ? (theme() === 'dark' ? 'text-[11px] text-rose-300' : 'text-[11px] text-rose-700')
+          : (theme() === 'dark' ? 'text-[11px] text-emerald-400' : 'text-[11px] text-emerald-700')">
+          {{ wipeMessage() }}
+        </div>
+      }
     </div>
   </div>
 

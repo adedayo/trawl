@@ -41,6 +41,7 @@ export class App implements OnInit, OnDestroy {
     this.wailsIpc.refreshAssets();
     this.wailsIpc.loadSettings();
     this.wailsIpc.refreshEmailPostures();
+    this.wailsIpc.refreshAssessments();
     this.wailsIpc.refreshSecretFindings();
   }
 
