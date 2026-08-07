@@ -4,6 +4,7 @@ go 1.26.1
 
 require (
 	github.com/adedayo/checkmate v1.3.3
+	github.com/adedayo/vantage v1.3.0
 	github.com/google/uuid v1.6.0
 	github.com/miekg/dns v1.1.72
 	github.com/projectdiscovery/subfinder/v2 v2.14.0
