@@ -94,3 +94,38 @@ func (s *SQLiteStore) SaveAsset(ctx context.Context, asset *store.Asset) error {
 	}
 	return nil
 }
+
+// DeleteAsset removes an asset and, by cascade, everything recorded against it.
+//
+// Foreign keys are enforced explicitly for this statement rather than assumed.
+// If the PRAGMA is off, the delete would succeed and leave findings and
+// observations orphaned — pointing at an asset that no longer exists, and
+// counted by any query that does not join.
+func (s *SQLiteStore) DeleteAsset(ctx context.Context, id string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin asset delete: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.ExecContext(ctx, `PRAGMA foreign_keys = ON`); err != nil {
+		return fmt.Errorf("failed to enable foreign keys: %w", err)
+	}
+
+	res, err := tx.ExecContext(ctx, `DELETE FROM assets WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete asset %s: %w", id, err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to confirm the deletion of asset %s: %w", id, err)
+	}
+	if affected == 0 {
+		return fmt.Errorf("no such asset: %s", id)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit the deletion of asset %s: %w", id, err)
+	}
+	return nil
+}
