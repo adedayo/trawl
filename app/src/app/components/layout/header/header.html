@@ -105,4 +105,63 @@
       </button>
     </nav>
   </div>
+
+  <!--
+    Scan status.
+
+    The status signal was previously written in half a dozen places and
+    rendered in none, so every message the application produced about scanning
+    — including "sign the authorisation first" and outright failures — was
+    invisible. It matters more now that one scan covers a whole portfolio: the
+    operator needs to see which target is in flight and which ones failed.
+  -->
+  @if (scanStatusMessage()) {
+    <div role="status" aria-live="polite"
+      [class]="scanStatusTone() === 'error'
+        ? (theme() === 'dark' ? 'border-t border-rose-900 bg-rose-950/60' : 'border-t border-rose-200 bg-rose-50')
+        : scanStatusTone() === 'warning'
+          ? (theme() === 'dark' ? 'border-t border-amber-900 bg-amber-950/60' : 'border-t border-amber-200 bg-amber-50')
+          : scanStatusTone() === 'success'
+            ? (theme() === 'dark' ? 'border-t border-emerald-900 bg-emerald-950/60' : 'border-t border-emerald-200 bg-emerald-50')
+            : (theme() === 'dark' ? 'border-t border-slate-800 bg-slate-900/80' : 'border-t border-slate-200 bg-slate-50')">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center gap-3">
+
+        @if (isScanning()) {
+          <svg class="w-4 h-4 animate-spin shrink-0"
+            [class]="theme() === 'dark' ? 'text-cyan-400' : 'text-cyan-600'"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+        }
+
+        <div class="min-w-0 flex-1">
+          <div [class]="scanStatusTone() === 'error'
+            ? (theme() === 'dark' ? 'text-xs font-medium text-rose-300' : 'text-xs font-medium text-rose-800')
+            : scanStatusTone() === 'warning'
+              ? (theme() === 'dark' ? 'text-xs font-medium text-amber-300' : 'text-xs font-medium text-amber-800')
+              : scanStatusTone() === 'success'
+                ? (theme() === 'dark' ? 'text-xs font-medium text-emerald-300' : 'text-xs font-medium text-emerald-800')
+                : (theme() === 'dark' ? 'text-xs font-medium text-slate-200' : 'text-xs font-medium text-slate-700')">
+            {{ scanStatusMessage() }}
+          </div>
+
+          <!-- Per-check detail, so a long scan does not look stalled. -->
+          @if (isScanning() && assessmentProgress(); as progress) {
+            <div [class]="theme() === 'dark' ? 'text-[11px] text-slate-400 mt-0.5 font-mono truncate' : 'text-[11px] text-slate-500 mt-0.5 font-mono truncate'">
+              {{ progress.domain }} · {{ progress.check }}
+              ({{ progress.done }}/{{ progress.total }} checks)
+            </div>
+          }
+        </div>
+
+        @if (!isScanning()) {
+          <button (click)="dismissStatus()" aria-label="Dismiss status message"
+            [class]="theme() === 'dark' ? 'shrink-0 text-slate-500 hover:text-slate-300 transition text-sm leading-none' : 'shrink-0 text-slate-400 hover:text-slate-600 transition text-sm leading-none'">
+            &times;
+          </button>
+        }
+      </div>
+    </div>
+  }
 </header>

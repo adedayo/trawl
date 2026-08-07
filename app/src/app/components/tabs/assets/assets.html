@@ -9,6 +9,12 @@
     </div>
   </div>
 
+  @if (actionError()) {
+    <div [class]="theme() === 'dark' ? 'mx-6 mt-4 px-4 py-3 rounded-lg border border-rose-900 bg-rose-950/60 text-rose-300 text-xs' : 'mx-6 mt-4 px-4 py-3 rounded-lg border border-rose-300 bg-rose-50 text-rose-800 text-xs'">
+      {{ actionError() }}
+    </div>
+  }
+
   <div class="overflow-x-auto">
     <table class="w-full text-left text-xs">
       <thead [class]="theme() === 'dark' ? 'bg-slate-950/60 text-slate-400 font-mono uppercase tracking-wider border-b border-slate-800' : 'bg-slate-100 text-slate-600 font-mono uppercase tracking-wider border-b border-slate-200'">
@@ -35,19 +41,16 @@
             <td [class]="theme() === 'dark' ? 'py-4 px-6 uppercase text-slate-300 font-mono' : 'py-4 px-6 uppercase text-slate-700 font-mono'">{{ asset.type }}</td>
             <td [class]="theme() === 'dark' ? 'py-4 px-6 text-slate-400 font-mono' : 'py-4 px-6 text-slate-500 font-mono'">{{ asset.source }}</td>
             <td class="py-4 px-6">
-              @if (asset.status === 'active') {
-                <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 font-medium' : 'px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium'">Active</span>
-              } @else if (asset.status === 'pending') {
-                <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded-full bg-amber-950 text-amber-400 border border-amber-800 font-medium' : 'px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-medium'">Pending Review</span>
-              }
+              <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 font-medium' : 'px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium'">Active</span>
             </td>
             <td [class]="theme() === 'dark' ? 'py-4 px-6 text-slate-400' : 'py-4 px-6 text-slate-500'">{{ asset.firstSeen }} / {{ asset.lastSeen }}</td>
             <td class="py-4 px-6 text-right space-x-2">
-              @if (asset.status === 'pending') {
-                <button (click)="approveAsset(asset.id)" class="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition">Approve</button>
-                <button (click)="rejectAsset(asset.id)" [class]="theme() === 'dark' ? 'px-2.5 py-1 rounded bg-slate-800 hover:bg-rose-900 text-rose-300 font-medium transition' : 'px-2.5 py-1 rounded bg-slate-200 hover:bg-rose-100 text-rose-700 font-medium transition'">Reject</button>
+              @if (confirmingId() === asset.id) {
+                <span [class]="theme() === 'dark' ? 'text-[11px] text-rose-300 mr-1' : 'text-[11px] text-rose-700 mr-1'">Remove {{ assetName(asset.id) }} and all its history?</span>
+                <button (click)="removeAsset(asset.id)" [class]="theme() === 'dark' ? 'px-2 py-1 rounded bg-rose-800 hover:bg-rose-700 text-white font-medium transition' : 'px-2 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-medium transition'">Confirm</button>
+                <button (click)="cancelRemove()" [class]="theme() === 'dark' ? 'px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-medium transition' : 'px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-medium transition'">Cancel</button>
               } @else {
-                <button (click)="removeAsset(asset.id)" [class]="theme() === 'dark' ? 'px-2 py-1 rounded bg-slate-800 hover:bg-rose-950 border border-slate-700 hover:border-rose-800 text-slate-300 hover:text-rose-400 font-medium transition' : 'px-2 py-1 rounded bg-slate-100 hover:bg-rose-50 border border-slate-300 hover:border-rose-300 text-slate-700 hover:text-rose-700 font-medium transition'">Remove</button>
+                <button (click)="requestRemove(asset.id)" [disabled]="isPending(asset.id)" [class]="theme() === 'dark' ? 'px-2 py-1 rounded bg-slate-800 hover:bg-rose-950 border border-slate-700 hover:border-rose-800 disabled:opacity-50 text-slate-300 hover:text-rose-400 font-medium transition' : 'px-2 py-1 rounded bg-slate-100 hover:bg-rose-50 border border-slate-300 hover:border-rose-300 disabled:opacity-50 text-slate-700 hover:text-rose-700 font-medium transition'">Remove</button>
               }
             </td>
           </tr>

@@ -13,9 +13,15 @@ config/*.json
 # Build outputs
 dist/
 .angular/
-build/
-trawl
-trawl-server
+# Compiled binaries only. These patterns must stay anchored to the repository
+# root: unanchored, "trawl" matches the cmd/trawl/ directory and silently
+# excludes every source file inside it.
+/trawl
+/trawl-server
+
+# Wails writes compiled bundles to build/bin, but build/ also holds the icons
+# and Info.plist templates the desktop build needs, which must be committed.
+build/bin/
 
 # IDE
 .idea/
@@ -34,3 +40,6 @@ data/
 coverage/
 test-results/
 playwright-report/
+
+# Build-time staging for the single-container dashboard (deploy/cloudrun).
+cmd/trawl/webroot/

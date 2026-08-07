@@ -1,28 +1,302 @@
-<div class="space-y-6">
-  <div [class]="theme() === 'dark' ? 'bg-slate-900/80 border border-slate-800 rounded-xl p-6 shadow-xl' : 'bg-white border border-slate-200 rounded-xl p-6 shadow-sm'">
-    <h2 [class]="theme() === 'dark' ? 'text-sm font-bold text-slate-200 uppercase tracking-wider mb-2' : 'text-sm font-bold text-slate-800 uppercase tracking-wider mb-2'">Email Authentication Posture</h2>
-    <p [class]="theme() === 'dark' ? 'text-xs text-slate-400 mb-6' : 'text-xs text-slate-600 mb-6'">SPF, DKIM, and DMARC verification performed via DNS-over-HTTPS. Missing or weak DMARC policy represents a domain spoofing precondition.</p>
+@let dark = theme() === 'dark';
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      @for (posture of emailPostures(); track posture.domain) {
-        <div [class]="theme() === 'dark' ? 'bg-slate-950 border border-slate-800 rounded-lg p-5 space-y-3' : 'bg-slate-50 border border-slate-200 rounded-lg p-5 space-y-3'">
-          <div class="flex items-center justify-between">
-            <h3 [class]="theme() === 'dark' ? 'font-mono font-bold text-white text-sm' : 'font-mono font-bold text-slate-900 text-sm'">{{ posture.domain }}</h3>
-            @if (posture.dmarcPolicy === 'reject') {
-              <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded bg-emerald-950 border border-emerald-800 text-emerald-400 text-[10px] uppercase font-bold' : 'px-2 py-0.5 rounded bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] uppercase font-bold'">STRICT (REJECT)</span>
-            } @else if (posture.dmarcPolicy === 'quarantine') {
-              <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded bg-amber-950 border border-amber-800 text-amber-400 text-[10px] uppercase font-bold' : 'px-2 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-800 text-[10px] uppercase font-bold'">QUARANTINE</span>
-            } @else {
-              <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded bg-rose-950 border border-rose-800 text-rose-400 text-[10px] uppercase font-bold' : 'px-2 py-0.5 rounded bg-rose-100 border border-rose-300 text-rose-800 text-[10px] uppercase font-bold'">WEAK (NONE)</span>
+<div class="space-y-6">
+  <div [class]="dark ? 'bg-slate-900/80 border border-slate-800 rounded-xl p-6 shadow-xl' : 'bg-white border border-slate-200 rounded-xl p-6 shadow-sm'">
+    <div class="flex items-start justify-between gap-4 mb-2">
+      <h2 [class]="dark ? 'text-sm font-bold text-slate-200 uppercase tracking-wider' : 'text-sm font-bold text-slate-800 uppercase tracking-wider'">
+        Email &amp; DNS Posture
+      </h2>
+      @if (progress(); as p) {
+        <span [class]="dark ? 'text-[11px] font-mono text-sky-400' : 'text-[11px] font-mono text-sky-700'">
+          Assessing {{ p.domain }} — {{ p.check }} ({{ p.done }}/{{ p.total }})
+        </span>
+      }
+    </div>
+    <p [class]="dark ? 'text-xs text-slate-400 mb-6' : 'text-xs text-slate-600 mb-6'">
+      Externally observable configuration of each defensive control, assessed without credentials.
+      Every control carries one of four states: assessed, not published, not checked, or could not tell.
+      A control that was never assessed is never shown as passing.
+    </p>
+
+    @if (assessments().length === 0) {
+      <div [class]="dark ? 'border border-dashed border-slate-700 rounded-lg p-8 text-center' : 'border border-dashed border-slate-300 rounded-lg p-8 text-center'">
+        <p [class]="dark ? 'text-sm text-slate-400' : 'text-sm text-slate-600'">
+          No domain has been assessed yet. Authorise a scope and run a scan to populate this view.
+        </p>
+      </div>
+    }
+
+    @if (assessments().length > 1) {
+      <div class="flex items-center gap-2 mb-3">
+        <button type="button" (click)="expandAll()"
+          [class]="dark
+            ? 'px-2.5 py-1 rounded border border-slate-700 text-slate-300 text-[10px] font-semibold hover:bg-slate-800'
+            : 'px-2.5 py-1 rounded border border-slate-300 text-slate-600 text-[10px] font-semibold hover:bg-slate-100'">
+          Expand all
+        </button>
+        <button type="button" (click)="collapseAll()"
+          [class]="dark
+            ? 'px-2.5 py-1 rounded border border-slate-700 text-slate-300 text-[10px] font-semibold hover:bg-slate-800'
+            : 'px-2.5 py-1 rounded border border-slate-300 text-slate-600 text-[10px] font-semibold hover:bg-slate-100'">
+          Collapse all
+        </button>
+      </div>
+    }
+
+    <div class="space-y-3">
+      @for (a of assessments(); track a.assetId) {
+        <div [class]="dark ? 'bg-slate-950 border border-slate-800 rounded-lg' : 'bg-slate-50 border border-slate-200 rounded-lg'">
+
+          <!-- Collapsed row: enough to decide whether to open it -->
+          <div class="flex flex-wrap items-center justify-between gap-3 p-4">
+            <button
+              type="button"
+              class="flex-1 min-w-0 text-left"
+              [attr.aria-expanded]="isOpen(a.domain)"
+              (click)="toggleDomain(a.domain)">
+              <div class="flex items-center gap-2">
+                <span [class]="dark ? 'text-slate-500 text-[10px]' : 'text-slate-400 text-[10px]'">
+                  {{ isOpen(a.domain) ? '▾' : '▸' }}
+                </span>
+                <h3 [class]="dark ? 'font-mono font-bold text-white text-sm truncate' : 'font-mono font-bold text-slate-900 text-sm truncate'">{{ a.domain }}</h3>
+                <span [class]="dark ? 'text-[10px] font-mono text-slate-500' : 'text-[10px] font-mono text-slate-500'">
+                  {{ coveragePercent(a) }}% coverage
+                </span>
+                @if (significantCount(a) > 0) {
+                  <span [class]="dark
+                    ? 'px-1.5 py-0.5 rounded bg-rose-950 border border-rose-800 text-rose-400 text-[10px] font-bold'
+                    : 'px-1.5 py-0.5 rounded bg-rose-50 border border-rose-300 text-rose-800 text-[10px] font-bold'">
+                    {{ significantCount(a) }} to review
+                  </span>
+                }
+              </div>
+
+              <!-- Headline controls, always all four, unknown included -->
+              <div class="flex flex-wrap items-center gap-2 mt-2 ml-4">
+                @for (c of summaryControls(a); track c.control) {
+                  <span
+                    [title]="controlLabel(c.control) + ': ' + postureLabel(c.posture)"
+                    [class]="dark
+                      ? 'inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded border border-slate-800 bg-slate-900 text-[10px] font-mono text-slate-300'
+                      : 'inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded border border-slate-200 bg-white text-[10px] font-mono text-slate-700'">
+                    <span [class]="'w-1.5 h-1.5 rounded-full ' + summaryDotClasses(c.posture)"></span>
+                    {{ controlLabel(c.control) }}
+                    <span class="sr-only">{{ postureLabel(c.posture) }}</span>
+                  </span>
+                }
+              </div>
+
+              <p [class]="dark ? 'text-[11px] text-slate-400 mt-2 ml-4' : 'text-[11px] text-slate-600 mt-2 ml-4'">
+                {{ summaryLine(a) }}
+              </p>
+            </button>
+
+            <button
+              type="button"
+              (click)="reassess(a.domain)"
+              [disabled]="isRunning(a.domain)"
+              [class]="dark
+                ? 'px-3 py-1.5 rounded border border-slate-700 text-slate-200 text-[11px] font-semibold hover:bg-slate-800 disabled:opacity-50'
+                : 'px-3 py-1.5 rounded border border-slate-300 text-slate-700 text-[11px] font-semibold hover:bg-slate-100 disabled:opacity-50'">
+              {{ isRunning(a.domain) ? 'Assessing…' : 'Re-assess' }}
+            </button>
+          </div>
+
+          @if (isOpen(a.domain)) {
+          <div [class]="dark ? 'border-t border-slate-800 p-5' : 'border-t border-slate-200 p-5'">
+
+          <p [class]="dark ? 'text-[11px] text-slate-500 mb-4' : 'text-[11px] text-slate-500 mb-4'">
+            @if (a.assessedAt) { Assessed {{ a.assessedAt | date:'medium' }} · }
+            vantage {{ a.libraryVersion || 'unknown' }} · registry {{ a.registryVersion || 'unknown' }}
+            · {{ a.coverage.assessedOnly }}/{{ a.coverage.total }} checks concluded
+          </p>
+
+          @if (outcomeNote(a)) {
+            <div [class]="dark
+              ? 'mb-4 px-3 py-2 rounded bg-amber-950/60 border border-amber-900 text-amber-300 text-xs'
+              : 'mb-4 px-3 py-2 rounded bg-amber-50 border border-amber-300 text-amber-800 text-xs'">
+              {{ outcomeNote(a) }}
+            </div>
+          }
+
+          @if (hasGaps(a)) {
+            <p [class]="dark ? 'mb-3 text-[11px] text-slate-400' : 'mb-3 text-[11px] text-slate-600'">
+              {{ a.coverage.notChecked }} not checked · {{ a.coverage.checkFailed }} could not tell.
+              Controls behind those checks are shown as not established.
+            </p>
+          }
+
+          <!-- Mail controls -->
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            @for (c of emailControls(a); track c.control) {
+              <ng-container *ngTemplateOutlet="controlCard; context: { c: c, domain: a.domain }"></ng-container>
             }
           </div>
-          <div [class]="theme() === 'dark' ? 'text-xs space-y-1 text-slate-300 font-mono' : 'text-xs space-y-1 text-slate-700 font-mono'">
-            <div class="flex justify-between"><span>SPF Record:</span> <strong [class]="posture.spfValid ? 'text-emerald-500' : 'text-rose-500'">{{ posture.spfValid ? 'Pass' : 'Missing/Weak' }}</strong></div>
-            <div class="flex justify-between"><span>DKIM Selectors:</span> <strong [class]="posture.dkimFound ? 'text-emerald-500' : 'text-rose-500'">{{ posture.dkimFound ? 'Found' : 'Not Found' }}</strong></div>
-            <div class="flex justify-between"><span>DMARC Policy:</span> <strong [class]="theme() === 'dark' ? 'text-white uppercase' : 'text-slate-900 uppercase'">{{ posture.dmarcPolicy }}</strong></div>
+
+          <!-- Remaining surface, so the coverage figures above are accountable -->
+          @if (otherControls(a).length > 0) {
+            <h4 [class]="dark ? 'text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-5 mb-2' : 'text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-5 mb-2'">
+              Other surface
+            </h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              @for (c of otherControls(a); track c.control) {
+                <ng-container *ngTemplateOutlet="controlCard; context: { c: c, domain: a.domain }"></ng-container>
+              }
+            </div>
+          }
+
+          <!-- Scenarios -->
+          @if (a.scenarios.length > 0) {
+            <h4 [class]="dark ? 'text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-5 mb-2' : 'text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-5 mb-2'">
+              Attack scenarios
+            </h4>
+            <div class="flex flex-wrap gap-2">
+              @for (s of a.scenarios; track s.scenario) {
+                <span
+                  [class]="dark
+                    ? 'px-2 py-1 rounded border border-slate-800 bg-slate-900 text-[10px] font-mono text-slate-300'
+                    : 'px-2 py-1 rounded border border-slate-200 bg-white text-[10px] font-mono text-slate-700'"
+                  [title]="scenarioHint(s)">
+                  {{ s.scenario }}
+                  @if (s.supported) {
+                    <!--
+                      The weightier count leads, but the total follows it
+                      whenever the two differ. Showing only the filtered number
+                      would quietly retire low findings from view; showing only
+                      the raw one made a shared mail provider weigh the same as
+                      an absent transport policy.
+                    -->
+                    <strong [class]="s.significant > 0 ? 'text-rose-500' : (s.aggravating > 0 ? 'text-amber-500' : 'text-emerald-500')">
+                      {{ s.significant }}
+                    </strong>
+                    @if (s.aggravating > s.significant) {
+                      <span [class]="dark ? 'text-slate-500' : 'text-slate-500'">
+                        (+{{ s.aggravating - s.significant }} minor)
+                      </span>
+                    }
+                  } @else {
+                    <strong class="text-slate-400">unsupported</strong>
+                  }
+                </span>
+              }
+            </div>
+          }
+
+          <!-- Unmapped identifiers: surfaced, never silently dropped -->
+          @if (a.unmapped.length > 0) {
+            <div [class]="dark
+              ? 'mt-5 px-3 py-2 rounded bg-slate-900 border border-slate-800 text-[11px] text-slate-400'
+              : 'mt-5 px-3 py-2 rounded bg-white border border-slate-200 text-[11px] text-slate-600'">
+              <strong>{{ a.unmapped.length }} unmapped signal(s).</strong>
+              The assessment library raised findings this build's registry does not describe:
+              <span class="font-mono">{{ a.unmapped | slice:0:6 | json }}</span>
+            </div>
+          }
           </div>
+          }
         </div>
       }
     </div>
   </div>
 </div>
+
+<!-- One control: posture, coverage, and the advisories behind it -->
+<ng-template #controlCard let-c="c" let-domain="domain">
+  @let dark = theme() === 'dark';
+  <div [class]="dark ? 'rounded-lg border border-slate-800 bg-slate-900/60' : 'rounded-lg border border-slate-200 bg-white'">
+    <button
+      type="button"
+      class="w-full text-left p-3"
+      (click)="toggle(domain, c.control)">
+      <div class="flex items-center justify-between gap-2">
+        <span [class]="dark ? 'font-mono text-xs font-bold text-slate-100' : 'font-mono text-xs font-bold text-slate-900'">
+          {{ controlLabel(c.control) }}
+        </span>
+        <span [class]="'px-2 py-0.5 rounded border text-[10px] uppercase font-bold ' + postureClasses(c.posture, dark)">
+          {{ postureLabel(c.posture) }}
+        </span>
+      </div>
+      <div [class]="dark ? 'mt-1.5 text-[10px] font-mono text-slate-500' : 'mt-1.5 text-[10px] font-mono text-slate-500'">
+        {{ c.coverage.assessedOnly }}/{{ c.coverage.total }} checks concluded
+        @if (c.signals.length > 0) { · {{ c.signals.length }} advisory(s) }
+      </div>
+    </button>
+
+    @if (isExpanded(domain, c.control)) {
+      <div [class]="dark ? 'border-t border-slate-800 p-3 space-y-3' : 'border-t border-slate-200 p-3 space-y-3'">
+
+        <!-- Per-check state, with the reason a check did not conclude -->
+        <div class="space-y-1">
+          @for (chk of c.checks; track chk.checkId) {
+            <div class="flex items-start justify-between gap-2 text-[11px] font-mono">
+              <span [class]="dark ? 'text-slate-400' : 'text-slate-600'">{{ chk.checkId }}</span>
+              <span class="text-right">
+                <span [class]="stateClasses(chk.state)">{{ stateLabel(chk.state) }}</span>
+                @if (chk.reason) {
+                  <span [class]="dark ? 'block text-[10px] text-slate-500' : 'block text-[10px] text-slate-500'">{{ chk.reason }}</span>
+                }
+              </span>
+            </div>
+          }
+        </div>
+
+        <!-- Advisories -->
+        @if (c.signals.length > 0) {
+          <div [class]="dark ? 'border-t border-slate-800 pt-3 space-y-2' : 'border-t border-slate-200 pt-3 space-y-2'">
+            @for (s of c.signals; track s.signalId) {
+              <div>
+                <div class="flex items-center gap-2">
+                  <span [class]="'text-[10px] uppercase font-bold ' + severityClasses(s.severity, dark)">{{ s.severity }}</span>
+                  <span [class]="dark ? 'font-mono text-[10px] text-slate-500' : 'font-mono text-[10px] text-slate-500'">{{ s.signalId }}</span>
+                </div>
+                <p [class]="dark ? 'text-[11px] text-slate-300 mt-0.5' : 'text-[11px] text-slate-700 mt-0.5'">
+                  {{ s.condition || s.evidence }}
+                </p>
+
+                <!--
+                  What it means, then what to do. Without these the advisory is
+                  a title and a set of evidence keys, which says what was seen
+                  but never why it matters — and an operator who cannot
+                  interpret a finding cannot act on it.
+                -->
+                @if (s.description) {
+                  <p [class]="dark ? 'text-[11px] text-slate-400 mt-1.5 leading-relaxed' : 'text-[11px] text-slate-600 mt-1.5 leading-relaxed'">
+                    {{ s.description }}
+                  </p>
+                }
+                @if (s.remediation) {
+                  <p [class]="dark ? 'text-[11px] text-sky-300 mt-1.5 leading-relaxed' : 'text-[11px] text-sky-800 mt-1.5 leading-relaxed'">
+                    <strong>What to do:</strong> {{ s.remediation }}
+                  </p>
+                }
+                @if (s.condition && s.evidence) {
+                  <p [class]="dark ? 'text-[10px] font-mono text-slate-500 mt-1.5 break-all' : 'text-[10px] font-mono text-slate-500 mt-1.5 break-all'">
+                    Observed: {{ s.evidence }}
+                  </p>
+                }
+                @if (s.references?.length) {
+                  <div class="flex flex-wrap gap-2 mt-1">
+                    @for (r of s.references; track r) {
+                      <a [href]="r" target="_blank" rel="noopener noreferrer"
+                        [class]="dark ? 'text-[10px] text-sky-400 underline break-all' : 'text-[10px] text-sky-700 underline break-all'">
+                        {{ r }}
+                      </a>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        } @else if (c.posture === 'compliant') {
+          <p [class]="dark ? 'text-[11px] text-emerald-400' : 'text-[11px] text-emerald-700'">
+            Every check feeding this control concluded and none raised an advisory.
+          </p>
+        } @else {
+          <p [class]="dark ? 'text-[11px] text-amber-400' : 'text-[11px] text-amber-700'">
+            No advisory was raised, but not every check concluded — this is not evidence the control is in place.
+          </p>
+        }
+      </div>
+    }
+  </div>
+</ng-template>
