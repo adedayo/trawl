@@ -42,6 +42,8 @@ github.com/VividCortex/ewma v1.2.0 h1:f58SaIzcDXrSy3kWaHNvuJgJ3Nmz59Zji6XoJR/q1o
 github.com/VividCortex/ewma v1.2.0/go.mod h1:nz4BbCtbLyFDeC9SUHbtcT5644juEuWfUAUnGx7j5l4=
 github.com/adedayo/checkmate v1.3.3 h1:V2lI/SP9DSFh1d9Fo+8pZhjo6d6aJ1TnRQHemfn7/NU=
 github.com/adedayo/checkmate v1.3.3/go.mod h1:u9WsiguhJkrMovc6TBJORuCDuZhaISHwosLOCtafVJI=
+github.com/adedayo/vantage v1.3.0 h1:6uXo+hBikhit+/sIfnqCIscbaXdyNNxnsdHMOvHExf8=
+github.com/adedayo/vantage v1.3.0/go.mod h1:slK9XJ3esrlOvcmQhxUeTwHcikecg8tNApyth8XJOYI=
 github.com/akrylysov/pogreb v0.10.1 h1:FqlR8VR7uCbJdfUob916tPM+idpKgeESDXOA1K0DK4w=
 github.com/akrylysov/pogreb v0.10.1/go.mod h1:pNs6QmpQ1UlTJKDezuRWmaqkgUE2TuU0YTWyqJZ7+lI=
 github.com/alecthomas/assert/v2 v2.7.0 h1:QtqSACNS3tF7oasA8CU6A6sXZSBDqnm7RfpLl9bZqbE=
