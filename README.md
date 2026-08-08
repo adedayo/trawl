@@ -5,202 +5,175 @@
 <h1 align="center">Trawl</h1>
 
 <p align="center">
-  <strong>External Attack Surface & Continuous Exposure Validation Engine</strong>
+  <strong>Find out what an attacker can see of your organisation — and get told the moment it changes.</strong>
 </p>
 
-Continuous external attack surface monitoring **and** continuous external control validation — discover internet-facing assets through passive OSINT, scan them non-destructively, correlate findings against CISA KEV / NVD / EPSS, check email-authentication posture, scan public repositories for exposed secrets, detect when any tracked attribute quietly regresses between checks, use AI strictly as a triage/annotation layer, and alert before an attacker's window opens.
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#what-you-get">What you get</a> ·
+  <a href="docs/distribution.md">All install options</a> ·
+  <a href="docs/development.md">For developers</a> ·
+  <a href="#licence">Licence</a>
+</p>
 
-Discovery answers *"what's out there."*
-Posture-regression detection answers *"did something that used to be fine stop being fine."*
+---
 
-## What This Does
+Most organisations cannot answer a simple question: *which of our systems can
+be reached from the internet right now?* The answer keeps changing. A marketing
+team creates a new subdomain. A certificate expires. Someone widens a firewall
+rule "temporarily". A repository is made public with a key still in its
+history. None of this shows up in a vulnerability report, because nobody knew
+to point the scanner at it.
 
-| Capability | How |
-|---|---|
-| **Asset discovery** | Passive OSINT — CT logs, subfinder, amass, ASN/WHOIS pivots. No port scanning until an asset is approved. |
-| **Non-destructive scanning** | naabu + httpx + nuclei (KEV-tagged templates first), with defense-in-depth allowlist enforcement. |
-| **Vulnerability correlation** | Deterministic CPE/CVE matching against CISA KEV, NVD, and EPSS — KEV is the highest-signal feed. |
-| **Email-auth posture** | SPF / DKIM / DMARC (+ BIMI / MTA-STS / TLS-RPT / CAA) via DNS-over-HTTPS. No scanning binary needed. |
-| **Repository secret scanning** | Full git-history scanning of operator-declared public repos with Gitleaks/TruffleHog. Optional live verification. |
-| **Posture regression** | Shared snapshot/diff mechanism catches TLS downgrades, DMARC weakening, new open ports, re-exposed secrets — anything that gets worse between checks. |
-| **AI triage** | LLM-generated plain-language summary and remediation guidance. Advisory only — never sets priority scores. |
-| **Fast alerting** | Slack/webhook with dedup and category routing. |
+Trawl finds those assets the way an attacker would — from the outside, with no
+credentials and no agents — checks them without breaking them, and tells you
+when something that used to be fine stops being fine.
 
-## Architecture
+It runs entirely on your own machine or your own server. There is no account to
+create, no data leaves your infrastructure, and it is free.
 
+## What you get
+
+**A live inventory of your external footprint.** Trawl starts from open
+sources — certificate transparency logs, DNS, ASN and WHOIS pivots — and then
+confirms what it finds, which does mean connecting to hosts: reading a
+certificate requires a TLS handshake with the server presenting it.
+
+Contact is not the thing to avoid. Uncontrolled contact is. Every connection
+Trawl makes is deliberate — a specific check, against a specific host, for a
+stated reason, recorded in the scan history. It is also ordinary traffic: the
+same kind of connection any internet user could make to a service you have
+chosen to publish. Discovery leans on open sources first so the volume of
+contact stays proportionate to what is being established, and the fuller
+checks wait until you have confirmed an asset is yours. Once it is confirmed,
+connecting to your own systems is simply due diligence. You cannot get
+assurance about a service you refuse to talk to.
+
+**Findings that are ranked honestly.** A vulnerability is prioritised by
+whether it is *actually being exploited in the wild* (CISA KEV), how likely
+exploitation is (EPSS), and how exposed the asset is — not by a vendor's
+severity label. The ranking is a fixed calculation, so two people looking at
+the same finding always see the same number.
+
+**Email spoofing protection, checked properly.** SPF, DKIM and DMARC, plus
+BIMI, MTA-STS, TLS-RPT and CAA. This is how most organisations get impersonated
+and it is usually misconfigured.
+
+**Secrets found before someone else finds them.** Full git-history scanning of
+your public repositories. A key deleted in yesterday's commit is still in the
+history, and still works.
+
+**Alerts when things get worse, not just when things are new.** This is the
+part most tools miss. Trawl compares every check against the last one, so a TLS
+downgrade, a weakened DMARC policy, a newly-opened port or a re-exposed secret
+raises an alert — even though nothing is technically "new".
+
+**Plain-English explanations.** An optional AI layer writes up what a finding
+means and how to fix it. It is advisory only and never influences the priority
+score. You can point it at a local model, or leave it switched off entirely.
+
+> **What Trawl will not do.** Trawl does connect to hosts — reading a
+> certificate or checking a service means talking to it, and port and service
+> checks are part of understanding your own attack surface. This is ordinary
+> traffic of the kind any internet user could send to a service you have
+> published. What Trawl will not do is attack: no exploitation, no credential
+> brute-forcing, nothing capable of knocking a service over. The broader
+> checks wait until you have approved the asset. And it looks from the outside
+> only, so it complements internal vulnerability management rather than
+> replacing it. It is not a log platform.
+
+## Install
+
+Two ways to run Trawl. They use the same engine.
+
+### Desktop application
+
+Best for individuals and small teams. No server, no Docker, no configuration —
+it keeps its data in a single file under `~/.trawl/`.
+
+**macOS**
+
+```sh
+brew install --cask adedayo/tap/trawl
 ```
-                     ┌─────────────────────────┐
-   Ofelia (cron)  ──▶│  discovery-worker       │──▶ POST candidates
-                     │  (CT logs, subfinder,   │
-                     │   ASN/WHOIS pivots)     │
-                     └─────────────────────────┘
-                                                        │
-                     ┌─────────────────────────┐        ▼
-   Ofelia (cron)  ──▶│  scan-worker            │   ┌──────────────────────────┐
-                     │  (naabu/httpx/nuclei,   │──▶│  trawl-server (Go)       │
-                     │   KEV-tagged templates) │   │  SQLite (WAL) store:     │
-                     └─────────────────────────┘   │   assets · scans         │
-                                                     │   findings · reference   │
-   Ofelia (cron)  ──▶┌─────────────────────────┐   │   (KEV/NVD/EPSS)         │
-                     │  repo-scan-worker       │──▶│  job queue (pop/complete)│
-                     │  (checkmate)            │   │  ingest endpoints        │
-                     └─────────────────────────┘   │  correlation · AI triage │
-                                                     │  alerting               │
-                                                     └──────────────┬───────────┘
-                                                                    │ event bus
-                                                                    ▼ (WebSocket)
-                                                     ┌──────────────────────────┐
-                                                     │   Angular dashboard      │
-                                                     │   (nginx container)      │
-                                                     └──────────────────────────┘
+
+**Windows**
+
+```powershell
+winget install Adedayo.Trawl
 ```
 
-Workers claim work from `GET /api/jobs/pop`, post results to `POST /api/ingest/*`, and report terminal status to `POST /api/jobs/complete`. The server is the only component holding state; there is no separate database service.
+**Linux**
 
-**Self-hosted, single-command deployment** — the engine, job scheduling, and the dashboard all run in Docker Compose. No cloud account required. The same engine also ships as a single-binary desktop application.
+```sh
+sudo apt install ./trawl_*_amd64.deb      # Debian, Ubuntu
+sudo dnf install ./trawl-*.x86_64.rpm     # Fedora, RHEL
+```
 
-## Tech Stack
+Or download directly from the
+[latest release](https://github.com/adedayo/trawl/releases/latest) — macOS
+builds are universal, and Linux has an AppImage if you would rather not
+install anything.
 
-| Layer | Choice |
-|---|---|
-| Engine | Go — single statically linked binary, no runtime dependency |
-| Data | SQLite (WAL) via `modernc.org/sqlite` — pure Go, no cgo |
-| Desktop | Wails v2, with the Angular dashboard embedded via `go:embed` |
-| Real-time | In-process event bus, with Wails IPC and WebSocket adapters |
-| Scanning | subfinder (embedded), checkmate for repository secrets |
-| DNS / email / delegation | [vantage](https://github.com/adedayo/vantage) (BSD-3) embedded as a library |
-| Frontend | Angular (latest stable, signals, standalone, `@if`/`@for`), Tailwind CSS v4 + spartan/ui |
-| Testing | Go tests (engine), Vitest (unit), Playwright (e2e + accessibility) |
-| Vuln intel | CISA KEV, NVD, EPSS — all free, public |
-| AI | OpenAI-compatible client — BYOK cloud or local (Ollama/vLLM/llama.cpp) |
-| Job scheduling | Ofelia cron sidecar |
-| Dependency hygiene | Renovate with release-age cooldown + agentic triage |
+> **macOS will warn you the first time.** Trawl is free software and is not
+> signed with a paid Apple Developer certificate — we are not going to charge
+> the community, however indirectly, to fund a $99/year rent to Apple. The
+> Homebrew command above handles this for you and needs no workaround. If you
+> download the `.dmg` directly, [docs/distribution.md](docs/distribution.md)
+> explains what the warning actually means and gives you a one-line fix that
+> applies to this app only.
 
-## Quick Start
+### Self-hosted server
 
-### Prerequisites
+Best for continuous, scheduled monitoring across a team. Runs the engine,
+scheduler and dashboard in Docker.
 
-- [Docker](https://docs.docker.com/get-docker/) and Docker Compose v2+
-- An LLM API key (any OpenAI-compatible provider) **or** a local model (Ollama, etc.)
-
-### Setup
-
-```bash
+```sh
 git clone https://github.com/adedayo/trawl.git
 cd trawl
 ./setup.sh
 ```
 
-The guided setup collects your seed domains, LLM API key (or local-model choice), and alert webhook, then brings the full stack up and prints your dashboard URL.
+The guided setup asks for your domains, an optional AI provider and where to
+send alerts, then starts everything and prints your dashboard URL.
 
-**Advanced users** can skip the guided setup:
+Requires [Docker](https://docs.docker.com/get-docker/) with Compose v2. Full
+options, including pre-built container images and Cloud Run, are in
+[docs/distribution.md](docs/distribution.md).
 
-```bash
-cp .env.example .env
-# Edit .env with your values
-docker compose -f deploy/compose/docker-compose.yml up -d
-```
+## Getting started
 
-### Desktop application
+1. **Add your domains.** Trawl works outward from these.
+2. **Review what it finds.** Discovered assets land in a queue. Approve the
+   ones that are yours; the rest are never touched.
+3. **Let it run.** Scheduled checks build up history, and history is what makes
+   regression alerts possible. The first run tells you where you stand; the
+   value compounds after that.
+4. **Connect alerts.** Slack or any webhook. Alerts are deduplicated and
+   routed by category, so it stays quiet until it matters.
 
-The same engine ships as a single-binary desktop app. It needs no Docker, no
-server and no configuration — SQLite lives in `~/.trawl/trawl.db`.
+## Verifying what you downloaded
 
-```bash
-go install github.com/wailsapp/wails/v2/cmd/wails@latest
-export PATH="$PATH:$(go env GOPATH)/bin"
+Every release publishes a `SHA256SUMS` file, a signature you can check without
+any key of ours, and a full software bill of materials. A tool asking for
+visibility of your attack surface should be able to prove what it shipped.
+Instructions are in [docs/distribution.md](docs/distribution.md#verifying-a-download).
 
-wails doctor          # verify toolchain prerequisites
-wails dev             # hot-reloading desktop window
-wails build           # produces build/bin/Trawl.app (macOS)
-```
+## Getting help
 
-`wails dev` runs `ng serve` behind the native window, so both Go and Angular
-hot-reload. It also regenerates the TypeScript bindings in `app/wailsjs/` from
-the methods bound in `main.go` — commit those when you change `app.go`'s public
-surface, or the frontend calls a method the backend no longer exposes.
+- **Something broken, or a feature you need?**
+  [Open an issue](https://github.com/adedayo/trawl/issues).
+- **Installation questions** — [docs/distribution.md](docs/distribution.md).
+- **Want to contribute or understand the internals** —
+  [docs/development.md](docs/development.md).
 
-Note that `go build ./...` requires a prior `npm run build`: `main.go` embeds
-the compiled dashboard with `go:embed`, so the engine cannot compile until
-`app/dist/` exists. `go build ./pkg/... ./cmd/...` skips that dependency.
+## Licence
 
-### Local checks
+Trawl is released under the [Apache License 2.0](LICENSE). You can use it
+commercially, modify it, and run it in production without asking anyone.
 
-```bash
-./test.sh              # mirrors CI exactly
-./test.sh --docker     # also build the server image and round-trip a job
-./test.sh --quick      # skip the production bundle
-```
-
-## Project Structure
-
-```
-trawl/
-├── main.go, app.go         # Wails desktop binary
-├── cmd/trawl/              # Headless server binary (`trawl server`)
-├── pkg/
-│   ├── store/              # Store interface + SQLite implementation
-│   ├── event/              # In-process event bus
-│   ├── scanner/            # Scanning and assessment
-│   └── service/            # Orchestration
-├── app/                    # Angular dashboard
-├── jobs/
-│   ├── discovery-worker/   # OSINT asset discovery
-│   ├── scan-worker/        # Port/service/vuln scanning
-│   └── repo-scan-worker/   # Public repo secret scanning
-├── deploy/
-│   └── compose/            # Docker Compose stack
-│       ├── docker-compose.yml
-│       ├── ofelia.conf     # Cron schedule
-│       ├── nginx.conf      # Serves Angular build
-│       └── setup.sh        # Guided first-run setup
-├── config/
-│   └── example.json        # Config template (no real values)
-└── openspec/               # Spec-driven design docs + RISK-ARC reasoning
-```
-
-## Design Principles
-
-- **Non-destructive by default** — enforced in code (allowlist checks in the scan job itself), not just policy.
-- **Deterministic scoring, AI for narrative only** — priority/severity is a pure function of KEV/EPSS/CVSS/exposure; the LLM annotates, it never sets the number.
-- **Getting worse is as alertable as being new** — every capability writes comparable, dated snapshots into one shared regression mechanism.
-- **Config is the only thing that changes between deployments** — zero org-specific data in the engine.
-- **Cost scales with activity, not time** — scheduled batch jobs, not always-on services.
-
-## Non-Goals
-
-- **Not an exploitation tool.** No active exploitation, credential brute-forcing, or DoS-capable technique.
-- **Not internal vulnerability management.** External, unauthenticated attacker's view only.
-- **Not a SIEM.** Produces findings, not a log pipeline.
-- **Not fully autonomous.** Medium/low-confidence discovered assets require human approval before scanning.
-
-## Development
-
-```bash
-# Install dependencies
-npm install
-
-# Run the Angular dev server
-cd app && npm run dev
-
-# Run unit tests
-npm test
-
-# Run e2e tests
-npx playwright test
-```
-
-See `openspec/` for the full spec-driven design — capability specs, implementation phases, and architectural decisions.
-
-## License
-
-This project is licensed under the [Apache License 2.0](LICENSE).
-
-### Dependency License Notice
-
-> [!NOTE]
-> Every dependency of Trawl — engine, desktop application, dashboard, and the Docker Compose deployment — is under an OSI-approved open-source licence, including [vantage](https://github.com/adedayo/vantage) (BSD-3-Clause), which provides DNS, email and delegation assessment. See [NOTICE](NOTICE) for details.
-
-## Contributing
-
-Contributions are welcome. Please read the spec under `openspec/` before proposing changes — this project uses a spec-driven development workflow where capability requirements are defined before implementation.
+Every dependency — engine, desktop app, dashboard and the Docker deployment —
+is under an OSI-approved open-source licence, including
+[vantage](https://github.com/adedayo/vantage) (BSD-3-Clause), which provides
+the DNS, email and delegation assessment. See [NOTICE](NOTICE) for the full
+list.

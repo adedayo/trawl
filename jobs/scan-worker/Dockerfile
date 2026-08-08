@@ -1,12 +1,21 @@
-FROM golang:1.24-alpine AS build-tools
+FROM golang:1.26-alpine AS build-tools
 
 # Install scanning tools from source
 ENV GOTOOLCHAIN=auto
 RUN apk add --no-cache git
 
-RUN go install github.com/projectdiscovery/naabu/v2/cmd/naabu@latest && \
-    go install github.com/projectdiscovery/httpx/cmd/httpx@latest && \
-    go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+# Pinned, not @latest. An image tag is supposed to identify a set of scanner
+# behaviours; @latest means rebuilding vX.Y.Z next month produces a different
+# scanner, so a finding cannot be attributed to a version and a regression
+# between two runs cannot be distinguished from a tool upgrade. Renovate keeps
+# these current — moving them is a reviewed change, not a side effect of a
+# rebuild.
+ARG NAABU_VERSION=v2.3.5
+ARG HTTPX_VERSION=v1.7.1
+ARG NUCLEI_VERSION=v3.4.10
+RUN go install "github.com/projectdiscovery/naabu/v2/cmd/naabu@${NAABU_VERSION}" && \
+    go install "github.com/projectdiscovery/httpx/cmd/httpx@${HTTPX_VERSION}" && \
+    go install "github.com/projectdiscovery/nuclei/v3/cmd/nuclei@${NUCLEI_VERSION}"
 
 FROM alpine:3.22
 

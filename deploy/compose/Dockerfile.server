@@ -20,7 +20,18 @@ COPY pkg/ ./pkg/
 # compile time. Omitting it does not degrade the build — it fails it.
 COPY config/ ./config/
 
-RUN go build -trimpath -ldflags="-s -w" -o /out/trawl-server ./cmd/trawl
+# Stamped so that a running container can be asked what it is. An image tag
+# says what someone meant to deploy; `trawl version` says what is actually
+# executing, and the two disagree more often than anyone expects.
+ARG VERSION=dev
+ARG COMMIT=""
+ARG BUILD_DATE=""
+RUN go build -trimpath \
+    -ldflags="-s -w \
+      -X github.com/adedayo/trawl/pkg/version.Version=${VERSION} \
+      -X github.com/adedayo/trawl/pkg/version.Commit=${COMMIT} \
+      -X github.com/adedayo/trawl/pkg/version.BuildDate=${BUILD_DATE}" \
+    -o /out/trawl-server ./cmd/trawl
 
 FROM alpine:3.21
 

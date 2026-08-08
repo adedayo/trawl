@@ -1,6 +1,6 @@
 # Trawl — Project Context
 
-Continuous external attack surface monitoring, continuous external control validation, and — from Change 006 onward — quantified risk decision support. Trawl discovers internet-facing assets via passive OSINT, scans them non-destructively, correlates against CISA KEV/NVD/EPSS, assesses email-authentication and DNS delegation posture, scans operator-declared public repositories for exposed secrets, detects when any tracked attribute regresses between checks, and turns that observed exposure into calibrated probability and priced expected loss.
+Continuous external attack surface monitoring, continuous external control validation, and — from Change 006 onward — quantified risk decision support. Trawl discovers internet-facing assets from open-source intelligence and deliberate, in-scope checks, assesses them non-destructively, correlates against CISA KEV/NVD/EPSS, assesses email-authentication and DNS delegation posture, scans operator-declared public repositories for exposed secrets, detects when any tracked attribute regresses between checks, and turns that observed exposure into calibrated probability and priced expected loss.
 
 This file is read by AI coding agents working in this repo (OpenSpec convention) so they don't need to re-derive project conventions each session.
 
@@ -28,7 +28,7 @@ This file is read by AI coding agents working in this repo (OpenSpec convention)
 
 These are enforced in code, not just documented as policy.
 
-1. **Non-destructive only.** No exploitation, credential brute-forcing, or DoS-capable technique, ever.
+1. **Non-destructive only.** No exploitation, credential brute-forcing, or DoS-capable technique, ever. Note what this does *not* say: no-contact is not an invariant, and neither is passivity. Trawl already opens connections during discovery — reading a certificate requires a TLS handshake with the host presenting it — and once scope is operator-confirmed, port scanning and service detection are legitimate due diligence on your own estate. The invariant is that contact is **deliberate**: every connection must be attributable to a named check, against an in-scope target, for a stated reason, and recorded. Incidental or opportunistic contact is the defect, not contact itself. Do not treat "sends fewer packets" as the safety property; the safety properties are invariants 1 and 2.
 2. **Scope enforcement is defence-in-depth.** Every scan path independently validates targets against the configured authorised scope before touching them, even if upstream data is wrong. Where a library is embedded, scope enforcement belongs in the transport: the goal is "we cannot ask", not "we do not ask".
 3. **Deterministic severity, AI narrative only.** Priority, severity, KEV and EPSS fields are computed by pure functions. AI output is stored in a separate annotation field and never overwrites them. The same asymmetry governs dependency auto-merge: tests-passing plus cooldown-elapsed is the deterministic gate; the triage agent may withhold auto-merge but can never grant it. An agent that can promote can be prompt-injected by a changelog; an agent that can only veto cannot.
 4. **No org-specific data in the engine.** Seed domains, CIDRs, webhook URLs, org names — all external configuration, never hardcoded or committed.
@@ -48,6 +48,9 @@ These are enforced in code, not just documented as policy.
 - `deploy/compose/` — Docker Compose files, Ofelia schedule config, nginx config, guided setup script. The stack is `trawl-server` (Go + SQLite, the sole ingest target and job broker), the nginx-served dashboard, Ofelia, and the worker containers. There is no separate database service.
 - `config/` — one `config/<instance-name>.json` per deployment; nothing instance-specific lives elsewhere.
 - `.github/scripts/` — the dependency gate: a pure classifier plus its triage runner, both unit-tested.
+- `packaging/` — release packaging manifests: Homebrew cask and formula, Scoop, nfpm (`.deb`/`.rpm`) and the Linux desktop entry. Validated on every commit by `./scripts/validate-packaging.sh`.
+- `scripts/` — `release.sh` (the only supported way to cut a release) and `validate-packaging.sh`.
+- `build/` — Wails build inputs: icons, `Info.plist` templates, Windows version resource, manifest and NSIS installer. See `build/README.md` for what is committed and what Wails regenerates.
 - `openspec/` — specs, changes and the RISK-ARC reasoning document.
 
 ## Conventions
@@ -56,8 +59,12 @@ These are enforced in code, not just documented as policy.
 - **DNS, email and delegation assessment goes through vantage.** Do not add hand-rolled resolver calls for anything vantage covers. New assessment capability belongs upstream in vantage, behind an egress profile, rather than as a local DNS lookup here — that is what keeps scope enforceable at the transport and keeps new checks failing closed.
 - Pure functions for anything probability-affecting. No probability-affecting constant may be embedded in engine code — parameters live in signed, versioned, source-cited model packs (Change 008).
 - Tests: pure-logic unit tests (scoring, correlation, dedup, ranking) require no infrastructure and must exist before a feature is considered done. The scope-enforcement test and the dependency-gate tests are required checks, not optional.
-- `./test.sh` runs the full local suite — typecheck, Go tests, frontend tests, worker dry-runs, production build.
+- `./test.sh` runs the full local suite — typecheck, Go tests, frontend tests, worker dry-runs, packaging validation, production build.
 - `./security-fix.sh` applies safe dependency fixes and reports what needs a decision. It refuses to run on a dirty tree.
+- **Releases are cut with `./scripts/release.sh vX.Y.Z` and nothing else.** The script gates and tags; the workflows build and publish. Do not build or upload release artefacts by hand, and do not add publishing steps to the script — a release path with two entry points has a state nobody can reason about.
+- **Every binary reports one version, from `pkg/version`.** Stamped at link time with `-X github.com/adedayo/trawl/pkg/version.Version`. Never add a second `var Version` to a `main` package; the desktop app, the server and the workers must not be able to disagree.
+- **Release builds build the tree as committed.** No `go mod edit` during a build, no dependency resolved to `@main` or `@latest`, every base image and scanner tool pinned. This is not tidiness — an SBOM or provenance statement over a build that mutated its own dependency graph describes something that existed only during that CI run.
+- **Integrity evidence is not optional; identity is.** Checksums and keyless cosign signatures need no secret and always run — they are the trust anchor, and they are stronger than a vendor certificate because they are publicly logged and bound to the release workflow. Apple and Authenticode signing are guarded on secrets. Trawl holds no Apple Developer Program membership and will not buy one, so macOS builds are ad-hoc signed and not notarised. Never publish an artefact labelled notarised when it is not, and never tell a user to disable Gatekeeper system-wide — per-artefact quarantine removal on a verified download is the remedy we document.
 
 ## Spec-Driven Workflow
 

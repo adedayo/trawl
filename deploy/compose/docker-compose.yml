@@ -3,9 +3,17 @@
 # State lives in SQLite inside the trawl-server container, on the named
 # `trawl-data` volume. There is no separate database service: the server is
 # the ingest target, the job broker, and the read API.
+#
+# Every service declares both `image:` and `build:`. That is deliberate rather
+# than redundant: `docker compose up` pulls the published image, so the default
+# path for an operator costs a download instead of a toolchain, while
+# `docker compose build` still works unchanged for anyone developing against
+# this file. Pin the stack with TRAWL_VERSION; the `latest` default is a
+# convenience for evaluation, not a recommendation for a deployment.
 
 services:
   trawl-server:
+    image: ghcr.io/adedayo/trawl-server:${TRAWL_VERSION:-latest}
     build:
       context: ../..
       dockerfile: deploy/compose/Dockerfile.server
@@ -21,6 +29,7 @@ services:
       - trawl-data:/data
 
   dashboard:
+    image: ghcr.io/adedayo/trawl-dashboard:${TRAWL_VERSION:-latest}
     build:
       context: ../..
       dockerfile: deploy/compose/Dockerfile.dashboard
@@ -32,7 +41,10 @@ services:
       - trawl-server
 
   ofelia:
-    image: mcuadros/ofelia:latest
+    # Pinned. This container holds a read-only Docker socket, which makes it
+    # the highest-value target in the stack; `latest` on that service means the
+    # most privileged component is the one whose contents nobody chose.
+    image: mcuadros/ofelia:v0.3.20
     container_name: trawl-ofelia
     restart: unless-stopped
     depends_on:
@@ -42,6 +54,7 @@ services:
       - ./ofelia.conf:/etc/ofelia/config.ini:ro
 
   discovery-worker:
+    image: ghcr.io/adedayo/trawl-discovery-worker:${TRAWL_VERSION:-latest}
     build:
       context: ../../jobs/discovery-worker
       dockerfile: Dockerfile
@@ -56,6 +69,7 @@ services:
       - DRY_RUN=${DRY_RUN:-false}
 
   scan-worker:
+    image: ghcr.io/adedayo/trawl-scan-worker:${TRAWL_VERSION:-latest}
     build:
       context: ../../jobs/scan-worker
       dockerfile: Dockerfile
@@ -71,6 +85,7 @@ services:
       - DRY_RUN=${DRY_RUN:-false}
 
   repo-scan-worker:
+    image: ghcr.io/adedayo/trawl-repo-scan-worker:${TRAWL_VERSION:-latest}
     build:
       context: ../../jobs/repo-scan-worker
       dockerfile: Dockerfile

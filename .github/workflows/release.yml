@@ -1,0 +1,546 @@
+# Trawl — release pipeline.
+#
+# One tag produces every desktop artefact for every platform, or produces none.
+# Publication is gated on all three platform jobs succeeding, because a release
+# that is complete on macOS and missing on Windows is worse than no release: it
+# is discovered by the user rather than by CI.
+#
+# Signing is optional throughout. Every codesign, notarisation and Authenticode
+# step is guarded on its secret being present, and the workflow succeeds
+# without them. That is partly fork-friendliness, but mostly so that a change
+# to this file can be tested without production signing credentials — a
+# pipeline whose only test environment is production does not get tested.
+#
+# Integrity evidence is NOT optional. Checksums and keyless cosign signatures
+# require no secret and always run. Identity is a nice-to-have; verifiability
+# is the product.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build artefacts without publishing a release'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+env:
+  # Wails names the binary from wails.json. Hard-coding it here and there is
+  # how a rename turns into an empty release, so it is declared once.
+  APP_NAME: Trawl
+  GO_VERSION_FILE: go.mod
+
+jobs:
+  # ── Establish the version once ───────────────────────────────────────────
+  # Every downstream job stamps the same string. Deriving it per-job from
+  # github.ref_name would work for tags and silently produce "merge" for a
+  # dispatch run.
+  meta:
+    name: Resolve release metadata
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      commit: ${{ steps.v.outputs.commit }}
+      build_date: ${{ steps.v.outputs.build_date }}
+      ldflags: ${{ steps.v.outputs.ldflags }}
+      publish: ${{ steps.v.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: v
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF_NAME}"
+            PUBLISH=true
+          else
+            # A dispatch build is not a release and must not claim to be one.
+            VERSION="v0.0.0-dev.$(date -u +%Y%m%d%H%M%S)"
+            PUBLISH=false
+          fi
+
+          if [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
+            PUBLISH=false
+          fi
+
+          COMMIT="$(git rev-parse --short=12 HEAD)"
+          BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          PKG="github.com/adedayo/trawl/pkg/version"
+
+          {
+            echo "version=${VERSION}"
+            echo "commit=${COMMIT}"
+            echo "build_date=${BUILD_DATE}"
+            echo "publish=${PUBLISH}"
+            echo "ldflags=-s -w -X ${PKG}.Version=${VERSION} -X ${PKG}.Commit=${COMMIT} -X ${PKG}.BuildDate=${BUILD_DATE}"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Building ${VERSION} (${COMMIT}); publish=${PUBLISH}"
+
+  # ── macOS ────────────────────────────────────────────────────────────────
+  macos:
+    name: macOS (universal)
+    needs: meta
+    runs-on: macos-14
+    # Declared at job level, not step level. A step-level `env:` is not visible
+    # to that same step's `if:`, which evaluates before the step environment is
+    # constructed — so guarding on it there silently never matches.
+    env:
+      APPLE_CERT_P12: ${{ secrets.APPLE_CERT_P12 }}
+      APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ env.GO_VERSION_FILE }}
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install Wails CLI
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Build universal app bundle
+        run: |
+          wails build -platform darwin/universal -clean \
+            -ldflags "${{ needs.meta.outputs.ldflags }}"
+
+      # Signing and notarisation are one unit: a bundle that is signed but not
+      # notarised is treated by Gatekeeper roughly as an unsigned one, while
+      # carrying a signature that suggests otherwise. If signing happens,
+      # notarisation must succeed or the job fails.
+      - name: Codesign and notarise
+        if: env.APPLE_CERT_P12 != ''
+        run: |
+          set -euo pipefail
+
+          KEYCHAIN="$RUNNER_TEMP/build.keychain"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security default-keychain -s "$KEYCHAIN"
+
+          echo "$APPLE_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" \
+            -P "$APPLE_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+          codesign --force --deep --options runtime --timestamp \
+            --sign "$APPLE_SIGNING_IDENTITY" \
+            "build/bin/${APP_NAME}.app"
+          codesign --verify --strict --verbose=2 "build/bin/${APP_NAME}.app"
+
+          ditto -c -k --keepParent "build/bin/${APP_NAME}.app" "$RUNNER_TEMP/notarize.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --wait --timeout 30m
+
+          # Stapling is what makes the ticket available offline. Without it a
+          # first launch on a machine with no network shows the same warning
+          # notarisation was meant to remove.
+          xcrun stapler staple "build/bin/${APP_NAME}.app"
+          xcrun stapler validate "build/bin/${APP_NAME}.app"
+
+          echo "SIGNED=true" >> "$GITHUB_ENV"
+
+      # No Apple Developer Program membership, by choice: Trawl is free, and a
+      # $99/year rent to Apple for the privilege of giving software away is not
+      # a cost this project will carry. Ad-hoc signing is the free alternative.
+      # It does not satisfy Gatekeeper — only a Developer ID plus notarisation
+      # does — but it is not cosmetic either:
+      #
+      #   * arm64 Macs refuse to execute a Mach-O with no signature at all, so
+      #     the universal bundle needs one regardless;
+      #   * it gives the bundle a stable code identity, which is what the
+      #     keychain, TCC (camera/network prompts) and the firewall key their
+      #     per-app grants on. Without it every rebuild looks like a new app
+      #     and the user re-approves everything;
+      #   * it makes the bundle tamper-evident locally: `codesign --verify`
+      #     fails if anything inside was modified after we built it.
+      #
+      # Distribution trust comes from SHA256SUMS and the keyless cosign
+      # signature instead, which is stronger evidence than Apple's — it is
+      # publicly logged in Rekor and tied to this workflow, not to whoever
+      # happened to pay Apple.
+      - name: Ad-hoc sign
+        if: env.APPLE_CERT_P12 == ''
+        run: |
+          set -euo pipefail
+          codesign --force --deep --sign - "build/bin/${APP_NAME}.app"
+          codesign --verify --deep --strict --verbose=2 "build/bin/${APP_NAME}.app"
+
+      - name: Package DMG and ZIP
+        run: |
+          set -euo pipefail
+          cd build/bin
+
+          # ditto, not zip: zip does not preserve the resource forks and
+          # extended attributes that carry the stapled notarisation ticket, so
+          # a zip-archived signed bundle arrives unnotarised.
+          ditto -c -k --keepParent "${APP_NAME}.app" "${APP_NAME}-macos-universal.zip"
+
+          hdiutil create -volname "${APP_NAME}" \
+            -srcfolder "${APP_NAME}.app" \
+            -ov -format UDZO "${APP_NAME}-macos-universal.dmg"
+
+      - name: Staple the DMG
+        if: env.SIGNED == 'true'
+        run: |
+          set -euo pipefail
+          cd build/bin
+          codesign --force --sign "$APPLE_SIGNING_IDENTITY" --timestamp \
+            "${APP_NAME}-macos-universal.dmg"
+          xcrun notarytool submit "${APP_NAME}-macos-universal.dmg" \
+            --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" --wait --timeout 30m
+          xcrun stapler staple "${APP_NAME}-macos-universal.dmg"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: |
+            build/bin/${{ env.APP_NAME }}-macos-universal.dmg
+            build/bin/${{ env.APP_NAME }}-macos-universal.zip
+          if-no-files-found: error
+
+  # ── Windows ──────────────────────────────────────────────────────────────
+  windows:
+    name: Windows (${{ matrix.arch }})
+    needs: meta
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    env:
+      # Job level, for the same reason as the macOS signing secrets: a
+      # step-level env var cannot be read by that step's own `if:`.
+      WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+      WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ env.GO_VERSION_FILE }}
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install NSIS and Wails CLI
+        run: |
+          choco install nsis -y --no-progress
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
+          echo "$(go env GOPATH)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Build application and installer
+        run: |
+          wails build -platform windows/${{ matrix.arch }} -clean -nsis `
+            -ldflags "${{ needs.meta.outputs.ldflags }}"
+
+      - name: Authenticode sign
+        if: env.WINDOWS_CERT_PFX != ''
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pfx = Join-Path $env:RUNNER_TEMP 'cert.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERT_PFX))
+
+          # RFC 3161 timestamping, so the signature outlives the certificate.
+          # Without it every artefact starts warning the day the cert expires,
+          # including releases that were valid when they were published.
+          Get-ChildItem -Path build\bin -Include *.exe -Recurse | ForEach-Object {
+            & signtool sign /f $pfx /p $env:WINDOWS_CERT_PASSWORD `
+              /tr http://timestamp.digicert.com /td sha256 /fd sha256 /v $_.FullName
+            if ($LASTEXITCODE -ne 0) { throw "signtool failed for $($_.FullName)" }
+          }
+          Remove-Item $pfx -Force
+
+      - name: Package portable ZIP
+        run: |
+          cd build\bin
+          Compress-Archive -Path "$env:APP_NAME.exe" `
+            -DestinationPath "$env:APP_NAME-windows-${{ matrix.arch }}.zip"
+          Get-ChildItem -Filter '*installer*.exe' | ForEach-Object {
+            Rename-Item $_.FullName "$env:APP_NAME-windows-${{ matrix.arch }}-installer.exe"
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ matrix.arch }}
+          path: |
+            build/bin/${{ env.APP_NAME }}-windows-${{ matrix.arch }}.zip
+            build/bin/${{ env.APP_NAME }}-windows-${{ matrix.arch }}-installer.exe
+          if-no-files-found: error
+
+  # ── Linux ────────────────────────────────────────────────────────────────
+  linux:
+    name: Linux (${{ matrix.arch }})
+    needs: meta
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            # Native arm64 runner rather than cross-compilation: Wails links
+            # against GTK and WebKit through cgo, and cross-compiling that
+            # reliably requires a sysroot this pipeline has no reason to
+            # maintain.
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-3-dev libwebkit2gtk-4.1-dev build-essential pkg-config \
+            fuse libfuse2 desktop-file-utils
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ env.GO_VERSION_FILE }}
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install Wails CLI and nfpm
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.41.3
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Build application
+        env:
+          GOFLAGS: -tags=webkit2_41
+        run: |
+          wails build -platform linux/${{ matrix.arch }} -clean -tags webkit2_41 \
+            -ldflags "${{ needs.meta.outputs.ldflags }}"
+
+      - name: Package tarball
+        run: |
+          set -euo pipefail
+          cd build/bin
+          tar -czf "${APP_NAME}-linux-${{ matrix.arch }}.tar.gz" "${APP_NAME}"
+
+      # nfpm strips the leading v; a Debian version of "v1.2.3" is invalid and
+      # dpkg rejects it at install time rather than at build time.
+      - name: Package .deb and .rpm
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          export VERSION="${VERSION#v}"
+          nfpm package -f packaging/linux/nfpm.yaml -p deb -t build/bin/
+          nfpm package -f packaging/linux/nfpm.yaml -p rpm -t build/bin/
+
+      # AppImage is the answer to distributions whose WebKit is the wrong
+      # vintage. It is best-effort: losing it should cost this release an
+      # AppImage, not the release.
+      - name: Package AppImage
+        continue-on-error: true
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          case "${{ matrix.arch }}" in
+            amd64) LD_ARCH=x86_64 ;;
+            arm64) LD_ARCH=aarch64 ;;
+          esac
+
+          curl -fsSL -o linuxdeploy \
+            "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${LD_ARCH}.AppImage"
+          chmod +x linuxdeploy
+
+          mkdir -p AppDir/usr/bin
+          cp "build/bin/${APP_NAME}" AppDir/usr/bin/trawl
+
+          ./linuxdeploy --appdir AppDir \
+            --desktop-file packaging/linux/trawl.desktop \
+            --icon-file build/appicon.png \
+            --output appimage
+
+          mv Trawl*.AppImage "build/bin/${APP_NAME}-linux-${{ matrix.arch }}.AppImage"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}
+          path: |
+            build/bin/*.tar.gz
+            build/bin/*.deb
+            build/bin/*.rpm
+            build/bin/*.AppImage
+          if-no-files-found: error
+
+  # ── Integrity evidence and publication ───────────────────────────────────
+  publish:
+    name: Publish release
+    needs: [meta, macos, windows, linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      # Keyless cosign signs against the workflow's OIDC identity. This is the
+      # entire reason no signing secret is needed for the integrity evidence.
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: staging
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: staging
+        run: |
+          set -euo pipefail
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+
+      - uses: sigstore/cosign-installer@v3
+
+      - name: Sign artefacts
+        working-directory: staging
+        run: |
+          set -euo pipefail
+          for f in *; do
+            [ "$f" = "SHA256SUMS" ] && continue
+            cosign sign-blob --yes \
+              --output-signature "${f}.sig" \
+              --output-certificate "${f}.pem" \
+              "$f"
+          done
+          # Signed last so that its own signature covers the final manifest.
+          cosign sign-blob --yes \
+            --output-signature SHA256SUMS.sig \
+            --output-certificate SHA256SUMS.pem \
+            SHA256SUMS
+
+      - uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: staging/trawl-${{ needs.meta.outputs.version }}.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Build provenance attestation
+        if: needs.meta.outputs.publish == 'true'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'staging/*'
+
+      - name: Create GitHub release
+        if: needs.meta.outputs.publish == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: staging/*
+          tag_name: ${{ needs.meta.outputs.version }}
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(needs.meta.outputs.version, '-') }}
+          body: |
+            ## Verifying this release
+
+            Every asset is checksummed and signed with keyless Sigstore, which
+            requires no key material from us and no trust in this repository's
+            secrets.
+
+            ```sh
+            sha256sum -c SHA256SUMS --ignore-missing
+
+            cosign verify-blob \
+              --certificate Trawl-macos-universal.dmg.pem \
+              --signature   Trawl-macos-universal.dmg.sig \
+              --certificate-identity-regexp '^https://github.com/adedayo/trawl/' \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+              Trawl-macos-universal.dmg
+            ```
+
+      - name: Summarise dry run
+        if: needs.meta.outputs.publish != 'true'
+        run: |
+          {
+            echo "### Dry run — nothing published"
+            echo ""
+            echo '```'
+            cat staging/SHA256SUMS
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ── Package managers ─────────────────────────────────────────────────────
+  # Separate job, and deliberately not a blocker: a tap that fails to bump is
+  # an inconvenience, whereas a release that is withheld because of it is an
+  # outage. The release is already published by this point.
+  package-managers:
+    name: Update package managers
+    needs: [meta, publish]
+    if: needs.meta.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update Homebrew cask
+        uses: mislav/bump-homebrew-formula-action@v3
+        with:
+          formula-name: trawl
+          formula-path: Casks/trawl.rb
+          homebrew-tap: adedayo/homebrew-tap
+          download-url: https://github.com/adedayo/trawl/releases/download/${{ needs.meta.outputs.version }}/Trawl-macos-universal.dmg
+          commit-message: 'trawl ${{ needs.meta.outputs.version }}'
+        env:
+          COMMITTER_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+
+      - name: Update Homebrew formula (CLI)
+        uses: mislav/bump-homebrew-formula-action@v3
+        with:
+          formula-name: trawl-cli
+          formula-path: Formula/trawl-cli.rb
+          homebrew-tap: adedayo/homebrew-tap
+          download-url: https://github.com/adedayo/trawl/archive/refs/tags/${{ needs.meta.outputs.version }}.tar.gz
+          commit-message: 'trawl-cli ${{ needs.meta.outputs.version }}'
+        env:
+          COMMITTER_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+
+      - name: Submit to winget
+        continue-on-error: true
+        uses: vedantmgoyal2009/winget-releaser@v2
+        with:
+          identifier: Adedayo.Trawl
+          version: ${{ needs.meta.outputs.version }}
+          installers-regex: '-installer\.exe$'
+          token: ${{ secrets.WINGET_GITHUB_TOKEN }}

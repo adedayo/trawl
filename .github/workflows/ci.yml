@@ -168,3 +168,38 @@ jobs:
           docker logs trawl-ci
           docker rm -f trawl-ci > /dev/null
           exit 1
+
+  # Packaging is the one part of this repository whose defects are found by
+  # users rather than by CI: the release workflow only runs on tags, so a
+  # malformed cask or an nfpm manifest pointing at a renamed binary sits green
+  # until someone tries to install it. This runs the cheap subset of those
+  # checks on every commit, which is the point at which the change that broke
+  # them is still on screen.
+  packaging:
+    name: Packaging Manifests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PyYAML
+        run: pip install --quiet pyyaml
+
+      - name: Validate packaging manifests
+        run: ./scripts/validate-packaging.sh
+
+      # The workflows themselves are packaging inputs. actionlint catches the
+      # class of error that is otherwise only observable by pushing a tag —
+      # notably a step-level `env:` referenced from that step's own `if:`,
+      # which never matches and therefore silently skips signing.
+      - name: Lint workflows
+        uses: raven-actions/actionlint@v2
+        with:
+          fail-on-error: true

@@ -8,6 +8,7 @@ import (
 	"github.com/adedayo/trawl/config/signals"
 	"github.com/adedayo/trawl/pkg/event"
 	"github.com/adedayo/trawl/pkg/store"
+	"github.com/adedayo/trawl/pkg/version"
 
 	// The desktop build is file-backed by definition, so the SQLite backend is
 	// linked in to register itself with the store factory. It is imported for
@@ -24,6 +25,12 @@ import (
 var assets embed.FS
 
 func main() {
+	// A desktop user cannot read a --version flag, and a support request that
+	// begins "the latest one" is not a version. Recording it at startup means
+	// the log a user is asked to attach already answers the question.
+	build := version.Get()
+	log.Printf("Trawl %s (%s)", build.Version, build.Platform)
+
 	// Initialize the store
 	//
 	// An empty DSN selects the default backend at its default location, which
@@ -46,7 +53,7 @@ func main() {
 	}
 
 	err = wails.Run(&options.App{
-		Title:  "Trawl",
+		Title:  "Trawl " + build.Version,
 		Width:  1280,
 		Height: 800,
 		AssetServer: &assetserver.Options{

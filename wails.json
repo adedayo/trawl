@@ -10,5 +10,12 @@
   "author": {
     "name": "Adedayo Adetoye",
     "email": "3177640+adedayo@users.noreply.github.com"
+  },
+  "info": {
+    "companyName": "Adedayo Adetoye",
+    "productName": "Trawl",
+    "productVersion": "0.1.0",
+    "copyright": "Copyright © 2026 Adedayo Adetoye. Licensed under the Apache License 2.0.",
+    "comments": "Continuous external attack surface monitoring and continuous external control validation."
   }
 }

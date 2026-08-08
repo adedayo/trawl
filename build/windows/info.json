@@ -1,0 +1,15 @@
+{
+  "fixed": {
+    "file_version": "${.Info.ProductVersion}"
+  },
+  "info": {
+    "0000": {
+      "ProductVersion": "${.Info.ProductVersion}",
+      "CompanyName": "Adedayo Adetoye",
+      "FileDescription": "Trawl — continuous external attack surface monitoring",
+      "LegalCopyright": "${.Info.Copyright}",
+      "ProductName": "Trawl",
+      "Comments": "${.Info.Comments}"
+    }
+  }
+}

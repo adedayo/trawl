@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Trawl
+GenericName=Attack Surface Monitor
+Comment=Continuous external attack surface monitoring
+Exec=trawl
+Icon=trawl
+Terminal=false
+Categories=Development;Security;Network;
+Keywords=security;attack surface;easm;osint;scanning;dns;
+StartupWMClass=Trawl

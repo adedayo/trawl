@@ -7,8 +7,16 @@
         <string>{{.Info.ProductName}}</string>
         <key>CFBundleExecutable</key>
         <string>{{.OutputFilename}}</string>
+
+        <!-- Not com.wails.* . This identifier is what macOS keys preferences,
+             saved state, notification permissions and the signing certificate
+             against; inheriting the framework's default namespace makes the
+             application indistinguishable from every other Wails app and is
+             not something that can be corrected later without orphaning all
+             of the above. -->
         <key>CFBundleIdentifier</key>
-        <string>com.wails.{{safeBundleID .Name}}</string>
+        <string>com.adedayo.trawl</string>
+
         <key>CFBundleVersion</key>
         <string>{{.Info.ProductVersion}}</string>
         <key>CFBundleGetInfoString</key>
@@ -17,12 +25,31 @@
         <string>{{.Info.ProductVersion}}</string>
         <key>CFBundleIconFile</key>
         <string>iconfile</string>
+        <key>CFBundleDevelopmentRegion</key>
+        <string>en</string>
+
+        <key>LSApplicationCategoryType</key>
+        <string>public.app-category.developer-tools</string>
+
+        <!-- 10.15 is the WKWebView floor Wails targets. Declaring 10.13, the
+             Wails default, lets the bundle launch on systems where the webview
+             then fails to initialise, which presents to the user as an
+             application that opens a blank window rather than one that
+             declines to install. -->
         <key>LSMinimumSystemVersion</key>
-        <string>10.13.0</string>
+        <string>10.15.0</string>
+
         <key>NSHighResolutionCapable</key>
         <string>true</string>
         <key>NSHumanReadableCopyright</key>
         <string>{{.Info.Copyright}}</string>
+
+        <!-- Trawl reaches the public internet to resolve DNS and probe the
+             assets in the operator's declared scope. Stating why here means
+             the string is available to the OS rather than being inferred from
+             a network prompt with no explanation attached. -->
+        <key>NSLocalNetworkUsageDescription</key>
+        <string>Trawl scans only the internet-facing assets you have explicitly authorised.</string>
         {{if .Info.FileAssociations}}
         <key>CFBundleDocumentTypes</key>
         <array>
@@ -48,7 +75,7 @@
           {{range .Info.Protocols}}
             <dict>
                 <key>CFBundleURLName</key>
-                <string>com.wails.{{.Scheme}}</string>
+                <string>com.adedayo.trawl.{{.Scheme}}</string>
                 <key>CFBundleURLSchemes</key>
                 <array>
                     <string>{{.Scheme}}</string>

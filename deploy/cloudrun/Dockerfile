@@ -32,7 +32,15 @@ COPY config/ ./config/
 # keep in step and no version skew between the API and the UI that calls it.
 COPY --from=frontend /app/dist/trawl-app/browser ./cmd/trawl/webroot/
 
-RUN go build -trimpath -ldflags="-s -w" -tags embed_dashboard -o /out/trawl-server ./cmd/trawl
+ARG VERSION=dev
+ARG COMMIT=""
+ARG BUILD_DATE=""
+RUN go build -trimpath \
+    -ldflags="-s -w \
+      -X github.com/adedayo/trawl/pkg/version.Version=${VERSION} \
+      -X github.com/adedayo/trawl/pkg/version.Commit=${COMMIT} \
+      -X github.com/adedayo/trawl/pkg/version.BuildDate=${BUILD_DATE}" \
+    -tags embed_dashboard -o /out/trawl-server ./cmd/trawl
 
 FROM alpine:3.21
 

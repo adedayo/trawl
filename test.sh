@@ -108,6 +108,13 @@ docker compose -f deploy/compose/docker-compose.yml config -q
 docker compose -f deploy/compose/docker-compose.dev.yml config -q
 echo "✔ compose manifests valid"
 
+# Packaging defects are invisible locally, invisible in CI, and discovered by a
+# user on a platform nobody here owns, hours after a tag was pushed. The cheap
+# subset of those checks is worth running on every commit rather than only at
+# release time.
+step "Packaging — manifest validation"
+./scripts/validate-packaging.sh
+
 if [ "${QUICK}" = false ]; then
   step "Angular — production bundle"
   npm run build > /dev/null

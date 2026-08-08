@@ -8,6 +8,7 @@ import (
 	"github.com/adedayo/trawl/pkg/event"
 	"github.com/adedayo/trawl/pkg/service"
 	"github.com/adedayo/trawl/pkg/store"
+	"github.com/adedayo/trawl/pkg/version"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -54,6 +55,16 @@ func (a *App) emitToWails(ctx context.Context, e event.Event) {
 }
 
 // --- API Methods exposed to Angular ---
+
+// GetVersion reports the build identity of the running application.
+//
+// This is bound rather than baked into the frontend bundle at build time
+// because the two are versioned by the same tag but built by different
+// toolchains, and a UI that reports a version the binary does not have is a
+// support hazard rather than a convenience.
+func (a *App) GetVersion() version.Info {
+	return version.Get()
+}
 
 func (a *App) GetAssets(status store.AssetStatus) ([]store.Asset, error) {
 	return a.core.Assets(a.ctx, status)
