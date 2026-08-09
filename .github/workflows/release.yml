@@ -505,9 +505,11 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ── Package managers ─────────────────────────────────────────────────────
-  # Separate job, and deliberately not a blocker: a tap that fails to bump is
-  # an inconvenience, whereas a release that is withheld because of it is an
-  # outage. The release is already published by this point.
+  # Separate job, and deliberately never a gate on publication: a tap that
+  # fails to bump is an inconvenience, whereas a release withheld because of
+  # it is an outage. The release is already published by this point, so this
+  # job cannot affect it. It does go red if a bump fails, so the failure is
+  # visible in the checks list rather than buried in a green run's summary.
   package-managers:
     name: Update package managers
     needs: [meta, publish]
@@ -515,6 +517,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Update Homebrew cask
+        id: cask
+        continue-on-error: true
         uses: mislav/bump-homebrew-formula-action@v3
         with:
           formula-name: trawl
@@ -523,9 +527,11 @@ jobs:
           download-url: https://github.com/adedayo/trawl/releases/download/${{ needs.meta.outputs.version }}/Trawl-macos-universal.dmg
           commit-message: 'trawl ${{ needs.meta.outputs.version }}'
         env:
-          COMMITTER_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+          COMMITTER_TOKEN: ${{ secrets.HOMEBREW_GITHUB_TOKEN || secrets.PAT_TOKEN }}
 
       - name: Update Homebrew formula (CLI)
+        id: formula
+        continue-on-error: true
         uses: mislav/bump-homebrew-formula-action@v3
         with:
           formula-name: trawl-cli
@@ -534,9 +540,10 @@ jobs:
           download-url: https://github.com/adedayo/trawl/archive/refs/tags/${{ needs.meta.outputs.version }}.tar.gz
           commit-message: 'trawl-cli ${{ needs.meta.outputs.version }}'
         env:
-          COMMITTER_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+          COMMITTER_TOKEN: ${{ secrets.HOMEBREW_GITHUB_TOKEN || secrets.PAT_TOKEN }}
 
       - name: Submit to winget
+        id: winget
         continue-on-error: true
         uses: vedantmgoyal2009/winget-releaser@v2
         with:
@@ -544,3 +551,41 @@ jobs:
           version: ${{ needs.meta.outputs.version }}
           installers-regex: '-installer\.exe$'
           token: ${{ secrets.WINGET_GITHUB_TOKEN }}
+
+      # Every step above is advisory: each carries continue-on-error, so
+      # nothing here can gate publication — the release is already out and
+      # cannot be unpublished by anything that happens in this job. But an
+      # unbumped tap is invisible until a user installs a stale version, so
+      # this step fails deliberately to leave the job red in the checks list.
+      # Red here means "a manifest needs a manual bump", never "the release
+      # is bad".
+      - name: Report package-manager outcomes
+        if: always()
+        run: |
+          failed=0
+          report() {
+            if [ "$2" = "success" ]; then
+              echo "  ✔ $1 updated"
+              echo "- ✔ \`$1\` updated" >> "$GITHUB_STEP_SUMMARY"
+            else
+              failed=1
+              echo "::error title=$1 not updated::The release published successfully, but the $1 bump did not ($2). Update it by hand."
+              echo "- ❌ \`$1\` **not updated** ($2) — needs a manual bump" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          }
+
+          echo "### Package managers" >> "$GITHUB_STEP_SUMMARY"
+          report "homebrew-cask"    "${{ steps.cask.outcome }}"
+          report "homebrew-formula" "${{ steps.formula.outcome }}"
+          report "winget"           "${{ steps.winget.outcome }}"
+
+          if [ "$failed" -eq 1 ]; then
+            {
+              echo ""
+              echo "One or more package managers were not updated, so this job is"
+              echo "marked failed to keep it visible. The **release itself is fine**:"
+              echo "artefacts, checksums and signatures are all published. Bump the"
+              echo "affected manifest by hand — do not re-tag."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi

@@ -47,8 +47,15 @@ Two workflows fire on `v*`:
 | `containers.yml` | `trawl-server`, `trawl-dashboard`, `trawl-cloudrun`, and the three worker images, `linux/amd64` + `linux/arm64`, to GHCR |
 
 `publish` runs only if macOS, Windows and Linux all succeed. Package-manager
-updates run after publication and are allowed to fail — a tap that fails to
-bump is an inconvenience; a release withheld because of it is an outage.
+updates run after publication and can never withhold a release — a tap that
+fails to bump is an inconvenience; a release withheld because of it is an
+outage. Each bump is advisory, but if any of them fails the job is marked
+failed on purpose, so it shows up red in the checks list and names the
+manifest needing a manual bump.
+
+A red `Update package managers` job means exactly one thing: a manifest needs
+bumping by hand. The release itself is intact — artefacts, checksums and
+signatures are already published. Do not re-tag.
 
 ## Testing a change to the pipeline
 
@@ -89,7 +96,7 @@ in case that position ever changes or a fork holds certificates.
 | `APPLE_CERT_P12`, `APPLE_CERT_PASSWORD`, `APPLE_SIGNING_IDENTITY` | Developer ID signing of the `.app` and `.dmg`, replacing the ad-hoc signature |
 | `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_APP_PASSWORD` | Notarisation and ticket stapling |
 | `WINDOWS_CERT_PFX`, `WINDOWS_CERT_PASSWORD` | Authenticode signing with RFC 3161 timestamping |
-| `HOMEBREW_TAP_GITHUB_TOKEN` | Automatic cask and formula bumps in `adedayo/homebrew-tap` |
+| `HOMEBREW_GITHUB_TOKEN` | Automatic cask and formula bumps in `adedayo/homebrew-tap` (falls back to `PAT_TOKEN`) |
 | `WINGET_GITHUB_TOKEN` | Automatic winget manifest submission |
 
 If Developer ID signing succeeds but notarisation fails, the job fails. A
