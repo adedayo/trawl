@@ -474,3 +474,28 @@ export namespace store {
 
 }
 
+export namespace version {
+	
+	export class Info {
+	    version: string;
+	    commit?: string;
+	    buildDate?: string;
+	    goVersion: string;
+	    platform: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Info(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.version = source["version"];
+	        this.commit = source["commit"];
+	        this.buildDate = source["buildDate"];
+	        this.goVersion = source["goVersion"];
+	        this.platform = source["platform"];
+	    }
+	}
+
+}
+

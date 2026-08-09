@@ -42,6 +42,10 @@ export function GetSetting(arg1) {
   return window['go']['main']['App']['GetSetting'](arg1);
 }
 
+export function GetVersion() {
+  return window['go']['main']['App']['GetVersion']();
+}
+
 export function RemoveAsset(arg1) {
   return window['go']['main']['App']['RemoveAsset'](arg1);
 }
