@@ -89,7 +89,7 @@ trawl/
 ├── deploy/
 │   ├── compose/            # Docker Compose stack
 │   └── cloudrun/           # Single-container build
-├── packaging/              # Homebrew, Scoop, nfpm, desktop entry
+├── packaging/              # Homebrew, nfpm, desktop entry
 ├── scripts/                # release.sh, validate-packaging.sh
 ├── build/                  # Icons, plists, NSIS assets
 ├── config/example.json     # Config template (no real values)

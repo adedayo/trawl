@@ -48,7 +48,7 @@ These are enforced in code, not just documented as policy.
 - `deploy/compose/` — Docker Compose files, Ofelia schedule config, nginx config, guided setup script. The stack is `trawl-server` (Go + SQLite, the sole ingest target and job broker), the nginx-served dashboard, Ofelia, and the worker containers. There is no separate database service.
 - `config/` — one `config/<instance-name>.json` per deployment; nothing instance-specific lives elsewhere.
 - `.github/scripts/` — the dependency gate: a pure classifier plus its triage runner, both unit-tested.
-- `packaging/` — release packaging manifests: Homebrew cask and formula, Scoop, nfpm (`.deb`/`.rpm`) and the Linux desktop entry. Validated on every commit by `./scripts/validate-packaging.sh`.
+- `packaging/` — release packaging manifests: Homebrew cask and formula, nfpm (`.deb`/`.rpm`) and the Linux desktop entry. Every manifest here must have something that publishes it; a manifest no job consumes is worse than no manifest, because it reads as a supported install path. Validated on every commit by `./scripts/validate-packaging.sh`.
 - `scripts/` — `release.sh` (the only supported way to cut a release) and `validate-packaging.sh`.
 - `build/` — Wails build inputs: icons, `Info.plist` templates, Windows version resource, manifest and NSIS installer. See `build/README.md` for what is committed and what Wails regenerates.
 - `openspec/` — specs, changes and the RISK-ARC reasoning document.

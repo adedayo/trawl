@@ -33,7 +33,6 @@ for f in \
   packaging/linux/trawl.desktop \
   packaging/homebrew/trawl.rb \
   packaging/homebrew/trawl-cli.rb \
-  packaging/scoop/trawl.json \
   .github/workflows/release.yml \
   .github/workflows/containers.yml
 do
@@ -42,7 +41,7 @@ done
 
 # ─── Well-formedness ────────────────────────────────────────────────────────
 python3 - <<'PY' || exit 1
-import json, sys, plistlib, re
+import glob, json, os, sys, plistlib, re
 
 failures = 0
 
@@ -57,8 +56,6 @@ def check(label, fn):
 
 check("build/windows/info.json is valid JSON",
       lambda: json.load(open("build/windows/info.json")))
-check("packaging/scoop/trawl.json is valid JSON",
-      lambda: json.load(open("packaging/scoop/trawl.json")))
 
 # The plists are Go templates, so they are not parseable as plists. Checking
 # the template delimiters balance catches the realistic failure — a hand-edit
@@ -130,6 +127,31 @@ def desktop_entry():
         if key not in text:
             raise ValueError(f"missing {key}")
 check("linux desktop entry has the required keys", desktop_entry)
+
+# Scoop was removed because its manifest existed but no release job published
+# it, so the documentation advertised an install path that could not work. An
+# orphaned manifest is worse than a missing one: it reads to a user as a
+# supported route, and nothing fails to tell you otherwise. This check makes
+# that condition loud.
+def every_manifest_is_published():
+    workflows = ""
+    for wf in glob.glob(".github/workflows/*.yml"):
+        workflows += open(wf).read()
+
+    orphans = []
+    for manifest in glob.glob("packaging/**/*.*", recursive=True):
+        if not os.path.isfile(manifest):
+            continue
+        name = os.path.basename(manifest)
+        # Some manifests are referenced by directory (the linux job passes a
+        # path to nfpm) rather than by filename, so accept either form.
+        if name in workflows or os.path.dirname(manifest) in workflows:
+            continue
+        orphans.append(manifest)
+
+    if orphans:
+        raise ValueError("no release job publishes: " + ", ".join(sorted(orphans)))
+check("every packaging manifest has a publisher", every_manifest_is_published)
 
 sys.exit(1 if failures else 0)
 PY

@@ -44,7 +44,7 @@ repositories.
   are ad-hoc signed, which arm64 requires anyway and which gives the bundle a
   stable identity for keychain and TCC grants.
 - `package-manager-distribution` — Homebrew cask (desktop) and Homebrew
-  formula (headless CLI), winget and Scoop manifests, and `.deb`/`.rpm`
+  formula (headless CLI), a winget manifest, and `.deb`/`.rpm`
   packages, all auto-updated from the release.
 - `container-distribution` — multi-architecture images for `trawl-server`,
   `trawl-dashboard` and each of the three workers, published to GHCR with

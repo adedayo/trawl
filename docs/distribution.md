@@ -65,13 +65,6 @@ xattr -dr com.apple.quarantine /Applications/Trawl.app
 winget install Adedayo.Trawl
 ```
 
-Or with Scoop:
-
-```powershell
-scoop bucket add adedayo https://github.com/adedayo/scoop-bucket
-scoop install trawl
-```
-
 Or download `Trawl-windows-amd64-installer.exe` (or `-arm64-`). The installer
 is per-user and does not request administrator rights — Trawl writes only to
 your own profile, and a security tool that asks for elevation it does not need

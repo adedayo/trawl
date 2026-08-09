@@ -73,7 +73,13 @@ Installation MUST cost the user a single command on each major platform.
 - MUST publish a Homebrew cask for the desktop application to
   `adedayo/homebrew-tap`, updated automatically on release.
 - MUST publish a Homebrew formula for the headless CLI.
-- MUST publish a winget manifest and a Scoop manifest for Windows.
+- MUST publish a winget manifest for Windows. Scoop is deliberately not
+  used: its distinguishing benefit is installation without administrator
+  rights, and the winget path already installs per-user without elevation.
+  It should be revisited when a Windows headless CLI ships, which is the
+  audience Scoop actually serves.
+- Every manifest under `packaging/` MUST have a release job that publishes
+  it. An unpublished manifest documents an install path that does not work.
 - Homebrew formulae and casks MUST carry a real `sha256`. `:no_check` MUST
   NOT be used.
 - Installation MUST NOT require the user to weaken a system-wide security

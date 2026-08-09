@@ -47,7 +47,10 @@
 - [x] `packaging/homebrew/trawl.rb` cask with a real `sha256`.
 - [x] `packaging/homebrew/trawl-cli.rb` formula for the headless binary,
       including a service definition and a version-stamping test.
-- [x] `packaging/scoop/trawl.json` and winget submission in the release job.
+- [x] winget submission in the release job.
+- [x] Scoop dropped. The manifest existed but no job published it, so
+      `docs/distribution.md` documented a `scoop bucket add` against a
+      repository that does not exist. Deferred until a Windows CLI ships.
 - [x] `packaging/linux/nfpm.yaml` + `trawl.desktop` for `.deb`/`.rpm`.
 
 ## Phase 5 — checkmate-app parity
