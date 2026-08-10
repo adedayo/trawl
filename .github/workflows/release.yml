@@ -52,7 +52,7 @@ jobs:
       ldflags: ${{ steps.v.outputs.ldflags }}
       publish: ${{ steps.v.outputs.publish }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - id: v
         run: |
@@ -101,14 +101,14 @@ jobs:
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: ${{ env.GO_VERSION_FILE }}
           cache: true
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -219,7 +219,7 @@ jobs:
             --password "$APPLE_APP_PASSWORD" --wait --timeout 30m
           xcrun stapler staple "${APP_NAME}-macos-universal.dmg"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: macos
           path: |
@@ -242,14 +242,14 @@ jobs:
       WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
       WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: ${{ env.GO_VERSION_FILE }}
           cache: true
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -292,7 +292,7 @@ jobs:
             Rename-Item $_.FullName "$env:APP_NAME-windows-${{ matrix.arch }}-installer.exe"
           }
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows-${{ matrix.arch }}
           path: |
@@ -318,7 +318,7 @@ jobs:
             # maintain.
             runner: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install build dependencies
         run: |
@@ -327,12 +327,12 @@ jobs:
             libgtk-3-dev libwebkit2gtk-4.1-dev build-essential pkg-config \
             fuse libfuse2 desktop-file-utils
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: ${{ env.GO_VERSION_FILE }}
           cache: true
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -397,7 +397,7 @@ jobs:
 
           mv Trawl*.AppImage "build/bin/${APP_NAME}-linux-${{ matrix.arch }}.AppImage"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: linux-${{ matrix.arch }}
           path: |
@@ -419,9 +419,9 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: staging
           merge-multiple: true
@@ -433,7 +433,7 @@ jobs:
           sha256sum * > SHA256SUMS
           cat SHA256SUMS
 
-      - uses: sigstore/cosign-installer@v3
+      - uses: sigstore/cosign-installer@v4
 
       - name: Sign artefacts
         working-directory: staging
@@ -462,13 +462,13 @@ jobs:
 
       - name: Build provenance attestation
         if: needs.meta.outputs.publish == 'true'
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: 'staging/*'
 
       - name: Create GitHub release
         if: needs.meta.outputs.publish == 'true'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: staging/*
           tag_name: ${{ needs.meta.outputs.version }}
@@ -519,7 +519,7 @@ jobs:
       - name: Update Homebrew cask
         id: cask
         continue-on-error: true
-        uses: mislav/bump-homebrew-formula-action@v3
+        uses: mislav/bump-homebrew-formula-action@v4
         with:
           formula-name: trawl
           formula-path: Casks/trawl.rb
@@ -532,7 +532,7 @@ jobs:
       - name: Update Homebrew formula (CLI)
         id: formula
         continue-on-error: true
-        uses: mislav/bump-homebrew-formula-action@v3
+        uses: mislav/bump-homebrew-formula-action@v4
         with:
           formula-name: trawl-cli
           formula-path: Formula/trawl-cli.rb
@@ -545,7 +545,7 @@ jobs:
       - name: Submit to winget
         id: winget
         continue-on-error: true
-        uses: vedantmgoyal2009/winget-releaser@v2
+        uses: vedantmgoyal9/winget-releaser@v2
         with:
           identifier: Adedayo.Trawl
           version: ${{ needs.meta.outputs.version }}
