@@ -122,6 +122,24 @@ def cask():
         raise ValueError("cask has no 64-character sha256 placeholder or value")
 check("homebrew cask verifies its download", cask)
 
+# The CLI formula ships prebuilt binaries for four targets, and the release
+# workflow fills its checksums in positionally. That coupling is invisible from
+# either file alone: if the template gains, loses or reorders a platform block,
+# the workflow will keep substituting and attach checksums to the wrong
+# architectures, which fails as a corrupt download rather than as a bad build.
+# Assert both the count and the order the workflow relies on.
+def cli_formula():
+    text = open("packaging/homebrew/trawl-cli.rb").read()
+    placeholder = '"' + "0" * 64 + '"'
+    found = text.count(placeholder)
+    if found != 4:
+        raise ValueError(f"expected 4 sha256 placeholders for the workflow to fill, found {found}")
+    targets = re.findall(r"trawl_(Darwin|Linux)_(x86_64|arm64)\.", text)
+    expected = [("Darwin", "x86_64"), ("Darwin", "arm64"), ("Linux", "x86_64"), ("Linux", "arm64")]
+    if targets != expected:
+        raise ValueError(f"download URLs are {targets}, but the workflow substitutes in the order {expected}")
+check("homebrew cli formula matches the workflow's substitution order", cli_formula)
+
 def desktop_entry():
     text = open("packaging/linux/trawl.desktop").read()
     for key in ("Type=", "Name=", "Exec=", "Icon="):

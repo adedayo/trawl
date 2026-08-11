@@ -441,10 +441,95 @@ jobs:
             build/bin/*.AppImage
           if-no-files-found: error
 
+  # ── Headless CLI and server ──────────────────────────────────────────────
+  #
+  # A separate artefact from the desktop builds above, not a duplicate of them.
+  # Those are Wails bundles: they carry an embedded browser and link GTK/WebKit
+  # on Linux, so the Linux tarball will not start on a host without a display
+  # stack. This is ./cmd/trawl — the binary an operator actually runs as
+  # `trawl server` on a headless box.
+  #
+  # One runner cross-compiles every platform because the engine is pure Go:
+  # modernc.org/sqlite means CGO_ENABLED=0, which is what makes a static binary
+  # and painless cross-compilation possible. There is nothing to emulate and no
+  # per-platform runner to wait on.
+  cli:
+    name: CLI (all platforms)
+    needs: meta
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ env.GO_VERSION_FILE }}
+          cache: true
+
+      - name: Build
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+          LDFLAGS: ${{ needs.meta.outputs.ldflags }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          # Named for the OS and machine architecture rather than Go's own
+          # GOOS/GOARCH spelling, to match the convention already used across
+          # this tap — checkmate_Darwin_arm64.tar.gz and so on. A user reading
+          # two of these formulae side by side should not have to learn two
+          # naming schemes.
+          build() {
+            local goos="$1" goarch="$2" label="$3" ext="${4:-}"
+            local out="dist/trawl${ext}"
+
+            CGO_ENABLED=0 GOOS="${goos}" GOARCH="${goarch}" \
+              go build -trimpath -ldflags="${LDFLAGS}" -o "${out}" ./cmd/trawl
+
+            if [[ "${goos}" == "windows" ]]; then
+              (cd dist && zip -q "trawl_${label}.zip" "trawl${ext}")
+            else
+              (cd dist && tar czf "trawl_${label}.tar.gz" "trawl${ext}")
+            fi
+            rm -f "${out}"
+          }
+
+          build darwin  amd64 Darwin_x86_64
+          build darwin  arm64 Darwin_arm64
+          build linux   amd64 Linux_x86_64
+          build linux   arm64 Linux_arm64
+          build windows amd64 Windows_x86_64 .exe
+          build windows arm64 Windows_arm64  .exe
+
+          ls -la dist
+
+      # The one thing worth asserting here is that the binary reports the
+      # version it was stamped with. A wrong ldflags import path still builds,
+      # still runs, and silently reports "dev" — which is exactly the failure a
+      # release pipeline should not be able to ship.
+      - name: Verify the native build reports its version
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+          LDFLAGS: ${{ needs.meta.outputs.ldflags }}
+        run: |
+          set -euo pipefail
+          CGO_ENABLED=0 go build -trimpath -ldflags="${LDFLAGS}" -o /tmp/trawl-check ./cmd/trawl
+          OUTPUT="$(/tmp/trawl-check version)"
+          echo "${OUTPUT}"
+          grep -q -- "${VERSION}" <<<"${OUTPUT}" \
+            || { echo "::error::trawl version reported '${OUTPUT}', expected ${VERSION}"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+          if-no-files-found: error
+
   # ── Integrity evidence and publication ───────────────────────────────────
   publish:
     name: Publish release
-    needs: [meta, macos, windows, linux]
+    needs: [meta, macos, windows, linux, cli]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -550,6 +635,14 @@ jobs:
     if: needs.meta.outputs.publish == 'true'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
+      # The CLI tarballs are needed to checksum them for the formula.
+      - uses: actions/download-artifact@v4
+        with:
+          name: cli
+          path: cli-artifacts
+
       - name: Update Homebrew cask
         id: cask
         continue-on-error: true
@@ -563,20 +656,63 @@ jobs:
         env:
           COMMITTER_TOKEN: ${{ secrets.HOMEBREW_GITHUB_TOKEN || secrets.PAT_TOKEN }}
 
+      # bump-homebrew-formula-action rewrites one url/sha256 pair. The CLI
+      # formula carries four, one per platform, so it is rendered here from the
+      # template in packaging/ and committed directly. Rendering from the
+      # checked-in template rather than editing the file in the tap means the
+      # formula in this repository is the source of truth, and a change to it
+      # cannot be silently lost the next time a release overwrites the tap.
       - name: Update Homebrew formula (CLI)
         id: formula
         continue-on-error: true
-        uses: mislav/bump-homebrew-formula-action@v3
-        with:
-          formula-name: trawl-cli
-          # The tap keeps formulae at its root, not under Formula/ — see
-          # checkmate.rb, tlsaudit.rb and the rest. Casks do live in Casks/.
-          formula-path: trawl-cli.rb
-          homebrew-tap: adedayo/homebrew-tap
-          download-url: https://github.com/adedayo/trawl/archive/refs/tags/${{ needs.meta.outputs.version }}.tar.gz
-          commit-message: 'trawl-cli ${{ needs.meta.outputs.version }}'
         env:
-          COMMITTER_TOKEN: ${{ secrets.HOMEBREW_GITHUB_TOKEN || secrets.PAT_TOKEN }}
+          VERSION: ${{ needs.meta.outputs.version }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_GITHUB_TOKEN || secrets.PAT_TOKEN }}
+        run: |
+          set -euo pipefail
+          BARE="${VERSION#v}"
+
+          # Checksums come from the artefacts this run built, not from a
+          # re-download of the release. Anything else would attest to bytes
+          # fetched at a different moment from the ones just published.
+          declare -A SUMS
+          for label in Darwin_x86_64 Darwin_arm64 Linux_x86_64 Linux_arm64; do
+            file="cli-artifacts/trawl_${label}.tar.gz"
+            [[ -f "${file}" ]] || { echo "::error::missing ${file}"; exit 1; }
+            SUMS[$label]="$(sha256sum "${file}" | cut -d' ' -f1)"
+            echo "${label}: ${SUMS[$label]}"
+          done
+
+          python3 - <<'PY' "${BARE}" "${SUMS[Darwin_x86_64]}" "${SUMS[Darwin_arm64]}" "${SUMS[Linux_x86_64]}" "${SUMS[Linux_arm64]}"
+          import re, sys
+
+          bare, *sums = sys.argv[1:]
+          text = open("packaging/homebrew/trawl-cli.rb").read()
+
+          text = re.sub(r'^  version "[^"]*"',
+                        f'  version "{bare}"', text, count=1, flags=re.M)
+
+          # The four placeholders appear in a fixed order — macOS intel, macOS
+          # arm, Linux intel, Linux arm — and are substituted positionally.
+          # Asserting the count first means a template edit that adds or drops
+          # a platform fails here rather than shipping a formula whose
+          # checksums are attached to the wrong architectures.
+          placeholder = '"' + "0" * 64 + '"'
+          if text.count(placeholder) != 4:
+              sys.exit(f"expected 4 sha256 placeholders, found {text.count(placeholder)}")
+
+          for s in sums:
+              text = text.replace(placeholder, f'"{s}"', 1)
+
+          open("rendered-trawl-cli.rb", "w").write(text)
+          PY
+
+          gh api repos/adedayo/homebrew-tap/contents/trawl-cli.rb \
+            -X PUT \
+            -f message="trawl-cli ${VERSION}" \
+            -f sha="$(gh api repos/adedayo/homebrew-tap/contents/trawl-cli.rb --jq '.sha')" \
+            -f content="$(base64 -w0 rendered-trawl-cli.rb)" \
+            --jq '.commit.sha'
 
       - name: Submit to winget
         id: winget
