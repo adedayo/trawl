@@ -44,7 +44,7 @@ Two workflows fire on `v*`:
 | Workflow | Produces |
 |---|---|
 | `release.yml` | macOS DMG/ZIP, Windows installer + ZIP (amd64, arm64), Linux tar.gz/deb/rpm/AppImage (amd64, arm64), `SHA256SUMS`, cosign signatures, SBOM, provenance, GitHub release, package-manager bumps |
-| `containers.yml` | `trawl-server`, `trawl-dashboard`, `trawl-cloudrun`, and the three worker images, `linux/amd64` + `linux/arm64`, to GHCR |
+| `containers.yml` | `trawl-server`, `trawl-dashboard` and `trawl-scan-worker`, `linux/amd64` + `linux/arm64`, to GHCR |
 
 `publish` runs only if macOS, Windows and Linux all succeed. Package-manager
 updates run after publication and can never withhold a release — a tap that

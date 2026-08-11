@@ -89,8 +89,7 @@ trawl/
 ├── jobs/
 │   └── scan-worker/        # Port/service/vuln scanning
 ├── deploy/
-│   ├── compose/            # Docker Compose stack
-│   └── cloudrun/           # Single-container build
+│   └── compose/            # Docker Compose stack
 ├── packaging/              # Homebrew, nfpm, desktop entry
 ├── scripts/                # release.sh, validate-packaging.sh
 ├── build/                  # Icons, plists, NSIS assets

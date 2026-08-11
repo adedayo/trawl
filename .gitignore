@@ -108,5 +108,6 @@ coverage/
 test-results/
 playwright-report/
 
-# Build-time staging for the single-container dashboard (deploy/cloudrun).
+# Build-time staging for the `embed_dashboard` build tag, which compiles the
+# Angular bundle into the server binary for single-container deployments.
 cmd/trawl/webroot/

@@ -138,7 +138,7 @@ The guided setup asks for your domains, an optional AI provider and where to
 send alerts, then starts everything and prints your dashboard URL.
 
 Requires [Docker](https://docs.docker.com/get-docker/) with Compose v2. Full
-options, including pre-built container images and Cloud Run, are in
+options, including pre-built container images, are in
 [docs/distribution.md](docs/distribution.md).
 
 ## Getting started

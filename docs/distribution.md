@@ -117,13 +117,12 @@ VCS stamp the Go toolchain embeds.
 
 ## Containers
 
-Four images, one per role, `linux/amd64` and `linux/arm64`:
+Three images, one per role, `linux/amd64` and `linux/arm64`:
 
 | Image | Role |
 |---|---|
 | `ghcr.io/adedayo/trawl-server` | Ingest target, job broker, read API |
 | `ghcr.io/adedayo/trawl-dashboard` | nginx serving the Angular bundle |
-| `ghcr.io/adedayo/trawl-cloudrun` | Server with the dashboard embedded — single container |
 | `ghcr.io/adedayo/trawl-scan-worker` | Port, HTTP and vulnerability scanning |
 
 Asset discovery and repository secret scanning no longer ship as containers.
