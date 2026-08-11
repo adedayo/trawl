@@ -48,9 +48,6 @@ jobs:
           - image: trawl-dashboard
             context: .
             dockerfile: deploy/compose/Dockerfile.dashboard
-          - image: trawl-scan-worker
-            context: jobs/scan-worker
-            dockerfile: jobs/scan-worker/Dockerfile
 
     steps:
       - uses: actions/checkout@v4

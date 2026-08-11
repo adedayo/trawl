@@ -79,16 +79,6 @@ npm test
 step "Dependency gate — classifier tests"
 npm run test:classifier
 
-# ─── Workers ──────────────────────────────────────────────────────────────────
-# The scan worker is a polling loop in normal operation. --dry-run bounds it to
-# a single pass; if that guard regresses, this step hangs, which is the
-# intended signal.
-
-step "Workers — dry-run validation"
-chmod +x jobs/scan-worker/entrypoint.sh
-SEED_DOMAINS="example.com" ./jobs/scan-worker/entrypoint.sh --dry-run > /dev/null
-echo "✔ worker dry-runs terminate"
-
 # ─── Deployment ───────────────────────────────────────────────────────────────
 
 step "Compose — manifest validation"

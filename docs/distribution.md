@@ -117,23 +117,22 @@ VCS stamp the Go toolchain embeds.
 
 ## Containers
 
-Three images, one per role, `linux/amd64` and `linux/arm64`:
+Two images, `linux/amd64` and `linux/arm64`:
 
 | Image | Role |
 |---|---|
 | `ghcr.io/adedayo/trawl-server` | Ingest target, job broker, read API |
 | `ghcr.io/adedayo/trawl-dashboard` | nginx serving the Angular bundle |
-| `ghcr.io/adedayo/trawl-scan-worker` | Port, HTTP and vulnerability scanning |
 
-Asset discovery and repository secret scanning no longer ship as containers.
-Both now run in-process inside the engine — discovery through embedded
-subfinder and vantage's certificate-transparency expansion, secret scanning
-through checkmate as a linked library — so they are available to the desktop
-application and the server alike, rather than only to a Compose deployment.
+Asset discovery and repository secret scanning run in-process inside the
+engine — discovery through embedded subfinder and vantage's
+certificate-transparency expansion, secret scanning through checkmate as a
+linked library — so they are available to the desktop application and the
+server alike, rather than only to a Compose deployment.
 
-The scan worker remains a container because `naabu`, `httpx` and `nuclei` are
-still invoked as binaries, and because nuclei's template corpus is updated on a
-cadence of its own rather than the release cycle of this repository.
+Port, HTTP and vulnerability scanning are not currently available. The worker
+image that carried `naabu`, `httpx` and `nuclei` has been retired; linking
+those tools into the engine is planned. See `docs/development.md`.
 
 They are separate rather than one image with a mode flag because the roles have
 genuinely different dependencies — the server is a static Go binary, the scan

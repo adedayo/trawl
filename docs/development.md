@@ -9,19 +9,18 @@ the code.
 ## Architecture
 
 ```
-                     ┌─────────────────────────┐
-   Ofelia (cron)  ──▶│  scan-worker            │   ┌──────────────────────────┐
-                     │  (naabu/httpx/nuclei,   │──▶│  trawl-server (Go)       │
-                     │   KEV-tagged templates) │   │  SQLite (WAL) store:     │
-                     └─────────────────────────┘   │   assets · scans         │
-                                                   │   findings · reference   │
-                     ┌─────────────────────────┐   │   (KEV/NVD/EPSS)         │
-                     │  in-process scanning:   │──▶│  job queue (pop/complete)│
-                     │  subfinder (embedded)   │   │  ingest endpoints        │
-                     │  vantage (CT, DNS,      │   │  correlation · AI triage │
-                     │   email, delegation)    │   │  alerting                │
-                     │  checkmate (secrets)    │   └──────────────┬───────────┘
-                     └─────────────────────────┘                  │ event bus
+                     ┌─────────────────────────┐   ┌──────────────────────────┐
+                     │  in-process scanning:   │   │  trawl-server (Go)       │
+                     │  subfinder (embedded)   │   │  SQLite (WAL) store:     │
+                     │  vantage (CT, DNS,      │──▶│   assets · scans         │
+                     │   email, delegation)    │   │   findings · reference   │
+                     │  checkmate (secrets)    │   │   (KEV/NVD/EPSS)         │
+                     └─────────────────────────┘   │  job queue (pop/complete)│
+                                                   │  ingest endpoints        │
+                                                   │  correlation · AI triage │
+                                                   │  alerting                │
+                                                   └──────────────┬───────────┘
+                                                                  │ event bus
                                                                   ▼ (WebSocket)
                                                    ┌──────────────────────────┐
                                                    │   Angular dashboard      │
@@ -29,27 +28,34 @@ the code.
                                                    └──────────────────────────┘
 ```
 
-Asset discovery and repository secret scanning run inside the engine rather
-than as sidecars. The Go ecosystem makes that the cheaper arrangement: a
-capability linked as a library is available to the desktop binary and the
-server equally, needs no job-queue round trip, and cannot drift from the
-version of the engine that interprets its results.
+Scanning runs inside the engine rather than in sidecars. The Go ecosystem makes
+that the cheaper arrangement: a capability linked as a library is available to
+the desktop binary and the server equally, needs no job-queue round trip, and
+cannot drift from the version of the engine that interprets its results.
 
-Port, HTTP and vulnerability scanning remain a worker container, because those
-tools are still invoked as binaries and nuclei's template corpus updates on its
-own cadence.
+Port, HTTP and vulnerability scanning are the exception, and are currently
+absent. `naabu`, `httpx` and `nuclei` were carried by a worker container that
+has been retired: it cost fifty minutes a build, almost all of it the cgo and
+arm64 emulation cost of one tool, for a capability nothing was consuming.
+Linking them into the engine is the intended replacement. Vantage is not that
+replacement and is not going to be — its spec `012` requires every check to be
+passive or minimally interactive, and a port scanner is neither.
 
-Workers claim work from `GET /api/jobs/pop`, post results to
-`POST /api/ingest/*`, and report terminal status to `POST /api/jobs/complete`.
+The job queue and ingest endpoints (`GET /api/jobs/pop`,
+`POST /api/ingest/*`, `POST /api/jobs/complete`) remain in the server. They
+have no client at present; they are kept because in-process scanning still
+records through the same ingest path, and because an out-of-process scanner is
+the likely shape of any future capability that needs privileges the engine
+should not hold.
 
 The server is the only component holding state, and there is no separate
 database service. That is a deliberate constraint rather than a simplification:
 it means a worker can be killed at any point without corrupting anything, and
 it means the entire deployment is one file to back up.
 
-The same engine compiles into three shapes — a Wails desktop binary, a headless
-`trawl server`, and the scan worker entrypoint — from one source tree. Anything
-that would only work in one of them belongs behind an interface.
+The same engine compiles into two shapes — a Wails desktop binary and a
+headless `trawl server` — from one source tree. Anything that would only work
+in one of them belongs behind an interface.
 
 ## Tech stack
 
@@ -65,7 +71,6 @@ that would only work in one of them belongs behind an interface.
 | Testing | Go tests (engine), Vitest (unit), Playwright (e2e + accessibility) |
 | Vuln intel | CISA KEV, NVD, EPSS — all free, public |
 | AI | OpenAI-compatible client — BYOK cloud or local (Ollama/vLLM/llama.cpp) |
-| Job scheduling | Ofelia cron sidecar |
 | Dependency hygiene | Renovate with release-age cooldown + agentic triage |
 
 The pure-Go SQLite driver is load-bearing. It is what allows `CGO_ENABLED=0`,
@@ -86,8 +91,6 @@ trawl/
 │   ├── scanner/            # Scanning and assessment
 │   └── service/            # Orchestration
 ├── app/                    # Angular dashboard
-├── jobs/
-│   └── scan-worker/        # Port/service/vuln scanning
 ├── deploy/
 │   └── compose/            # Docker Compose stack
 ├── packaging/              # Homebrew, nfpm, desktop entry

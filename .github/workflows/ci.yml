@@ -99,15 +99,6 @@ jobs:
       - name: Build Dashboard
         run: npm run build
 
-      # The scan worker polls an unbounded loop in normal operation. The dry run
-      # is bounded to a single pass; the timeout is a backstop so a regression in
-      # that guard fails fast here instead of hanging the runner.
-      - name: Verify Worker Allowlist Dry-Runs
-        timeout-minutes: 3
-        run: |
-          chmod +x jobs/scan-worker/entrypoint.sh
-          SEED_DOMAINS="example.com" ./jobs/scan-worker/entrypoint.sh --dry-run
-
   # The compose stack was migrated off its previous backend without ever being
   # built. This asserts the manifests parse and the server image compiles.
   compose:

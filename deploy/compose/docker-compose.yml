@@ -40,34 +40,5 @@ services:
     depends_on:
       - trawl-server
 
-  ofelia:
-    # Pinned. This container holds a read-only Docker socket, which makes it
-    # the highest-value target in the stack; `latest` on that service means the
-    # most privileged component is the one whose contents nobody chose.
-    image: mcuadros/ofelia:v0.3.20
-    container_name: trawl-ofelia
-    restart: unless-stopped
-    depends_on:
-      - trawl-server
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./ofelia.conf:/etc/ofelia/config.ini:ro
-
-  scan-worker:
-    image: ghcr.io/adedayo/trawl-scan-worker:${TRAWL_VERSION:-latest}
-    build:
-      context: ../../jobs/scan-worker
-      dockerfile: Dockerfile
-    container_name: trawl-scan-worker
-    profiles: ["workers"]
-    depends_on:
-      - trawl-server
-    environment:
-      - TRAWL_INGEST_URL=${TRAWL_SCAN_INGEST_URL:-http://trawl-server:8080/api/ingest/scan}
-      - TRAWL_AUTH_TOKEN=${TRAWL_AUTH_TOKEN:-}
-      - SEED_DOMAINS=${SEED_DOMAINS:-}
-      - SEED_CIDRS=${SEED_CIDRS:-}
-      - DRY_RUN=${DRY_RUN:-false}
-
 volumes:
   trawl-data:

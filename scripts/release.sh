@@ -162,7 +162,7 @@ cat <<EOF
 ✔ ${VERSION} tagged and pushed.
 
   The Release workflow is now building macOS, Windows and Linux artefacts, and
-  the Containers workflow is publishing the three role images. Neither is
+  the Containers workflow is publishing the server and dashboard images. Neither is
   finished, and neither will publish anything if any platform fails.
 
   Watch:   https://github.com/adedayo/trawl/actions

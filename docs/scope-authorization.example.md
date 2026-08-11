@@ -52,9 +52,14 @@ Scanning operations executed by Trawl MUST adhere to the following mandatory con
 
 In addition to policy authorization, scope is programmatically enforced by the system runtime:
 
-1. **Independent Scan Guardrail**: The `scan-worker` component independently validates every target against the configured `SEED_DOMAINS` and `SEED_CIDRS` allowlist before transmitting packets.
-2. **Public Repo Verification**: `SecretScanner.ScanRepo` rejects any repository URL containing authentication tokens or credentials, before the repository is cloned or recorded.
-3. **Dry-Run Validation**: All scanning jobs support `--dry-run` to print resolved targets without sending network traffic.
+1. **Public Repo Verification**: `SecretScanner.ScanRepo` rejects any repository URL containing authentication tokens or credentials, before the repository is cloned or recorded.
+
+> The seed-allowlist guardrail and the `--dry-run` target preview described here
+> previously belonged to the scan worker, which has been retired along with the
+> active port and vulnerability scanning it performed. Both controls must be
+> reinstated as part of whatever replaces it: an active scanner without a scope
+> check enforced at the point of transmission is the specific failure this
+> document exists to prevent.
 
 ---
 
