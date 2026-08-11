@@ -203,8 +203,19 @@ jobs:
           # a zip-archived signed bundle arrives unnotarised.
           ditto -c -k --keepParent "${APP_NAME}.app" "${APP_NAME}-macos-universal.zip"
 
+          # hdiutil sizes the volume itself when given only -srcfolder, and its
+          # estimate is too tight for a universal bundle: the build failed with
+          # "No space left on device" while copying its own source. Size it
+          # explicitly from the measured bundle plus headroom for the filesystem
+          # metadata. UDZO compresses the result, so the slack costs nothing in
+          # the published artefact.
+          APP_MB=$(du -sm "${APP_NAME}.app" | cut -f1)
+          DMG_MB=$(( APP_MB + APP_MB / 2 + 100 ))
+
           hdiutil create -volname "${APP_NAME}" \
             -srcfolder "${APP_NAME}.app" \
+            -size "${DMG_MB}m" \
+            -fs HFS+ \
             -ov -format UDZO "${APP_NAME}-macos-universal.dmg"
 
       - name: Staple the DMG
@@ -390,9 +401,20 @@ jobs:
           mkdir -p AppDir/usr/bin
           cp "build/bin/${APP_NAME}" AppDir/usr/bin/trawl
 
+          # linuxdeploy accepts only icons whose dimensions are on the FreeDesktop
+          # list, and build/appicon.png is 1024x1024, which is not on it. Resize to
+          # 512 rather than replacing the source icon: 1024 is what macOS wants for
+          # its .icns, so the two platforms genuinely need different sizes and the
+          # conversion belongs here rather than in the repository.
+          #
+          # The basename must be `trawl.png` to match `Icon=trawl` in the desktop
+          # entry; linuxdeploy resolves the icon by that key, not by the path it
+          # was handed.
+          convert build/appicon.png -resize 512x512 trawl.png
+
           ./linuxdeploy --appdir AppDir \
             --desktop-file packaging/linux/trawl.desktop \
-            --icon-file build/appicon.png \
+            --icon-file trawl.png \
             --output appimage
 
           mv Trawl*.AppImage "build/bin/${APP_NAME}-linux-${{ matrix.arch }}.AppImage"
