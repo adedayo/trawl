@@ -401,16 +401,15 @@ jobs:
           mkdir -p AppDir/usr/bin
           cp "build/bin/${APP_NAME}" AppDir/usr/bin/trawl
 
-          # linuxdeploy accepts only icons whose dimensions are on the FreeDesktop
-          # list, and build/appicon.png is 1024x1024, which is not on it. Resize to
-          # 512 rather than replacing the source icon: 1024 is what macOS wants for
-          # its .icns, so the two platforms genuinely need different sizes and the
-          # conversion belongs here rather than in the repository.
+          # linuxdeploy accepts only icons whose dimensions are on the
+          # FreeDesktop list, and build/appicon.png is 1024x1024, which is not
+          # on it. build/appicon-512.png is committed for this purpose: macOS
+          # wants 1024 for its .icns, so the two platforms need different sizes
+          # and both are kept as source rather than derived during the build.
           #
-          # The basename must be `trawl.png` to match `Icon=trawl` in the desktop
-          # entry; linuxdeploy resolves the icon by that key, not by the path it
-          # was handed.
-          convert build/appicon.png -resize 512x512 trawl.png
+          # The copy is because the basename must match `Icon=trawl` in the
+          # desktop entry; linuxdeploy resolves the icon by that key.
+          cp build/appicon-512.png trawl.png
 
           ./linuxdeploy --appdir AppDir \
             --desktop-file packaging/linux/trawl.desktop \
@@ -418,6 +417,19 @@ jobs:
             --output appimage
 
           mv Trawl*.AppImage "build/bin/${APP_NAME}-linux-${{ matrix.arch }}.AppImage"
+
+      # The step above is best-effort, so a fault there leaves the job green and
+      # the release short one artefact with nothing in the checks list to say so
+      # — which is how the icon fault survived the v0.1.0 run. An annotation
+      # costs nothing and makes the absence legible without withholding the
+      # release over it.
+      - name: Note a missing AppImage
+        if: always()
+        run: |
+          set -euo pipefail
+          if ! ls build/bin/*.AppImage >/dev/null 2>&1; then
+            echo "::warning title=AppImage missing::No AppImage was produced for ${{ matrix.arch }}. The release is otherwise intact; see the 'Package AppImage' step log."
+          fi
 
       - uses: actions/upload-artifact@v4
         with:

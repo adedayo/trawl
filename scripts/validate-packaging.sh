@@ -23,6 +23,7 @@ echo "Validating packaging manifests"
 # ─── Files that must exist ──────────────────────────────────────────────────
 for f in \
   build/appicon.png \
+  build/appicon-512.png \
   build/darwin/Info.plist \
   build/darwin/Info.dev.plist \
   build/windows/icon.ico \
@@ -127,6 +128,29 @@ def desktop_entry():
         if key not in text:
             raise ValueError(f"missing {key}")
 check("linux desktop entry has the required keys", desktop_entry)
+
+# build/appicon-512.png is a derived file kept in the repository, because
+# linuxdeploy rejects the 1024x1024 source and installing an image toolchain on
+# the runner to convert it every build is a dependency bought for one resize.
+# The cost of committing a derived file is that it can drift from its source or
+# be replaced with the wrong size, and the failure is silent: the AppImage step
+# is best-effort, so a bad icon costs an artefact without failing a job. Both
+# dimensions are read from the PNG header directly, since the point is to avoid
+# needing an image library.
+def appimage_icon():
+    path = "build/appicon-512.png"
+    with open(path, "rb") as fh:
+        header = fh.read(24)
+    if header[:8] != b"\x89PNG\r\n\x1a\n":
+        raise ValueError(f"{path} is not a PNG")
+    width = int.from_bytes(header[16:20], "big")
+    height = int.from_bytes(header[20:24], "big")
+    if (width, height) != (512, 512):
+        raise ValueError(
+            f"{path} is {width}x{height}; linuxdeploy accepts only FreeDesktop "
+            "icon sizes, and the AppImage step expects 512x512"
+        )
+check("AppImage icon is a 512x512 PNG", appimage_icon)
 
 # Scoop was removed because its manifest existed but no release job published
 # it, so the documentation advertised an install path that could not work. An
