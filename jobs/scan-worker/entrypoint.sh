@@ -34,8 +34,12 @@ if [[ "${DRY_RUN}" != "true" && -z "${TRAWL_INGEST_URL:-}" ]]; then
 fi
 
 # Base URL of the Trawl server, used for the job queue endpoints. Derived from
-# the ingest URL by default so a single variable configures the worker.
-TRAWL_API_BASE="${TRAWL_API_BASE:-${TRAWL_INGEST_URL%/api/ingest/*}}"
+# the ingest URL by default so a single variable configures the worker. The
+# inner expansion is guarded because a dry run legitimately has no ingest URL —
+# the check above only requires one for real execution — and `set -u` would
+# otherwise abort before the dry run could report anything.
+TRAWL_API_BASE="${TRAWL_API_BASE:-${TRAWL_INGEST_URL:-}}"
+TRAWL_API_BASE="${TRAWL_API_BASE%/api/ingest/*}"
 
 # RUN_ONCE bounds the polling loop to a single pass. A dry run must terminate —
 # it is invoked by CI and by operators checking configuration, neither of which

@@ -52,19 +52,6 @@ services:
       - SEED_DOMAINS=${SEED_DOMAINS:-example.com}
       - DRY_RUN=${DRY_RUN:-true}
 
-  repo-scan-worker:
-    build:
-      context: ../../jobs/repo-scan-worker
-      dockerfile: Dockerfile
-    container_name: trawl-repo-scan-worker-dev
-    depends_on:
-      - trawl-server
-    environment:
-      - TRAWL_INGEST_URL=http://trawl-server:8080/api/ingest/secrets
-      - TRAWL_AUTH_TOKEN=${TRAWL_AUTH_TOKEN:-}
-      - SEED_REPOS=${SEED_REPOS:-https://github.com/example/repo}
-      - DRY_RUN=${DRY_RUN:-true}
-
 volumes:
   trawl-data-dev:
   go-mod-cache:

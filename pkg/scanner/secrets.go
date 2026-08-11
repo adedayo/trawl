@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
@@ -13,6 +14,24 @@ import (
 	"github.com/adedayo/trawl/pkg/store"
 	"github.com/google/uuid"
 )
+
+// authenticatedRepoURL matches repository URLs that carry, or imply, credentials.
+//
+// Trawl scans repositories that are public. Accepting a URL with credentials in
+// it would mean cloning something the operator may have authority over but this
+// tool has not been authorised to read, and it would write those credentials
+// into process arguments and any error we log. Refusing is not a limitation to
+// be worked around later: the scope authorisation document states this control,
+// so it has to be enforced where the clone happens.
+//
+// The `//[^/@]*@` alternative covers URL userinfo — `https://user:pass@host/…`.
+// The shell worker this replaces matched `\.git.*@`, which required a literal
+// `.git` before the `@` and so let the commonest credential-bearing form
+// through entirely. That gap is why this is now tested rather than trusted.
+var authenticatedRepoURL = regexp.MustCompile(`(ssh://|git@|//[^/@]*@|\.git.*@|token=|access_token=)`)
+
+// ErrAuthenticatedRepo is returned when a repository URL requires authentication.
+var ErrAuthenticatedRepo = fmt.Errorf("repo URL appears to require authentication, which is not supported")
 
 type SecretScanner struct {
 	store    store.Store
@@ -28,6 +47,12 @@ func NewSecretScanner(s store.Store, eb event.Bus) *SecretScanner {
 
 // ScanRepo runs Checkmate natively against a given repository URL asynchronously.
 func (s *SecretScanner) ScanRepo(ctx context.Context, repoURL string) error {
+	// Refuse credential-bearing URLs before anything is recorded or cloned. The
+	// URL is not echoed back: it is the thing that may contain the secret.
+	if authenticatedRepoURL.MatchString(repoURL) {
+		return ErrAuthenticatedRepo
+	}
+
 	// 1. Ensure Repository Asset exists
 	assetID := uuid.New().String()
 	repoAsset := store.Asset{

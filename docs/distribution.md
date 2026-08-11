@@ -117,7 +117,7 @@ VCS stamp the Go toolchain embeds.
 
 ## Containers
 
-Six images, one per role, `linux/amd64` and `linux/arm64`:
+Four images, one per role, `linux/amd64` and `linux/arm64`:
 
 | Image | Role |
 |---|---|
@@ -125,8 +125,16 @@ Six images, one per role, `linux/amd64` and `linux/arm64`:
 | `ghcr.io/adedayo/trawl-dashboard` | nginx serving the Angular bundle |
 | `ghcr.io/adedayo/trawl-cloudrun` | Server with the dashboard embedded — single container |
 | `ghcr.io/adedayo/trawl-scan-worker` | Port, HTTP and vulnerability scanning |
-| `ghcr.io/adedayo/trawl-discovery-worker` | Passive asset discovery |
-| `ghcr.io/adedayo/trawl-repo-scan-worker` | Repository secret scanning |
+
+Asset discovery and repository secret scanning no longer ship as containers.
+Both now run in-process inside the engine — discovery through embedded
+subfinder and vantage's certificate-transparency expansion, secret scanning
+through checkmate as a linked library — so they are available to the desktop
+application and the server alike, rather than only to a Compose deployment.
+
+The scan worker remains a container because `naabu`, `httpx` and `nuclei` are
+still invoked as binaries, and because nuclei's template corpus is updated on a
+cadence of its own rather than the release cycle of this repository.
 
 They are separate rather than one image with a mode flag because the roles have
 genuinely different dependencies — the server is a static Go binary, the scan

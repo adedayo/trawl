@@ -53,7 +53,7 @@ Scanning operations executed by Trawl MUST adhere to the following mandatory con
 In addition to policy authorization, scope is programmatically enforced by the system runtime:
 
 1. **Independent Scan Guardrail**: The `scan-worker` component independently validates every target against the configured `SEED_DOMAINS` and `SEED_CIDRS` allowlist before transmitting packets.
-2. **Public Repo Verification**: The `repo-scan-worker` rejects any repository URL containing authentication tokens or credentials.
+2. **Public Repo Verification**: `SecretScanner.ScanRepo` rejects any repository URL containing authentication tokens or credentials, before the repository is cloned or recorded.
 3. **Dry-Run Validation**: All scanning jobs support `--dry-run` to print resolved targets without sending network traffic.
 
 ---

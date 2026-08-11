@@ -53,21 +53,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./ofelia.conf:/etc/ofelia/config.ini:ro
 
-  discovery-worker:
-    image: ghcr.io/adedayo/trawl-discovery-worker:${TRAWL_VERSION:-latest}
-    build:
-      context: ../../jobs/discovery-worker
-      dockerfile: Dockerfile
-    container_name: trawl-discovery-worker
-    profiles: ["workers"]
-    depends_on:
-      - trawl-server
-    environment:
-      - TRAWL_INGEST_URL=${TRAWL_INGEST_URL:-http://trawl-server:8080/api/ingest/discovery}
-      - TRAWL_AUTH_TOKEN=${TRAWL_AUTH_TOKEN:-}
-      - SEED_DOMAINS=${SEED_DOMAINS:-}
-      - DRY_RUN=${DRY_RUN:-false}
-
   scan-worker:
     image: ghcr.io/adedayo/trawl-scan-worker:${TRAWL_VERSION:-latest}
     build:
@@ -82,23 +67,6 @@ services:
       - TRAWL_AUTH_TOKEN=${TRAWL_AUTH_TOKEN:-}
       - SEED_DOMAINS=${SEED_DOMAINS:-}
       - SEED_CIDRS=${SEED_CIDRS:-}
-      - DRY_RUN=${DRY_RUN:-false}
-
-  repo-scan-worker:
-    image: ghcr.io/adedayo/trawl-repo-scan-worker:${TRAWL_VERSION:-latest}
-    build:
-      context: ../../jobs/repo-scan-worker
-      dockerfile: Dockerfile
-    container_name: trawl-repo-scan-worker
-    profiles: ["workers"]
-    depends_on:
-      - trawl-server
-    environment:
-      - TRAWL_INGEST_URL=${TRAWL_SECRETS_INGEST_URL:-http://trawl-server:8080/api/ingest/secrets}
-      - TRAWL_AUTH_TOKEN=${TRAWL_AUTH_TOKEN:-}
-      - SEED_REPOS=${SEED_REPOS:-}
-      - SECRET_VERIFICATION_ENABLED=${SECRET_VERIFICATION_ENABLED:-false}
-      - MAX_REPO_CLONE_SIZE_MB=${MAX_REPO_CLONE_SIZE_MB:-500}
       - DRY_RUN=${DRY_RUN:-false}
 
 volumes:

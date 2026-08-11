@@ -80,26 +80,14 @@ step "Dependency gate — classifier tests"
 npm run test:classifier
 
 # ─── Workers ──────────────────────────────────────────────────────────────────
-# These are polling loops in normal operation. --dry-run bounds them to a single
-# pass; if that guard regresses, this step hangs, which is the intended signal.
+# The scan worker is a polling loop in normal operation. --dry-run bounds it to
+# a single pass; if that guard regresses, this step hangs, which is the
+# intended signal.
 
 step "Workers — dry-run validation"
-chmod +x jobs/scan-worker/entrypoint.sh jobs/discovery-worker/entrypoint.sh jobs/repo-scan-worker/entrypoint.sh
+chmod +x jobs/scan-worker/entrypoint.sh
 SEED_DOMAINS="example.com" ./jobs/scan-worker/entrypoint.sh --dry-run > /dev/null
-SEED_DOMAINS="example.com" ./jobs/discovery-worker/entrypoint.sh --dry-run > /dev/null
-SEED_REPOS="https://github.com/example/repo" ./jobs/repo-scan-worker/entrypoint.sh --dry-run > /dev/null
 echo "✔ worker dry-runs terminate"
-
-# Assert the safety control actually fires, rather than trusting that a clean
-# exit means it was reached.
-step "Workers — authenticated-repo rejection"
-OUTPUT=$(SEED_REPOS="git@github.com:example/private.git" ./jobs/repo-scan-worker/entrypoint.sh --dry-run 2>&1)
-if ! echo "${OUTPUT}" | grep -q "appears to require authentication"; then
-  echo "FAIL: repo-scan-worker did not reject an authenticated repo URL" >&2
-  echo "${OUTPUT}" >&2
-  exit 1
-fi
-echo "✔ authenticated repo URLs are refused"
 
 # ─── Deployment ───────────────────────────────────────────────────────────────
 

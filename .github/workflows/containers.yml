@@ -54,12 +54,6 @@ jobs:
           - image: trawl-scan-worker
             context: jobs/scan-worker
             dockerfile: jobs/scan-worker/Dockerfile
-          - image: trawl-discovery-worker
-            context: jobs/discovery-worker
-            dockerfile: jobs/discovery-worker/Dockerfile
-          - image: trawl-repo-scan-worker
-            context: jobs/repo-scan-worker
-            dockerfile: jobs/repo-scan-worker/Dockerfile
 
     steps:
       - uses: actions/checkout@v4

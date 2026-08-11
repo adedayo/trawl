@@ -99,29 +99,14 @@ jobs:
       - name: Build Dashboard
         run: npm run build
 
-      # These workers poll an unbounded loop in normal operation. The dry run is
-      # bounded to a single pass; the timeout is a backstop so a regression in
+      # The scan worker polls an unbounded loop in normal operation. The dry run
+      # is bounded to a single pass; the timeout is a backstop so a regression in
       # that guard fails fast here instead of hanging the runner.
       - name: Verify Worker Allowlist Dry-Runs
         timeout-minutes: 3
         run: |
           chmod +x jobs/scan-worker/entrypoint.sh
-          chmod +x jobs/discovery-worker/entrypoint.sh
-          chmod +x jobs/repo-scan-worker/entrypoint.sh
           SEED_DOMAINS="example.com" ./jobs/scan-worker/entrypoint.sh --dry-run
-          SEED_DOMAINS="example.com" ./jobs/discovery-worker/entrypoint.sh --dry-run
-          SEED_REPOS="https://github.com/example/repo" ./jobs/repo-scan-worker/entrypoint.sh --dry-run
-
-      # A repo URL requiring authentication must be refused. This asserts the
-      # guard actually fires, rather than trusting that a clean exit meant it
-      # was reached — until the dry run was bounded, it never was.
-      - name: Verify Authenticated-Repo Rejection
-        timeout-minutes: 3
-        run: |
-          OUTPUT=$(SEED_REPOS="git@github.com:example/private.git" ./jobs/repo-scan-worker/entrypoint.sh --dry-run 2>&1)
-          echo "$OUTPUT"
-          echo "$OUTPUT" | grep -q "appears to require authentication" \
-            || { echo "::error::repo-scan-worker did not reject an authenticated repo URL"; exit 1; }
 
   # The compose stack was migrated off its previous backend without ever being
   # built. This asserts the manifests parse and the server image compiles.

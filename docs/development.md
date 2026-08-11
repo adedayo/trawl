@@ -10,30 +10,34 @@ the code.
 
 ```
                      ┌─────────────────────────┐
-   Ofelia (cron)  ──▶│  discovery-worker       │──▶ POST candidates
-                     │  (CT logs, subfinder,   │
-                     │   ASN/WHOIS pivots)     │
-                     └─────────────────────────┘
-                                                        │
-                     ┌─────────────────────────┐        ▼
    Ofelia (cron)  ──▶│  scan-worker            │   ┌──────────────────────────┐
                      │  (naabu/httpx/nuclei,   │──▶│  trawl-server (Go)       │
                      │   KEV-tagged templates) │   │  SQLite (WAL) store:     │
                      └─────────────────────────┘   │   assets · scans         │
                                                    │   findings · reference   │
-   Ofelia (cron)  ──▶┌─────────────────────────┐   │   (KEV/NVD/EPSS)         │
-                     │  repo-scan-worker       │──▶│  job queue (pop/complete)│
-                     │  (checkmate)            │   │  ingest endpoints        │
-                     └─────────────────────────┘   │  correlation · AI triage │
-                                                   │  alerting                │
-                                                   └──────────────┬───────────┘
-                                                                  │ event bus
+                     ┌─────────────────────────┐   │   (KEV/NVD/EPSS)         │
+                     │  in-process scanning:   │──▶│  job queue (pop/complete)│
+                     │  subfinder (embedded)   │   │  ingest endpoints        │
+                     │  vantage (CT, DNS,      │   │  correlation · AI triage │
+                     │   email, delegation)    │   │  alerting                │
+                     │  checkmate (secrets)    │   └──────────────┬───────────┘
+                     └─────────────────────────┘                  │ event bus
                                                                   ▼ (WebSocket)
                                                    ┌──────────────────────────┐
                                                    │   Angular dashboard      │
                                                    │   (nginx container)      │
                                                    └──────────────────────────┘
 ```
+
+Asset discovery and repository secret scanning run inside the engine rather
+than as sidecars. The Go ecosystem makes that the cheaper arrangement: a
+capability linked as a library is available to the desktop binary and the
+server equally, needs no job-queue round trip, and cannot drift from the
+version of the engine that interprets its results.
+
+Port, HTTP and vulnerability scanning remain a worker container, because those
+tools are still invoked as binaries and nuclei's template corpus updates on its
+own cadence.
 
 Workers claim work from `GET /api/jobs/pop`, post results to
 `POST /api/ingest/*`, and report terminal status to `POST /api/jobs/complete`.
@@ -44,7 +48,7 @@ it means a worker can be killed at any point without corrupting anything, and
 it means the entire deployment is one file to back up.
 
 The same engine compiles into three shapes — a Wails desktop binary, a headless
-`trawl server`, and the worker entrypoints — from one source tree. Anything
+`trawl server`, and the scan worker entrypoint — from one source tree. Anything
 that would only work in one of them belongs behind an interface.
 
 ## Tech stack
@@ -83,9 +87,7 @@ trawl/
 │   └── service/            # Orchestration
 ├── app/                    # Angular dashboard
 ├── jobs/
-│   ├── discovery-worker/   # OSINT asset discovery
-│   ├── scan-worker/        # Port/service/vuln scanning
-│   └── repo-scan-worker/   # Public repo secret scanning
+│   └── scan-worker/        # Port/service/vuln scanning
 ├── deploy/
 │   ├── compose/            # Docker Compose stack
 │   └── cloudrun/           # Single-container build
