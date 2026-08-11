@@ -1,14 +1,14 @@
 # Trawl — container image publication.
 #
-# Five images, not one image with a mode flag. Trawl already has five distinct
-# Dockerfiles because the roles have genuinely different dependencies: the
-# server is a static Go binary, the dashboard is nginx serving a bundle, and
-# the scan worker carries a set of ProjectDiscovery CLIs. Collapsing them would
-# mean every operator pulls the scanner toolchain to run the API.
+# Two images, not one image with a mode flag. The roles have genuinely
+# different dependencies: the server is a static Go binary, the dashboard is
+# nginx serving an Angular bundle. Collapsing them would mean every operator
+# pulls a web server to run the API.
 #
-# Publishing them separately also lets an operator pin the scan worker without
-# pinning the server, which is the pin they actually want: the workers change
-# behaviour, the server changes schema.
+# There was a third — the scan worker, which carried a set of ProjectDiscovery
+# CLIs as subprocesses. It is gone: those scanners are Go libraries and are now
+# linked directly into the server, so there is no separate container to build,
+# schedule or pin. That removed a 50-minute build from every release.
 
 name: Containers
 
