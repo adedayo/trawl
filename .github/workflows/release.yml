@@ -569,7 +569,9 @@ jobs:
         uses: mislav/bump-homebrew-formula-action@v3
         with:
           formula-name: trawl-cli
-          formula-path: Formula/trawl-cli.rb
+          # The tap keeps formulae at its root, not under Formula/ — see
+          # checkmate.rb, tlsaudit.rb and the rest. Casks do live in Casks/.
+          formula-path: trawl-cli.rb
           homebrew-tap: adedayo/homebrew-tap
           download-url: https://github.com/adedayo/trawl/archive/refs/tags/${{ needs.meta.outputs.version }}.tar.gz
           commit-message: 'trawl-cli ${{ needs.meta.outputs.version }}'
