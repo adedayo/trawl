@@ -1,5 +1,12 @@
 # Stage 1: Build Angular application
-FROM node:22-alpine AS build
+#
+# node:24 to match .nvmrc, and not merely for parity: app/package.json declares
+# range-scoped `overrides` keys ("pkg@<range>": "version"), which npm 11
+# understands and the npm 10 shipped with node:22 does not. Under npm 10 those
+# entries resolve differently from the committed lockfile and `npm ci` fails
+# with a desync that reproduces nowhere else. deploy/cloudrun/Dockerfile is
+# already on node:24, which is why it built while this image did not.
+FROM node:24-alpine AS build
 
 WORKDIR /app
 
