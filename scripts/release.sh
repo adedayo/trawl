@@ -138,7 +138,20 @@ fi
 
 step "Committing and tagging"
 git add package.json app/package.json wails.json
-git commit -m "build(release): ${VERSION}"
+
+# The manifests may already carry this version — most often when a previous
+# attempt at the same release committed the bump and then failed further on, as
+# the first v0.1.0 did. `git commit` exits non-zero with nothing staged, which
+# under `set -e` aborted the script here, after the bump and before the tag: the
+# most confusing place to stop, because the tree looks released and nothing is.
+# The tag is what marks a release, not the bump commit, so an already-correct
+# version is a state to proceed from rather than an error.
+if git diff --cached --quiet; then
+  echo "  Version manifests already at ${VERSION#v} — nothing to commit."
+else
+  git commit -m "build(release): ${VERSION}"
+fi
+
 git tag -a "${VERSION}" -m "Trawl ${VERSION}"
 
 git push origin HEAD
@@ -149,7 +162,7 @@ cat <<EOF
 ✔ ${VERSION} tagged and pushed.
 
   The Release workflow is now building macOS, Windows and Linux artefacts, and
-  the Containers workflow is publishing the five role images. Neither is
+  the Containers workflow is publishing the four role images. Neither is
   finished, and neither will publish anything if any platform fails.
 
   Watch:   https://github.com/adedayo/trawl/actions
