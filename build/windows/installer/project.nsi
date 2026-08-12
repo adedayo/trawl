@@ -58,6 +58,14 @@ VIAddVersionKey "ProductName"     "${INFO_PRODUCTNAME}"
 Name "${INFO_PRODUCTNAME}"
 OutFile "..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe"
 InstallDir "$LOCALAPPDATA\${INFO_COMPANYNAME}\${INFO_PRODUCTNAME}"
+
+## NSIS defaults to requesting administrator rights when this is not stated,
+## which is how v0.1.1 shipped an installer that raised a UAC prompt while
+## installing nothing outside $LOCALAPPDATA. Asking for elevation that is not
+## needed is not free: it teaches users that a security tool wanting admin is
+## normal, and it is a prompt they cannot evaluate.
+RequestExecutionLevel user
+
 ShowInstDetails show
 
 Function .onInit
