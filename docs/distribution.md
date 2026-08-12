@@ -61,14 +61,22 @@ xattr -dr com.apple.quarantine /Applications/Trawl.app
 
 ### Windows
 
-```powershell
-winget install Adedayo.Trawl
-```
+Download `Trawl-windows-amd64-installer.exe` (or `-arm64-`) and run it. The
+installer is per-user and does not request administrator rights — Trawl writes
+only to your own profile, and a security tool that asks for elevation it does
+not need trains you to grant it to things that do.
 
-Or download `Trawl-windows-amd64-installer.exe` (or `-arm64-`). The installer
-is per-user and does not request administrator rights — Trawl writes only to
-your own profile, and a security tool that asks for elevation it does not need
-trains you to grant it to things that do.
+Trawl is not distributed through winget. Doing so requires a manifest in
+Microsoft's central repository, and keeping that current is ongoing work for a
+channel most people reach past on their way to the Releases page.
+
+The installer is **not code-signed**, so SmartScreen will report an
+unrecognised publisher; choose **More info → Run anyway**. Code-signing
+certificates are a recurring cost this project does not currently carry. What
+it offers instead is verifiable provenance: every artefact is signed with
+Sigstore and listed in `SHA256SUMS`, so you can confirm the file came from this
+pipeline rather than trusting a certificate that says someone paid a
+certificate authority. See [Verifying a download](#verifying-a-download).
 
 ### Linux
 

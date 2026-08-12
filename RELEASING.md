@@ -97,7 +97,6 @@ in case that position ever changes or a fork holds certificates.
 | `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_APP_PASSWORD` | Notarisation and ticket stapling |
 | `WINDOWS_CERT_PFX`, `WINDOWS_CERT_PASSWORD` | Authenticode signing with RFC 3161 timestamping |
 | `HOMEBREW_GITHUB_TOKEN` | Automatic cask and formula bumps in `adedayo/homebrew-tap` (falls back to `PAT_TOKEN`) |
-| `WINGET_GITHUB_TOKEN` | Automatic winget manifest submission |
 
 If Developer ID signing succeeds but notarisation fails, the job fails. A
 bundle that carries a Developer ID signature but no notarisation ticket is

@@ -67,17 +67,20 @@ normal path, not a degraded one.
   Developer ID signing succeeded but notarisation did not.
 
 ### Requirement: Package Manager Distribution
-Installation MUST cost the user a single command on each major platform.
+Installation MUST cost the user a single command, or a download and a
+double-click, on each major platform.
 
 #### Requirements
 - MUST publish a Homebrew cask for the desktop application to
   `adedayo/homebrew-tap`, updated automatically on release.
 - MUST publish a Homebrew formula for the headless CLI.
-- MUST publish a winget manifest for Windows. Scoop is deliberately not
-  used: its distinguishing benefit is installation without administrator
-  rights, and the winget path already installs per-user without elevation.
-  It should be revisited when a Windows headless CLI ships, which is the
-  audience Scoop actually serves.
+- MUST publish a per-user NSIS installer for Windows, and the release MUST
+  fail if one is not produced. Windows is deliberately served by a download
+  rather than a package manager: winget requires a manifest in Microsoft's
+  central repository, which is recurring work for a channel most users reach
+  past on their way to the Releases page, and Scoop's distinguishing benefit
+  — installing without administrator rights — is something the NSIS installer
+  already provides.
 - Every manifest under `packaging/` MUST have a release job that publishes
   it. An unpublished manifest documents an install path that does not work.
 - Homebrew formulae and casks MUST carry a real `sha256`. `:no_check` MUST

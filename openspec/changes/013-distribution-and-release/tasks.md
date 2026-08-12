@@ -47,7 +47,11 @@
 - [x] `packaging/homebrew/trawl.rb` cask with a real `sha256`.
 - [x] `packaging/homebrew/trawl-cli.rb` formula for the headless binary,
       including a service definition and a version-stamping test.
-- [x] winget submission in the release job.
+- [x] winget dropped. The submission step ran on every release and had never
+      once succeeded: `winget-releaser` bumps an existing manifest and cannot
+      create one, so `Adedayo.Trawl` never existed to bump. It was also being
+      fed nothing, because the NSIS installer was silently never built. Windows
+      is served by the installer on the Releases page instead.
 - [x] Scoop dropped. The manifest existed but no job published it, so
       `docs/distribution.md` documented a `scoop bucket add` against a
       repository that does not exist. Deferred until a Windows CLI ships.

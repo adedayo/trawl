@@ -272,8 +272,29 @@ jobs:
           go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
           echo "$(go env GOPATH)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
+          # Chocolatey installs NSIS but does not put makensis on PATH for
+          # subsequent steps. Wails treats a missing makensis as a warning and
+          # still exits 0, so without this the job goes green having produced
+          # no installer at all — which is precisely what shipped in v0.1.0
+          # and v0.1.1.
+          $nsis = Join-Path ${env:ProgramFiles(x86)} 'NSIS'
+          if (-not (Test-Path (Join-Path $nsis 'makensis.exe'))) {
+            # Searched under the two roots Chocolatey actually uses rather than
+            # the whole drive, which takes minutes and would mostly be spent
+            # walking directories that cannot contain it.
+            $roots = @($env:ProgramFiles, ${env:ProgramFiles(x86)}, 'C:\ProgramData\chocolatey\lib') |
+              Where-Object { $_ -and (Test-Path $_) }
+            $found = Get-ChildItem -Path $roots -Filter 'makensis.exe' -Recurse -ErrorAction SilentlyContinue |
+              Select-Object -First 1
+            if (-not $found) { throw 'makensis.exe not found after installing NSIS' }
+            $nsis = $found.DirectoryName
+          }
+          echo $nsis | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
       - name: Build application and installer
         run: |
+          $ErrorActionPreference = 'Stop'
+          makensis /VERSION
           wails build -platform windows/${{ matrix.arch }} -clean -nsis `
             -ldflags "${{ needs.meta.outputs.ldflags }}"
 
@@ -287,7 +308,11 @@ jobs:
           # RFC 3161 timestamping, so the signature outlives the certificate.
           # Without it every artefact starts warning the day the cert expires,
           # including releases that were valid when they were published.
-          Get-ChildItem -Path build\bin -Include *.exe -Recurse | ForEach-Object {
+          # -Filter rather than -Include: with -Recurse against a directory
+          # path carrying no wildcard, -Include silently matches nothing. That
+          # would have signed no files while still exiting 0 — the same class
+          # of quiet no-op that left the installer unbuilt.
+          Get-ChildItem -Path build\bin -Filter *.exe -Recurse | ForEach-Object {
             & signtool sign /f $pfx /p $env:WINDOWS_CERT_PASSWORD `
               /tr http://timestamp.digicert.com /td sha256 /fd sha256 /v $_.FullName
             if ($LASTEXITCODE -ne 0) { throw "signtool failed for $($_.FullName)" }
@@ -296,12 +321,20 @@ jobs:
 
       - name: Package portable ZIP
         run: |
+          $ErrorActionPreference = 'Stop'
           cd build\bin
           Compress-Archive -Path "$env:APP_NAME.exe" `
             -DestinationPath "$env:APP_NAME-windows-${{ matrix.arch }}.zip"
-          Get-ChildItem -Filter '*installer*.exe' | ForEach-Object {
-            Rename-Item $_.FullName "$env:APP_NAME-windows-${{ matrix.arch }}-installer.exe"
+
+          # Asserted rather than assumed. The previous form piped Get-ChildItem
+          # into a rename, so zero matches renamed nothing and reported nothing;
+          # the ZIP alone then satisfied upload-artifact's if-no-files-found,
+          # and the release published without an installer.
+          $installer = Get-ChildItem -Filter '*installer*.exe' | Select-Object -First 1
+          if (-not $installer) {
+            throw "wails produced no NSIS installer in build\bin — check that makensis is on PATH"
           }
+          Rename-Item $installer.FullName "$env:APP_NAME-windows-${{ matrix.arch }}-installer.exe"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -714,16 +747,6 @@ jobs:
             -f content="$(base64 -w0 rendered-trawl-cli.rb)" \
             --jq '.commit.sha'
 
-      - name: Submit to winget
-        id: winget
-        continue-on-error: true
-        uses: vedantmgoyal2009/winget-releaser@v2
-        with:
-          identifier: Adedayo.Trawl
-          version: ${{ needs.meta.outputs.version }}
-          installers-regex: '-installer\.exe$'
-          token: ${{ secrets.WINGET_GITHUB_TOKEN }}
-
       # Every step above is advisory: each carries continue-on-error, so
       # nothing here can gate publication — the release is already out and
       # cannot be unpublished by anything that happens in this job. But an
@@ -749,7 +772,6 @@ jobs:
           echo "### Package managers" >> "$GITHUB_STEP_SUMMARY"
           report "homebrew-cask"    "${{ steps.cask.outcome }}"
           report "homebrew-formula" "${{ steps.formula.outcome }}"
-          report "winget"           "${{ steps.winget.outcome }}"
 
           if [ "$failed" -eq 1 ]; then
             {

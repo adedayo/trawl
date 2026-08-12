@@ -99,9 +99,14 @@ brew install --cask adedayo/tap/trawl
 
 **Windows**
 
-```powershell
-winget install Adedayo.Trawl
-```
+Download `Trawl-windows-amd64-installer.exe` (or `arm64`) from the
+[latest release](https://github.com/adedayo/trawl/releases/latest) and run it.
+
+The installer is not code-signed, so Windows SmartScreen will warn that the
+publisher is unrecognised — choose **More info → Run anyway**. Every release
+also publishes a Sigstore signature (`.sig`/`.pem`) and a `SHA256SUMS` file if
+you would rather verify the download yourself, and the source is here to build
+from if you would rather not trust either.
 
 **Linux**
 
