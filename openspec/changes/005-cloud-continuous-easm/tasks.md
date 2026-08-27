@@ -3,10 +3,15 @@
 ## Phase 1 — Server Subcommand & HTTP/WebSocket Server
 - [x] Implement `cmd/trawl/server.go` CLI entrypoint (`trawl server`).
 - [x] Build REST API routes matching Wails IPC methods — `/api/v1/{assets,findings,email-postures,jobs}`
-- [ ] Build WebSocket server upgrading `/ws` connections and proxying `EventBus` events to connected clients — the route returns 501 and no bus subscriber is attached
+- [x] ~~Build WebSocket server upgrading `/ws` connections~~ — **superseded by Server-Sent Events at `GET /api/v1/events`.** The traffic is one-way, SSE survives proxies that mangle upgrade headers, and browsers reconnect unaided; a bidirectional protocol would have been surface bought for a capability nothing needs. The bus subscriber is `broadcaster` in `cmd/trawl/stream.go`, which subscribes to an allowlist of event types rather than to everything, so a new event type does not widen what the dashboard discloses. `/ws` is retained and answers `410 Gone` naming its replacement, so an older dashboard build fails with an explanation instead of a bare connection error that reads as the server being down.
 - [x] Implement the worker ingest endpoints the job containers post to: `/api/ingest/discovery`, `/api/ingest/scan`, `/api/ingest/secrets`, `/api/ingest/email-posture`
 - [x] Implement the job-queue endpoints the workers poll: `GET /api/jobs/pop`, `POST /api/jobs/complete`, plus `POST /api/jobs` to enqueue
-- [ ] Parse raw ingest payloads into typed assets and findings — payloads are currently stored verbatim so no evidence is lost, but nothing correlates them yet
+- [x] Parse raw ingest payloads into typed assets and findings *(`pkg/core/ingest.go`; naabu, httpx and nuclei output correlated into assets, findings and posture observations)*
+  - The verbatim write still happens first and unconditionally — correlation is interpretation, and the raw payload is the evidence it derives from, so a parser fixed later can be re-run against what actually arrived.
+  - A correlation failure is not an ingest failure: the response reports `correlated: false` with the reason rather than returning an error the worker would answer by retrying a payload that is already stored.
+  - Scope is re-checked at correlation, and refusals are **reported** in the summary rather than silently dropped — a worker returning out-of-scope results means something upstream is wrong.
+  - Open ports are recorded as a posture attribute, not as a finding per port. An open port is not a defect; a port that was not open last week is, and that is the regression path's question to answer.
+  - `Priority` is deliberately left unset. It is a deterministic function of KEV and EPSS enrichment, and a transport-side guess would be a second, contradictory source for a number the model requires to be reproducible.
 
 ## Phase 2 — Continuous Scan Scheduler
 - [ ] Implement background Go cron runner for automated daily asset discovery and vulnerability scanning.

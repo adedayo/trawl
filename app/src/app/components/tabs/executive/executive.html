@@ -1,0 +1,518 @@
+@let dark = theme() === 'dark';
+
+<div class="space-y-6">
+
+  <!-- ── Masthead ───────────────────────────────────────────────────────── -->
+  <div
+    [class]="dark
+      ? 'relative overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 p-6 md:p-8 shadow-xl'
+      : 'relative overflow-hidden rounded-2xl bg-white border border-slate-200 p-6 md:p-8 shadow-sm'">
+    <div class="absolute -right-24 -top-24 w-80 h-80 rounded-full blur-3xl pointer-events-none"
+      [class]="dark ? 'bg-sky-500/10' : 'bg-sky-500/5'"></div>
+
+    <div class="relative z-10 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+      <div class="max-w-2xl">
+        <span
+          [class]="dark
+            ? 'inline-block px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest rounded-full bg-sky-950 text-sky-400 border border-sky-900'
+            : 'inline-block px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest rounded-full bg-sky-50 text-sky-700 border border-sky-200'">
+          Executive view
+        </span>
+        <h1 [class]="dark
+          ? 'text-2xl md:text-3xl font-extrabold tracking-tight text-slate-50 mt-3'
+          : 'text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 mt-3'">
+          External attack surface
+        </h1>
+        <p [class]="dark ? 'text-sm text-slate-400 mt-2' : 'text-sm text-slate-600 mt-2'">
+          What is reachable from the internet, how much of it has actually been
+          assessed, what became worse, and what to deal with first.
+        </p>
+      </div>
+
+      <!-- Freshness. A dashboard that stops updating without saying so leaves
+           the operator believing something about freshness that is not true. -->
+      <div class="flex flex-col gap-2 shrink-0">
+        <div class="flex items-center gap-2">
+          <span aria-hidden="true"
+            [class]="streamHealthy()
+              ? (dark ? 'w-2 h-2 rounded-full bg-emerald-400' : 'w-2 h-2 rounded-full bg-emerald-500')
+              : (dark ? 'w-2 h-2 rounded-full bg-amber-400' : 'w-2 h-2 rounded-full bg-amber-500')"></span>
+          <span [class]="dark ? 'text-xs font-semibold text-slate-300' : 'text-xs font-semibold text-slate-700'">
+            {{ streamHealthy() ? 'Live' : 'Not live — reconnecting' }}
+          </span>
+        </div>
+        <span [class]="dark ? 'text-[11px] text-slate-500 font-mono' : 'text-[11px] text-slate-500 font-mono'">
+          Updated {{ relativeTime(lastUpdatedAt()) }}
+        </span>
+        @if (!streamHealthy()) {
+          <span [class]="dark ? 'text-[11px] text-amber-400 max-w-[16rem]' : 'text-[11px] text-amber-700 max-w-[16rem]'">
+            Figures below may be out of date.
+          </span>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Not authorised ─────────────────────────────────────────────────── -->
+  @if (!isAuthorized()) {
+    <div
+      [class]="dark
+        ? 'rounded-xl border border-amber-900 bg-amber-950/40 p-5 flex items-start gap-3'
+        : 'rounded-xl border border-amber-200 bg-amber-50 p-5 flex items-start gap-3'">
+      <span aria-hidden="true" class="text-lg leading-none mt-0.5">⚠</span>
+      <div>
+        <p [class]="dark ? 'text-sm font-bold text-amber-300' : 'text-sm font-bold text-amber-900'">
+          Scope authorisation is unsigned
+        </p>
+        <p [class]="dark ? 'text-xs text-amber-200/80 mt-1' : 'text-xs text-amber-800 mt-1'">
+          Nothing will be assessed until the authorisation is signed. Any figures
+          shown below describe an estate that is not being monitored.
+        </p>
+        <button type="button" (click)="goToScope()"
+          [class]="dark
+            ? 'mt-3 px-3 py-1.5 rounded-lg bg-amber-400 text-amber-950 text-xs font-bold hover:bg-amber-300'
+            : 'mt-3 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700'">
+          Review scope
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- ── Nothing discovered yet ─────────────────────────────────────────── -->
+  @if (!hasEstate()) {
+    <div
+      [class]="dark
+        ? 'rounded-2xl border border-dashed border-slate-700 p-12 text-center'
+        : 'rounded-2xl border border-dashed border-slate-300 p-12 text-center'">
+      <p [class]="dark ? 'text-base font-semibold text-slate-300' : 'text-base font-semibold text-slate-700'">
+        No estate discovered yet
+      </p>
+      <p [class]="dark ? 'text-sm text-slate-500 mt-2 max-w-md mx-auto' : 'text-sm text-slate-600 mt-2 max-w-md mx-auto'">
+        Add a domain to the authorised scope and run a scan. Until then there is
+        nothing to report — which is not the same as nothing being wrong.
+      </p>
+      <button type="button" (click)="goToScope()"
+        [class]="dark
+          ? 'mt-4 px-4 py-2 rounded-lg bg-sky-500 text-white text-sm font-bold hover:bg-sky-400'
+          : 'mt-4 px-4 py-2 rounded-lg bg-sky-600 text-white text-sm font-bold hover:bg-sky-700'">
+        Set up scope
+      </button>
+    </div>
+  } @else {
+
+    <!-- ── Headline posture + coverage ───────────────────────────────────── -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+      <!-- The figure and its coverage are one element by construction. A
+           number travels; a caveat beside it does not. -->
+      <div
+        [class]="dark
+          ? 'lg:col-span-1 rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-lg flex flex-col'
+          : 'lg:col-span-1 rounded-2xl bg-white border border-slate-200 p-6 shadow-sm flex flex-col'">
+        <h2 [class]="dark
+          ? 'text-[11px] font-bold uppercase tracking-widest text-slate-400'
+          : 'text-[11px] font-bold uppercase tracking-widest text-slate-500'">
+          Assessed control posture
+        </h2>
+
+        @if (posture(); as p) {
+          @if (p.available) {
+            <div class="mt-4 flex items-baseline gap-2">
+              <span [class]="dark ? 'text-5xl font-extrabold text-slate-50' : 'text-5xl font-extrabold text-slate-900'">
+                {{ p.score }}<span class="text-2xl font-bold text-slate-400">%</span>
+              </span>
+              <span
+                [class]="p.band === 'strong'
+                  ? (dark ? 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-950 text-emerald-400 border border-emerald-900' : 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200')
+                  : p.band === 'adequate'
+                    ? (dark ? 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-950 text-amber-400 border border-amber-900' : 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-50 text-amber-700 border border-amber-200')
+                    : (dark ? 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-950 text-rose-400 border border-rose-900' : 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-50 text-rose-700 border border-rose-200')">
+                {{ p.band }}
+              </span>
+            </div>
+            <p [class]="dark ? 'text-xs text-slate-400 mt-2' : 'text-xs text-slate-600 mt-2'">
+              of controls that were assessed were found sound.
+            </p>
+
+            <!-- Coverage, inside the same card as the figure it qualifies. -->
+            <div [class]="dark ? 'mt-4 pt-4 border-t border-slate-800' : 'mt-4 pt-4 border-t border-slate-200'">
+              <div class="flex items-center justify-between mb-1.5">
+                <span [class]="dark ? 'text-[10px] font-bold uppercase tracking-wider text-slate-400' : 'text-[10px] font-bold uppercase tracking-wider text-slate-500'">
+                  Assessment coverage
+                </span>
+                <span [class]="dark ? 'text-[11px] font-mono text-slate-300' : 'text-[11px] font-mono text-slate-700'">
+                  {{ p.coverage.concluded }}/{{ p.coverage.applicable }}
+                </span>
+              </div>
+              <div [class]="dark ? 'h-1.5 rounded-full bg-slate-800 overflow-hidden' : 'h-1.5 rounded-full bg-slate-200 overflow-hidden'"
+                role="img"
+                [attr.aria-label]="'Assessment coverage: ' + coverageText()">
+                <div class="h-full rounded-full bg-sky-500" [style.width.%]="p.coverage.fraction * 100"></div>
+              </div>
+              <p [class]="dark ? 'text-[11px] text-slate-500 mt-1.5' : 'text-[11px] text-slate-500 mt-1.5'">
+                {{ coverageText() }}
+              </p>
+            </div>
+          } @else {
+            <!-- Refused, not caveated. Below the floor the honest answer is
+                 that the estate has not been assessed enough to summarise. -->
+            <div class="mt-4 flex-1 flex flex-col">
+              <p [class]="dark ? 'text-lg font-bold text-slate-300' : 'text-lg font-bold text-slate-700'">
+                Not enough coverage to report
+              </p>
+              <p [class]="dark ? 'text-xs text-slate-400 mt-2' : 'text-xs text-slate-600 mt-2'">
+                @if (p.reason === 'nothing-assessed') {
+                  No check has reached a conclusion yet, so there is no posture to
+                  summarise. This is not a clean result.
+                } @else {
+                  Only {{ coverageText() }}. A single figure over an estate this
+                  sparsely assessed would read as reassurance that has not been
+                  earned, so it is withheld until coverage reaches
+                  {{ floorPercent() }}%.
+                }
+              </p>
+
+              @if (p.reason === 'below-floor') {
+                <div [class]="dark ? 'mt-4 pt-4 border-t border-slate-800' : 'mt-4 pt-4 border-t border-slate-200'">
+                  <div [class]="dark ? 'h-1.5 rounded-full bg-slate-800 overflow-hidden' : 'h-1.5 rounded-full bg-slate-200 overflow-hidden'"
+                    role="img" [attr.aria-label]="'Assessment coverage: ' + coverageText()">
+                    <div class="h-full rounded-full bg-amber-500" [style.width.%]="p.coverage.fraction * 100"></div>
+                  </div>
+                  <p [class]="dark ? 'text-[11px] text-slate-400 mt-2' : 'text-[11px] text-slate-600 mt-2'">
+                    <strong>{{ p.shortfall }}</strong> more
+                    {{ p.shortfall === 1 ? 'check needs' : 'checks need' }}
+                    to conclude to reach the {{ floorPercent() }}% floor.
+                  </p>
+                </div>
+              }
+
+              <div class="mt-auto pt-4 flex flex-wrap gap-2">
+                @if (p.coverage.checkFailed > 0) {
+                  <span [class]="dark ? 'text-[11px] px-2 py-1 rounded bg-slate-800 text-slate-300' : 'text-[11px] px-2 py-1 rounded bg-slate-100 text-slate-700'">
+                    {{ p.coverage.checkFailed }} could not tell
+                  </span>
+                }
+                @if (p.coverage.notChecked > 0) {
+                  <span [class]="dark ? 'text-[11px] px-2 py-1 rounded bg-slate-800 text-slate-300' : 'text-[11px] px-2 py-1 rounded bg-slate-100 text-slate-700'">
+                    {{ p.coverage.notChecked }} not checked
+                  </span>
+                }
+              </div>
+            </div>
+          }
+        }
+      </div>
+
+      <!-- ── Estate counters ─────────────────────────────────────────────── -->
+      <div class="lg:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4">
+
+        <button type="button" (click)="goToAssets()"
+          [class]="dark
+            ? 'text-left rounded-xl bg-slate-900 border border-slate-800 p-5 hover:border-slate-700 transition-colors'
+            : 'text-left rounded-xl bg-white border border-slate-200 p-5 hover:border-slate-300 transition-colors shadow-sm'">
+          <span [class]="dark ? 'text-[10px] font-bold uppercase tracking-wider text-slate-400' : 'text-[10px] font-bold uppercase tracking-wider text-slate-500'">
+            Live assets
+          </span>
+          <span [class]="dark ? 'block text-3xl font-extrabold text-slate-50 mt-2' : 'block text-3xl font-extrabold text-slate-900 mt-2'">
+            {{ activeAssets() }}
+          </span>
+          <span [class]="dark ? 'text-[11px] text-slate-500' : 'text-[11px] text-slate-500'">
+            reachable from outside
+          </span>
+        </button>
+
+        <button type="button" (click)="goToFindings()"
+          [class]="dark
+            ? 'text-left rounded-xl bg-slate-900 border border-slate-800 p-5 hover:border-slate-700 transition-colors'
+            : 'text-left rounded-xl bg-white border border-slate-200 p-5 hover:border-slate-300 transition-colors shadow-sm'">
+          <span [class]="dark ? 'text-[10px] font-bold uppercase tracking-wider text-slate-400' : 'text-[10px] font-bold uppercase tracking-wider text-slate-500'">
+            Exploited in the wild
+          </span>
+          <span
+            [class]="kevCount() > 0
+              ? (dark ? 'block text-3xl font-extrabold text-rose-400 mt-2' : 'block text-3xl font-extrabold text-rose-600 mt-2')
+              : (dark ? 'block text-3xl font-extrabold text-slate-50 mt-2' : 'block text-3xl font-extrabold text-slate-900 mt-2')">
+            {{ kevCount() }}
+          </span>
+          <span [class]="dark ? 'text-[11px] text-slate-500' : 'text-[11px] text-slate-500'">
+            on the CISA KEV catalogue
+          </span>
+        </button>
+
+        <button type="button" (click)="goToEmail()"
+          [class]="dark
+            ? 'text-left rounded-xl bg-slate-900 border border-slate-800 p-5 hover:border-slate-700 transition-colors'
+            : 'text-left rounded-xl bg-white border border-slate-200 p-5 hover:border-slate-300 transition-colors shadow-sm'">
+          <span [class]="dark ? 'text-[10px] font-bold uppercase tracking-wider text-slate-400' : 'text-[10px] font-bold uppercase tracking-wider text-slate-500'">
+            Got worse
+          </span>
+          <span
+            [class]="recentRegressions().length > 0
+              ? (dark ? 'block text-3xl font-extrabold text-amber-400 mt-2' : 'block text-3xl font-extrabold text-amber-600 mt-2')
+              : (dark ? 'block text-3xl font-extrabold text-slate-50 mt-2' : 'block text-3xl font-extrabold text-slate-900 mt-2')">
+            {{ recentRegressions().length }}
+          </span>
+          <span [class]="dark ? 'text-[11px] text-slate-500' : 'text-[11px] text-slate-500'">
+            confirmed regressions
+          </span>
+        </button>
+
+        <button type="button" (click)="goToSecrets()"
+          [class]="dark
+            ? 'text-left rounded-xl bg-slate-900 border border-slate-800 p-5 hover:border-slate-700 transition-colors'
+            : 'text-left rounded-xl bg-white border border-slate-200 p-5 hover:border-slate-300 transition-colors shadow-sm'">
+          <span [class]="dark ? 'text-[10px] font-bold uppercase tracking-wider text-slate-400' : 'text-[10px] font-bold uppercase tracking-wider text-slate-500'">
+            Verified secrets
+          </span>
+          <span
+            [class]="verifiedSecrets() > 0
+              ? (dark ? 'block text-3xl font-extrabold text-rose-400 mt-2' : 'block text-3xl font-extrabold text-rose-600 mt-2')
+              : (dark ? 'block text-3xl font-extrabold text-slate-50 mt-2' : 'block text-3xl font-extrabold text-slate-900 mt-2')">
+            {{ verifiedSecrets() }}
+          </span>
+          <span [class]="dark ? 'text-[11px] text-slate-500' : 'text-[11px] text-slate-500'">
+            still live in public history
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── What to do first ─────────────────────────────────────────────── -->
+    <div
+      [class]="dark
+        ? 'rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-lg'
+        : 'rounded-2xl bg-white border border-slate-200 p-6 shadow-sm'">
+      <div class="flex items-start justify-between gap-4 mb-1">
+        <h2 [class]="dark ? 'text-sm font-bold uppercase tracking-wider text-slate-200' : 'text-sm font-bold uppercase tracking-wider text-slate-800'">
+          What to deal with first
+        </h2>
+        <span [class]="dark ? 'text-[11px] text-slate-500' : 'text-[11px] text-slate-500'">
+          {{ ranked().length }} open
+        </span>
+      </div>
+      <p [class]="dark ? 'text-xs text-slate-400 mb-5' : 'text-xs text-slate-600 mb-5'">
+        Ordered by what is actually being exploited, then by how likely
+        exploitation is. The inputs are shown so the order can be argued with.
+      </p>
+
+      @if (ranked().length === 0) {
+        <div [class]="dark ? 'border border-dashed border-slate-700 rounded-lg p-8 text-center' : 'border border-dashed border-slate-300 rounded-lg p-8 text-center'">
+          @if (hasAssessed()) {
+            <p [class]="dark ? 'text-sm text-slate-300 font-semibold' : 'text-sm text-slate-700 font-semibold'">
+              No open findings
+            </p>
+            <p [class]="dark ? 'text-xs text-slate-500 mt-1' : 'text-xs text-slate-600 mt-1'">
+              Across {{ coverageText() }}. Anything not assessed is not covered by this statement.
+            </p>
+          } @else {
+            <p [class]="dark ? 'text-sm text-slate-300 font-semibold' : 'text-sm text-slate-700 font-semibold'">
+              Nothing has been assessed yet
+            </p>
+            <p [class]="dark ? 'text-xs text-slate-500 mt-1' : 'text-xs text-slate-600 mt-1'">
+              An empty list here means no scan has run — not that nothing is wrong.
+            </p>
+          }
+        </div>
+      } @else {
+        <div class="overflow-x-auto -mx-2">
+          <table class="w-full text-left border-collapse">
+            <caption class="sr-only">Open findings in priority order, with the inputs determining each position</caption>
+            <thead>
+              <tr [class]="dark ? 'border-b border-slate-800' : 'border-b border-slate-200'">
+                <th scope="col" class="px-2 py-2 text-[10px] font-bold uppercase tracking-wider"
+                  [class]="dark ? 'text-slate-400' : 'text-slate-500'">#</th>
+                <th scope="col" class="px-2 py-2 text-[10px] font-bold uppercase tracking-wider"
+                  [class]="dark ? 'text-slate-400' : 'text-slate-500'">Finding</th>
+                <th scope="col" class="px-2 py-2 text-[10px] font-bold uppercase tracking-wider"
+                  [class]="dark ? 'text-slate-400' : 'text-slate-500'">Exploited</th>
+                <th scope="col" class="px-2 py-2 text-[10px] font-bold uppercase tracking-wider"
+                  [class]="dark ? 'text-slate-400' : 'text-slate-500'">Likelihood</th>
+                <th scope="col" class="px-2 py-2 text-[10px] font-bold uppercase tracking-wider"
+                  [class]="dark ? 'text-slate-400' : 'text-slate-500'">Severity</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of topRanked(); track r.finding.id) {
+                <tr [class]="dark ? 'border-b border-slate-800/60' : 'border-b border-slate-100'">
+                  <td class="px-2 py-3 align-top">
+                    <span [class]="dark ? 'font-mono text-xs text-slate-500' : 'font-mono text-xs text-slate-400'">
+                      {{ r.position }}
+                    </span>
+                  </td>
+                  <td class="px-2 py-3 align-top">
+                    <span [class]="dark ? 'text-sm font-semibold text-slate-100' : 'text-sm font-semibold text-slate-900'">
+                      {{ r.finding.title }}
+                    </span>
+                    <span [class]="dark ? 'block text-[11px] text-slate-500 font-mono mt-0.5' : 'block text-[11px] text-slate-500 font-mono mt-0.5'">
+                      {{ r.finding.assetValue }}@if (r.finding.cveId) { · {{ r.finding.cveId }} }
+                    </span>
+                  </td>
+                  <td class="px-2 py-3 align-top">
+                    @if (r.kev) {
+                      <span [class]="dark
+                        ? 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-950 text-rose-400 border border-rose-900'
+                        : 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-50 text-rose-700 border border-rose-200'">
+                        Yes — KEV
+                      </span>
+                    } @else {
+                      <span [class]="dark ? 'text-[11px] text-slate-500' : 'text-[11px] text-slate-500'">
+                        Not known
+                      </span>
+                    }
+                  </td>
+                  <td class="px-2 py-3 align-top">
+                    <span [class]="dark ? 'text-xs font-mono text-slate-300' : 'text-xs font-mono text-slate-700'">
+                      {{ epssPercent(r.epss) }}
+                    </span>
+                    <span [class]="dark ? 'block text-[10px] text-slate-600' : 'block text-[10px] text-slate-400'">
+                      EPSS, 30 days
+                    </span>
+                  </td>
+                  <td class="px-2 py-3 align-top">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase"
+                      [class]="r.severity === 'critical'
+                        ? (dark ? 'bg-rose-950 text-rose-400 border border-rose-900' : 'bg-rose-50 text-rose-700 border border-rose-200')
+                        : r.severity === 'high'
+                          ? (dark ? 'bg-orange-950 text-orange-400 border border-orange-900' : 'bg-orange-50 text-orange-700 border border-orange-200')
+                          : r.severity === 'medium'
+                            ? (dark ? 'bg-amber-950 text-amber-400 border border-amber-900' : 'bg-amber-50 text-amber-700 border border-amber-200')
+                            : (dark ? 'bg-slate-800 text-slate-400 border border-slate-700' : 'bg-slate-100 text-slate-600 border border-slate-200')">
+                      {{ r.severity }}
+                    </span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        @if (ranked().length > topRanked().length) {
+          <button type="button" (click)="showAllRanked()"
+            [class]="dark
+              ? 'mt-4 text-xs font-semibold text-sky-400 hover:text-sky-300'
+              : 'mt-4 text-xs font-semibold text-sky-700 hover:text-sky-900'">
+            Show all {{ ranked().length }} →
+          </button>
+        }
+      }
+    </div>
+
+    <!-- ── What changed for the worse ───────────────────────────────────── -->
+    <div
+      [class]="dark
+        ? 'rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-lg'
+        : 'rounded-2xl bg-white border border-slate-200 p-6 shadow-sm'">
+      <h2 [class]="dark ? 'text-sm font-bold uppercase tracking-wider text-slate-200' : 'text-sm font-bold uppercase tracking-wider text-slate-800'">
+        What changed for the worse
+      </h2>
+      <p [class]="dark ? 'text-xs text-slate-400 mt-1 mb-5' : 'text-xs text-slate-600 mt-1 mb-5'">
+        Something that used to be fine and is not any more. Kept apart from new
+        findings, because a regression is a change to investigate rather than a
+        backlog item to schedule.
+      </p>
+
+      @if (recentRegressions().length === 0) {
+        <div [class]="dark ? 'border border-dashed border-slate-700 rounded-lg p-6 text-center' : 'border border-dashed border-slate-300 rounded-lg p-6 text-center'">
+          <p [class]="dark ? 'text-sm text-slate-400' : 'text-sm text-slate-600'">
+            @if (hasAssessed()) {
+              Nothing tracked has degraded since the last check.
+            } @else {
+              No baseline yet — a regression needs two assessments to exist.
+            }
+          </p>
+        </div>
+      } @else {
+        <ul class="space-y-2">
+          @for (r of recentRegressions(); track r.id) {
+            <li
+              [class]="dark
+                ? 'flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-amber-900/60 bg-amber-950/20 px-4 py-3'
+                : 'flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-3'">
+              <span [class]="dark ? 'text-xs font-bold text-slate-100' : 'text-xs font-bold text-slate-900'">
+                {{ attributeLabel(r.attributeType) }}
+              </span>
+              <span class="flex items-center gap-1.5">
+                <span [class]="dark ? 'text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 line-through' : 'text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 line-through'">
+                  {{ r.previousValue || 'unset' }}
+                </span>
+                <span aria-hidden="true" [class]="dark ? 'text-slate-600' : 'text-slate-400'">→</span>
+                <span [class]="dark ? 'text-[11px] font-mono px-1.5 py-0.5 rounded bg-amber-950 text-amber-300' : 'text-[11px] font-mono px-1.5 py-0.5 rounded bg-amber-100 text-amber-900'">
+                  {{ r.currentValue || 'unset' }}
+                </span>
+              </span>
+              <span [class]="dark ? 'text-[11px] text-slate-500 ml-auto' : 'text-[11px] text-slate-500 ml-auto'">
+                confirmed {{ relativeTime(r.confirmedAt) }}
+              </span>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+
+    <!-- ── Assessment we are not getting ────────────────────────────────── -->
+    @if (withheld().length > 0 || unresolved().length > 0) {
+      <div
+        [class]="dark
+          ? 'rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-lg'
+          : 'rounded-2xl bg-white border border-slate-200 p-6 shadow-sm'">
+        <h2 [class]="dark ? 'text-sm font-bold uppercase tracking-wider text-slate-200' : 'text-sm font-bold uppercase tracking-wider text-slate-800'">
+          Assessment not performed
+        </h2>
+        <p [class]="dark ? 'text-xs text-slate-400 mt-1 mb-5' : 'text-xs text-slate-600 mt-1 mb-5'">
+          Checks that did not run, and why. These lower the coverage figure
+          above rather than being excluded from it — a narrower assessment is
+          less assurance, not less to worry about.
+        </p>
+
+        @if (unresolved().length > 0) {
+          <ul class="space-y-2 mb-4">
+            @for (u of unresolved(); track u.domain) {
+              <li [class]="dark
+                ? 'rounded-lg border border-slate-800 px-4 py-3 flex flex-wrap items-center gap-x-3'
+                : 'rounded-lg border border-slate-200 px-4 py-3 flex flex-wrap items-center gap-x-3'">
+                <span [class]="dark ? 'text-xs font-mono text-slate-200' : 'text-xs font-mono text-slate-800'">
+                  {{ u.domain }}
+                </span>
+                <span [class]="dark
+                  ? 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-800 text-slate-300 border border-slate-700'
+                  : 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-700 border border-slate-200'">
+                  {{ u.outcome }}
+                </span>
+                @if (u.error) {
+                  <span [class]="dark ? 'text-[11px] text-slate-500' : 'text-[11px] text-slate-500'">{{ u.error }}</span>
+                }
+              </li>
+            }
+          </ul>
+        }
+
+        @if (withheld().length > 0) {
+          <ul class="space-y-1.5">
+            @for (w of withheld(); track w.domain + w.checkId) {
+              <li [class]="dark
+                ? 'rounded-lg border border-slate-800 px-4 py-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1'
+                : 'rounded-lg border border-slate-200 px-4 py-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1'">
+                <span [class]="dark ? 'text-xs font-mono font-semibold text-slate-200' : 'text-xs font-mono font-semibold text-slate-800'">
+                  {{ w.checkId }}
+                </span>
+                <span [class]="dark ? 'text-[11px] font-mono text-slate-500' : 'text-[11px] font-mono text-slate-500'">
+                  {{ w.domain }}
+                </span>
+                <span [class]="dark ? 'text-[11px] text-slate-400 basis-full' : 'text-[11px] text-slate-600 basis-full'">
+                  {{ w.reason }}
+                </span>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    }
+
+    <!-- ── Boundary note ────────────────────────────────────────────────── -->
+    <p [class]="dark ? 'text-[11px] text-slate-600 text-center px-6' : 'text-[11px] text-slate-400 text-center px-6'">
+      This view reports observed exposure only. It states no expected loss and no
+      probability of compromise — those require a calibrated model, and a number
+      without one would be a guess wearing a decimal point.
+    </p>
+  }
+</div>

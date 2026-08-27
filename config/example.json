@@ -11,6 +11,14 @@
   "triageThreshold": "high",
   "secretVerificationEnabled": true,
   "maxRepoCloneSizeMb": 500,
+  "egressPolicy": {
+    "allowedClasses": [
+      "offline",
+      "resolver",
+      "target-https"
+    ],
+    "consentedServices": []
+  },
   "aiProvider": {
     "baseUrl": "https://api.openai.com/v1",
     "model": "gpt-4o",

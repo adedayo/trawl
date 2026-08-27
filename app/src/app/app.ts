@@ -9,6 +9,7 @@ import {
 } from './models/types';
 
 import { HeaderComponent } from './components/layout/header/header';
+import { ExecutiveComponent } from './components/tabs/executive/executive';
 import { OverviewComponent } from './components/tabs/overview/overview';
 import { AssetsComponent } from './components/tabs/assets/assets';
 import { FindingsComponent } from './components/tabs/findings/findings';
@@ -22,6 +23,7 @@ import { ScopeComponent } from './components/tabs/scope/scope';
   imports: [
     CommonModule,
     HeaderComponent,
+    ExecutiveComponent,
     OverviewComponent,
     AssetsComponent,
     FindingsComponent,
@@ -43,6 +45,7 @@ export class App implements OnInit, OnDestroy {
     this.wailsIpc.refreshEmailPostures();
     this.wailsIpc.refreshAssessments();
     this.wailsIpc.refreshSecretFindings();
+    this.wailsIpc.refreshRegressions();
   }
 
   ngOnDestroy() {

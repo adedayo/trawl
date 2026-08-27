@@ -585,10 +585,18 @@ func (s *server) handleIngestSecrets(w http.ResponseWriter, r *http.Request) {
 	s.ingestRaw(w, r, "secrets")
 }
 
-// ingestRaw records a worker payload verbatim against its job run and
-// announces it on the bus. Parsing into typed assets and findings belongs to
-// the correlation stage; this endpoint's only contract is that nothing
-// observed is lost between the worker and the database.
+// ingestRaw records a worker payload verbatim against its job run, correlates
+// it into typed assets and findings, and announces it on the bus.
+//
+// The verbatim write happens first and unconditionally. Correlation is
+// interpretation, and interpretation can be wrong or can lag a tool's output
+// format; the raw payload is the evidence it is derived from, and keeping it
+// means a parser fixed later can be re-run against what actually arrived
+// rather than against nothing.
+//
+// A correlation failure is therefore not an ingest failure. Returning an error
+// to the worker would make it retry a payload that is already stored, and the
+// worker cannot fix a parsing bug by trying again.
 func (s *server) ingestRaw(w http.ResponseWriter, r *http.Request, kind string) {
 	defer r.Body.Close()
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxBodyBytes))
@@ -609,12 +617,34 @@ func (s *server) ingestRaw(w http.ResponseWriter, r *http.Request, kind string) 
 		return
 	}
 
+	response := map[string]any{"status": "accepted", "jobRunId": env.JobRunID}
+
+	summary, err := s.core.CorrelateIngest(r.Context(), core.IngestKind(kind), body)
+	if err != nil {
+		// Recorded, not correlated. Saying so is the point: a response of
+		// "accepted" alone would let an operator believe the results are in
+		// the inventory when they are only on disk.
+		log.Printf("ingest %s (%s): stored but not correlated: %v", kind, env.JobRunID, err)
+		response["correlated"] = false
+		response["reason"] = err.Error()
+	} else {
+		response["correlated"] = true
+		response["summary"] = summary
+		if len(summary.Refused) > 0 {
+			// A worker returning out-of-scope results is worth a line in the
+			// log whether or not anyone is reading the response.
+			log.Printf("ingest %s (%s): refused %d out-of-scope target(s): %v",
+				kind, env.JobRunID, len(summary.Refused), summary.Refused)
+		}
+	}
+
 	s.publish(event.EventIngestReceived, map[string]string{
 		"kind":     kind,
 		"jobRunId": env.JobRunID,
 		"key":      key,
 	})
-	writeJSON(w, http.StatusAccepted, map[string]string{"status": "accepted", "key": key})
+	response["key"] = key
+	writeJSON(w, http.StatusAccepted, response)
 }
 
 func (s *server) handleIngestEmailPosture(w http.ResponseWriter, r *http.Request) {

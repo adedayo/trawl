@@ -89,5 +89,9 @@ These are enforced in code, not just documented as policy.
 | 010 | Scenario loss model — frequency, magnitude, FAIR overlay | Proposed |
 | 011 | Control portfolio ROI, remediation queue, capacity model | Proposed |
 | 012 | Executive workbench — three views over one ledger | Proposed |
+| 013 | Distribution and release — packaging, signing, provenance | Largely implemented; verification outstanding |
+| 014 | Operator dashboard with an executive area — observed exposure, not priced risk | Proposed |
 
 Suggested build order: **006 Phase 1** (the vantage embedding API, upstream work and the long pole) and **008 precision primitives** in parallel, then **007**, then 009 → 010 → 011 → 012.
+
+**014 runs alongside rather than in that queue.** It presents what the engine already establishes — coverage, regressions, ordering — and is gated only on 005 and 006, both of which have landed. It is deliberately confined to observed exposure: no currency, no calibrated probability, no composite risk score. Those arrive with 012, which extends 014's executive area rather than replacing it. The boundary is enforced by a CI check rather than by review, because an executive surface with nothing to say about value is exactly where an uncalibrated "risk score" tends to grow.

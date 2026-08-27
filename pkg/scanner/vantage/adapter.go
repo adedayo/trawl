@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -98,6 +99,11 @@ type Adapter struct {
 	bus      event.Bus
 	now      func() time.Time
 	version  string
+
+	policy   *EgressPolicy
+	selOnce  sync.Once
+	selCache Selection
+	selErr   error
 }
 
 // Option configures an Adapter.
@@ -117,6 +123,17 @@ func WithClock(now func() time.Time) Option { return func(a *Adapter) { a.now = 
 // ordinary build resolves the version from its own build info.
 func WithLibraryVersion(v string) Option { return func(a *Adapter) { a.version = v } }
 
+// WithEgressPolicy makes the deployment's egress policy the arbiter of which
+// checks run.
+//
+// With a policy set, the requested check set is derived by filtering the
+// library's catalogue rather than taken from a caller-supplied list, and
+// checks the policy refuses are recorded as not_checked with the excluding
+// reason named. Without one, the caller's Request.Checks and Request.Profile
+// are used as given — which is appropriate for a test or an operator-driven
+// one-off, but not for a scheduled deployment.
+func WithEgressPolicy(p EgressPolicy) Option { return func(a *Adapter) { a.policy = &p } }
+
 // New builds an Adapter over an assessor.
 func New(assessor vaudit.Assessor, opts ...Option) (*Adapter, error) {
 	if assessor == nil {
@@ -125,6 +142,11 @@ func New(assessor vaudit.Assessor, opts ...Option) (*Adapter, error) {
 	a := &Adapter{assessor: assessor, now: time.Now}
 	for _, opt := range opts {
 		opt(a)
+	}
+	if a.policy != nil {
+		if err := a.policy.Validate(); err != nil {
+			return nil, err
+		}
 	}
 	if a.version == "" {
 		a.version = libraryVersion()
@@ -155,6 +177,33 @@ func (a *Adapter) Assess(ctx context.Context, req Request) (Result, error) {
 		selection.Profile = p
 	}
 
+	// A deployment policy overrides both, because a policy that a caller can
+	// widen by naming checks is not a policy. The excluded checks are carried
+	// forward and written as coverage, so the assessment reports what it
+	// declined to do as well as what it did.
+	var excluded []Exclusion
+	if a.policy != nil {
+		sel, err := a.policySelection(ctx)
+		if err != nil {
+			return Result{Outcome: OutcomeFailed, Err: err}, err
+		}
+		selection.Only = sel.Checks
+		selection.Profile = vaudit.Profile("")
+		excluded = sel.Excluded
+
+		// Every check refused: there is nothing to ask, and pretending
+		// otherwise would let an empty run present as a clean one.
+		if len(sel.Checks) == 0 {
+			now := a.now()
+			return Result{
+				Outcome:        OutcomeRefused,
+				Coverage:       sel.ExclusionCoverage(req.AssetID, a.version, now),
+				LibraryVersion: a.version,
+				Err:            errEveryCheckExcluded,
+			}, errEveryCheckExcluded
+		}
+	}
+
 	vres, err := a.assessor.Assess(ctx, vaudit.Request{
 		Targets:             []string{req.Domain},
 		Selection:           selection,
@@ -167,15 +216,58 @@ func (a *Adapter) Assess(ctx context.Context, req Request) (Result, error) {
 	// selection was invalid, or the context was already done.
 	if vres == nil {
 		out := Result{Outcome: classifyOutcome(err), Err: err}
+		out.Coverage = appendExclusions(out.Coverage, excluded, req.AssetID, a.version, a.now())
 		return out, err
 	}
 
 	res := a.translate(req, vres)
+	res.Coverage = appendExclusions(res.Coverage, excluded, req.AssetID, res.LibraryVersion, a.now())
+	if len(excluded) > 0 && res.Outcome == OutcomeCompleted {
+		// Checks were withheld, so the assessment is not complete in the sense
+		// a reader would take "completed" to mean.
+		res.Outcome = OutcomePartial
+	}
 	res.Err = err
 	if err != nil {
 		res.Outcome = classifyOutcome(err)
 	}
 	return res, err
+}
+
+// errEveryCheckExcluded is returned when policy leaves nothing to run.
+var errEveryCheckExcluded = errors.New(
+	"vantage: the deployment egress policy excludes every available check")
+
+// policySelection derives and caches the check set implied by the policy.
+//
+// The catalogue is a property of the linked library, so it is fetched once and
+// reused across assessments rather than re-derived per domain.
+func (a *Adapter) policySelection(ctx context.Context) (Selection, error) {
+	a.selOnce.Do(func() {
+		caps, err := a.assessor.Catalogue(ctx)
+		if err != nil {
+			a.selErr = fmt.Errorf("vantage: cannot apply egress policy without the catalogue: %w", err)
+			return
+		}
+		a.selCache, a.selErr = SelectChecks(caps, *a.policy)
+	})
+	return a.selCache, a.selErr
+}
+
+// Selection reports the checks the configured policy admits, so a caller can
+// show an operator what will and will not run before anything is assessed.
+func (a *Adapter) Selection(ctx context.Context) (Selection, error) {
+	if a.policy == nil {
+		return Selection{}, errors.New("vantage: no egress policy is configured")
+	}
+	return a.policySelection(ctx)
+}
+
+func appendExclusions(cov []store.AssessmentCoverage, ex []Exclusion, assetID, version string, at time.Time) []store.AssessmentCoverage {
+	if len(ex) == 0 {
+		return cov
+	}
+	return append(cov, Selection{Excluded: ex}.ExclusionCoverage(assetID, version, at)...)
 }
 
 // Catalogue reports what the underlying library can assess, so that a caller

@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { DomainAssessment } from './models/types';
+import { RegressionUI } from './dashboard/estate';
 import { createTransport, DiscoveryOptions, DiscoveryResult, ProposedDomain, Scope, TrawlTransport } from './transport';
 
 /**
@@ -20,13 +21,37 @@ export class WailsIpcService {
 
   // UI State
   public theme = signal<'light' | 'dark'>('light');
-  public activeTab = signal<'overview' | 'assets' | 'findings' | 'email' | 'secrets' | 'scope'>('overview');
+  public activeTab = signal<'executive' | 'overview' | 'assets' | 'findings' | 'email' | 'secrets' | 'scope'>('executive');
 
   // Data State
   public assets = signal<any[]>([]);
   public findings = signal<any[]>([]);
   public emailPostures = signal<any[]>([]);
   public secretFindings = signal<any[]>([]);
+
+  /**
+   * Confirmed posture regressions: a tracked attribute that degraded between
+   * checks.
+   *
+   * Held apart from findings on purpose. "This became worse" and "we found
+   * this" call for different responses, and a regression folded into the
+   * finding list loses the one thing that makes it urgent — that it used to
+   * be fine.
+   */
+  public regressions = signal<RegressionUI[]>([]);
+
+  /**
+   * When the view last received data it trusts.
+   *
+   * A dashboard that silently stops updating is worse than one that never
+   * claimed to be live: the operator's belief about freshness is now wrong and
+   * nothing on screen contradicts it. Recording this is what lets the
+   * interface say how old what it is showing actually is.
+   */
+  public lastUpdatedAt = signal<string | null>(null);
+
+  /** False once the live stream has reported a drop it has not recovered from. */
+  public streamHealthy = signal<boolean>(true);
 
   /**
    * Measured-state assessments from vantage: four-state coverage, derived
@@ -111,6 +136,19 @@ export class WailsIpcService {
     });
 
     this.transport.on('scan:complete', (payload: any) => this.onScanComplete(payload));
+
+    // A regression is confirmed by the engine, not derived here, so the view
+    // learns about it the same way it learns about a finding.
+    this.transport.on('regression:new', () => this.refreshRegressions());
+
+    // The transport reports a dropped stream rather than repairing it. The
+    // view must say so: a dashboard that silently stops updating leaves the
+    // operator believing something about freshness that is no longer true.
+    this.transport.on('stream:down', () => this.streamHealthy.set(false));
+    this.transport.on('stream:up', () => {
+      this.streamHealthy.set(true);
+      this.refreshAll();
+    });
 
     // Another client — or another window onto the same engine — may have
     // erased the estate. Reloading from the store keeps this view honest
@@ -455,6 +493,30 @@ export class WailsIpcService {
   /** Loads the stored measured-state assessments for every assessed domain. */
   public async refreshAssessments(): Promise<void> {
     this.assessments.set((await this.transport.getAssessments()) || []);
+    this.markFresh();
+  }
+
+  /**
+   * Loads confirmed posture regressions.
+   *
+   * Failure leaves the previous list in place and marks the view stale rather
+   * than emptying it. An empty regression list is a strong claim — nothing has
+   * degraded — and it must never be the accidental result of a failed request.
+   */
+  public async refreshRegressions(): Promise<void> {
+    try {
+      this.regressions.set((await this.transport.getRegressions()) || []);
+      this.markFresh();
+    } catch (err) {
+      console.error('Trawl: could not load regressions', err);
+      this.streamHealthy.set(false);
+    }
+  }
+
+  /** Records that the view has just been brought up to date with the store. */
+  private markFresh(): void {
+    this.lastUpdatedAt.set(new Date().toISOString());
+    this.streamHealthy.set(true);
   }
 
   /**
@@ -549,7 +611,8 @@ export class WailsIpcService {
       this.refreshAssets(),
       this.refreshSecretFindings(),
       this.refreshEmailPostures(),
-      this.refreshAssessments()
+      this.refreshAssessments(),
+      this.refreshRegressions()
     ]);
     this.findings.set([]);
   }

@@ -59,14 +59,14 @@
 - [x] Test: concurrent assessments under different scopes cannot query each other's targets
 
 ## Phase 7 — Egress policy
-- [ ] Deployment policy schema stated over egress classes and consented third-party endpoints — no check names in configuration
-- [ ] Derive the requested check set by filtering the catalogue through the policy
-- [ ] Derive transport permissions from the declared profiles of the requested checks
-- [ ] Fail-closed exclusion path: unconsented checks recorded `not_checked` with the excluding reason named
-- [ ] **Required CI check**: egress conformance — every rule declares a profile, every declared class is recognised by the policy schema
-- [ ] Test: an added intrusive check is excluded under default policy
-- [ ] Test: an added third-party dependency is excluded and the endpoint named to the operator
-- [ ] Generate operator-facing egress documentation from the declared profiles
+- [x] Deployment policy schema stated over egress classes and consented third-party endpoints — no check names in configuration *(`EgressPolicy` in `pkg/scanner/vantage/policy.go`; `egressPolicy` block in `config/example.json`, guarded by a test that fails if it grows a check-name key)*
+- [x] Derive the requested check set by filtering the catalogue through the policy *(`SelectChecks`; the adapter overrides caller-supplied `Checks`/`Profile` when a policy is configured)*
+- [x] Derive transport permissions from the declared profiles of the requested checks *(`Selection.EndpointAllowlist` / `Selection.NewScope` — derived from selected checks, not from the consent list)*
+- [x] Fail-closed exclusion path: unconsented checks recorded `not_checked` with the excluding reason named *(`Selection.ExclusionCoverage`; a policy excluding everything returns `OutcomeRefused` rather than an empty clean result)*
+- [x] **Required CI check**: egress conformance — every rule declares a profile, every declared class is recognised by the policy schema *(`TestEgressConformance`)*
+- [x] Test: an added intrusive check is excluded under default policy *(`TestAddedIntrusiveCheckIsExcludedUnderDefaultPolicy`)*
+- [x] Test: an added third-party dependency is excluded and the endpoint named to the operator *(`TestAddedThirdPartyDependencyIsExcludedAndEndpointNamed`)*
+- [x] Generate operator-facing egress documentation from the declared profiles *(`docs/egress.md` via `go run ./cmd/egressdoc`; `TestEgressDocumentationIsUpToDate` fails the build if it drifts)*
 
 ## Phase 8 — Discovery and inventory enrichment
 - [ ] CT hostnames into `asset-discovery` as source `ct-log`, through existing dedup and allowlist

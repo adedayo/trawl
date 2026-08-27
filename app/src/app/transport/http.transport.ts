@@ -14,6 +14,16 @@ export class HttpTransport implements TrawlTransport {
   readonly kind = 'http' as const;
 
   private source?: EventSource;
+
+  /**
+   * Whether the stream is currently known to be down.
+   *
+   * Held so that `stream:down` and `stream:up` are edges rather than repeated
+   * announcements. EventSource fires onerror on every failed retry, and a
+   * subscriber that reloaded on each one would hammer the backend hardest at
+   * exactly the moment it is least able to answer.
+   */
+  private streamDown = false;
   private readonly handlers = new Map<string, Set<(payload: any) => void>>();
 
   constructor(private readonly baseUrl: string = '') {}
@@ -223,10 +233,27 @@ export class HttpTransport implements TrawlTransport {
       return;
     }
     this.source = new EventSource(this.url('/api/v1/events'));
+    this.source.onopen = () => {
+      // Only announced as a recovery, so a subscriber does not treat the first
+      // successful connection as a reconnection and reload needlessly.
+      if (this.streamDown) {
+        this.streamDown = false;
+        this.handlers.get('stream:up')?.forEach(handler => handler(null));
+      }
+    };
     this.source.onerror = () => {
       // Reported, not repaired: EventSource retries by itself, and a manual
       // reconnect here would race with it and multiply the connections.
-      console.warn('Trawl: the event stream dropped; the browser will retry.');
+      //
+      // Reporting it is not optional, though. The browser's retry is silent,
+      // and a view that is not told has no way to distinguish a quiet estate
+      // from a severed connection — the two look identical on screen, and one
+      // of them means everything shown is stale.
+      if (!this.streamDown) {
+        this.streamDown = true;
+        console.warn('Trawl: the event stream dropped; the browser will retry.');
+        this.handlers.get('stream:down')?.forEach(handler => handler(null));
+      }
     };
   }
 
