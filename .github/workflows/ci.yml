@@ -63,6 +63,29 @@ jobs:
         continue-on-error: true
         run: govulncheck ./pkg/... ./cmd/...
 
+      # A retraction is the module author stating that the version in use is
+      # defective. That is a stronger signal than a routine version bump and is
+      # deliberately not subject to the update cooldown: the cooldown exists to
+      # let a release prove itself, which is exactly what a retraction has
+      # already settled. `modernc.org/libc` v1.74.3 was retracted for a
+      # name-resolution deadlock and sat in this tree unnoticed — in a
+      # DNS-heavy tool.
+      - name: Retracted dependency check
+        run: |
+          retracted=$(go list -m -retracted -f '{{if .Retracted}}{{.Path}} {{.Version}}{{end}}' all 2>/dev/null | grep . || true)
+          if [ -n "$retracted" ]; then
+            echo "::error::The module author has retracted these versions:"
+            echo "$retracted"
+            exit 1
+          fi
+          echo "retractions: none"
+
+      # Specifications that name a component the engine no longer uses cannot
+      # be verified against anything, and drift silently because nothing reads
+      # them on a schedule.
+      - name: Specification datastore check
+        run: ./scripts/check-spec-datastore.sh
+
   validate:
     name: Build, Typecheck & Test
     runs-on: ubuntu-latest

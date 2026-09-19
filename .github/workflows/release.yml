@@ -676,18 +676,62 @@ jobs:
           name: cli
           path: cli-artifacts
 
+      # The tap is updated by publishing *this repository's* cask file, not by
+      # rewriting the version and sha256 of whatever file already exists in the
+      # tap. bump-homebrew-formula-action did the latter, and the consequence
+      # was not theoretical: every structural edit to
+      # packaging/homebrew/trawl.rb stayed in this repository and never reached
+      # a single user, so the published cask silently kept DSL that Homebrew
+      # went on to disable, and `brew install --cask adedayo/tap/trawl` now
+      # fails outright. The cask under packaging/ is the source of truth or it
+      # is decoration.
+      #
+      # This is also why the version and URL are no longer passed as inputs:
+      # the file interpolates #{version} itself, so there is exactly one place
+      # the version appears and no way for the two to disagree.
       - name: Update Homebrew cask
         id: cask
         continue-on-error: true
-        uses: mislav/bump-homebrew-formula-action@v3
-        with:
-          formula-name: trawl
-          formula-path: Casks/trawl.rb
-          homebrew-tap: adedayo/homebrew-tap
-          download-url: https://github.com/adedayo/trawl/releases/download/${{ needs.meta.outputs.version }}/Trawl-macos-universal.dmg
-          commit-message: 'trawl ${{ needs.meta.outputs.version }}'
         env:
+          VERSION: ${{ needs.meta.outputs.version }}
           COMMITTER_TOKEN: ${{ secrets.HOMEBREW_GITHUB_TOKEN || secrets.PAT_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          BARE_VERSION="${VERSION#v}"
+          DMG="Trawl-macos-universal.dmg"
+          URL="https://github.com/adedayo/trawl/releases/download/${VERSION}/${DMG}"
+
+          # The checksum is taken from the published artefact, so the cask can
+          # only ever describe a file that exists at the URL it names.
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/${DMG}" "$URL"
+          SHA="$(shasum -a 256 "$RUNNER_TEMP/${DMG}" | cut -d' ' -f1)"
+
+          git clone --depth 1 \
+            "https://x-access-token:${COMMITTER_TOKEN}@github.com/adedayo/homebrew-tap.git" \
+            "$RUNNER_TEMP/tap"
+
+          mkdir -p "$RUNNER_TEMP/tap/Casks"
+          sed -e "s|^  version \".*\"$|  version \"${BARE_VERSION}\"|" \
+              -e "s|^  sha256 \".*\"$|  sha256 \"${SHA}\"|" \
+              packaging/homebrew/trawl.rb \
+              > "$RUNNER_TEMP/tap/Casks/trawl.rb"
+
+          grep -q "\"${SHA}\"" "$RUNNER_TEMP/tap/Casks/trawl.rb" \
+            || { echo "sha256 substitution failed"; exit 1; }
+          grep -q "\"${BARE_VERSION}\"" "$RUNNER_TEMP/tap/Casks/trawl.rb" \
+            || { echo "version substitution failed"; exit 1; }
+
+          cd "$RUNNER_TEMP/tap"
+          if git diff --quiet; then
+            echo "Tap already current for ${VERSION}"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/trawl.rb
+          git commit -m "trawl ${VERSION}"
+          git push
 
       # bump-homebrew-formula-action rewrites one url/sha256 pair. The CLI
       # formula carries four, one per platform, so it is rendered here from the
