@@ -1,0 +1,186 @@
+package vantage
+
+import (
+	"fmt"
+	"net/netip"
+	"testing"
+	"time"
+
+	vfinding "github.com/adedayo/vantage/pkg/finding"
+	"github.com/adedayo/vantage/pkg/netattr"
+	vobs "github.com/adedayo/vantage/pkg/observation"
+)
+
+// This file is a contract test for the structured-observation surface Trawl
+// consumes from vantage. It asserts nothing about Trawl's own behaviour.
+//
+// Its job is to fail the build when an upstream release changes the shape or
+// meaning of what Trawl reads, rather than letting the change surface as a
+// wrong answer during a customer's scan. Enrichment reads facts, and a fact
+// that quietly stops arriving reads as "nothing observed" — the reassuring
+// direction, which is exactly the failure this pins down.
+
+// TestSchemaVersionCarriesStructuredObservations fails if the library is
+// downgraded below the release that introduced CheckResult.Observation.
+//
+// The version is compared numerically rather than by string equality, so a
+// later additive release does not fail: pinning to an exact string would make
+// every routine upgrade look like a contract break and train a reader to edit
+// the number without reading it.
+func TestSchemaVersionCarriesStructuredObservations(t *testing.T) {
+	var major, minor int
+	if _, err := fmt.Sscanf(vfinding.SchemaVersion, "%d.%d", &major, &minor); err != nil {
+		t.Fatalf("finding.SchemaVersion %q is not MAJOR.MINOR: %v", vfinding.SchemaVersion, err)
+	}
+	if major != 1 {
+		t.Fatalf("finding schema major version is %d, not 1: the result shape has changed incompatibly and the adapter must be reviewed, not re-pinned", major)
+	}
+	if minor < 1 {
+		t.Fatalf("finding schema is %s; structured observations arrived in 1.1, so this build reads attribution and CT data that the pinned library does not emit", vfinding.SchemaVersion)
+	}
+}
+
+// TestObservationFieldsTrawlReadsStillExist names, in Go rather than in prose,
+// every field the enrichment path depends on. Removing or renaming one stops
+// this file compiling.
+//
+// Values are asserted as well as names, because a field that survives a
+// rename but changes meaning is the more dangerous change: it keeps building.
+func TestObservationFieldsTrawlReadsStillExist(t *testing.T) {
+	fetched := time.Date(2026, 9, 19, 9, 0, 0, 0, time.UTC)
+
+	network := vobs.Network{
+		Domain: "example.com",
+		Hosts: []vobs.NetworkHost{{
+			Host: "www.example.com",
+			Role: "host",
+			Attributions: []netattr.Attribution{{
+				Address:      netip.MustParseAddr("203.0.113.10"),
+				Provider:     "aws",
+				Source:       "https://ip-ranges.amazonaws.com/ip-ranges.json",
+				Region:       "eu-west-2",
+				Jurisdiction: "GB",
+			}},
+		}},
+		Estate:                map[string]bool{"aws": true},
+		ExpectedJurisdictions: []string{"GB"},
+		FailedSources:         []string{"azure"},
+		StaleSources:          []string{"gcp"},
+		Provenance: []netattr.SourceProvenance{{
+			Provider: "aws",
+			URL:      "https://ip-ranges.amazonaws.com/ip-ranges.json",
+			Fetched:  fetched,
+		}},
+	}
+
+	result := vfinding.CheckResult{
+		Check:       "net",
+		Target:      "example.com",
+		State:       vfinding.StateOK,
+		Observation: &vfinding.Observation{Network: &network},
+	}
+
+	if result.Observation == nil || result.Observation.Network == nil {
+		t.Fatal("CheckResult.Observation must carry the network observation; without it the only route to attribution is parsing rendered records")
+	}
+	got := result.Observation.Network
+	if len(got.Hosts) != 1 || got.Hosts[0].Host != "www.example.com" {
+		t.Fatalf("network hosts did not survive the round trip: %+v", got.Hosts)
+	}
+	attr := got.Hosts[0].Attributions[0]
+	if attr.Provider != "aws" || attr.Region != "eu-west-2" || attr.Jurisdiction != "GB" {
+		t.Fatalf("attribution fields changed shape: %+v", attr)
+	}
+	if len(got.FailedSources) != 1 || len(got.StaleSources) != 1 {
+		t.Fatal("FailedSources and StaleSources must remain distinguishable: a source that could not be loaded is a coverage gap, while a stale one is usable data on an unrefreshed basis, and collapsing them makes an unattributed asset read as clean")
+	}
+}
+
+// TestObservationIsAbsentRatherThanEmpty pins the pointer.
+//
+// A value type could not distinguish "this check reported no observation"
+// from "this check observed an empty estate". The first is a gap in what we
+// know; the second is a claim about the domain. An enrichment path that
+// cannot tell them apart writes the claim.
+func TestObservationIsAbsentRatherThanEmpty(t *testing.T) {
+	var absent vfinding.CheckResult
+	if absent.Observation != nil {
+		t.Fatal("a CheckResult with no observation must leave the field nil")
+	}
+
+	empty := vfinding.CheckResult{Observation: &vfinding.Observation{}}
+	if empty.Observation == nil {
+		t.Fatal("an observation carrying no network or CT data is still an observation")
+	}
+	if empty.Observation.Network != nil || empty.Observation.CT != nil {
+		t.Fatal("an empty observation must not fabricate sub-observations")
+	}
+}
+
+// TestUndeterminedKeepsCTResolutionThreeValued pins the three-state result
+// that discovery depends on.
+//
+// Resolves and NXDOMAIN are not negations of each other: a lookup that failed
+// leaves both false and licenses no conclusion. If this ever collapses to a
+// boolean, a name we could not check would enter the inventory as a name that
+// does not exist.
+func TestUndeterminedKeepsCTResolutionThreeValued(t *testing.T) {
+	live := vobs.CTHost{Host: "a.example.com", Resolves: true}
+	gone := vobs.CTHost{Host: "b.example.com", NXDOMAIN: true}
+	unknown := vobs.CTHost{Host: "c.example.com"}
+
+	if live.Undetermined() {
+		t.Fatal("a resolving name is determined")
+	}
+	if gone.Undetermined() {
+		t.Fatal("a definitive NXDOMAIN is determined")
+	}
+	if !unknown.Undetermined() {
+		t.Fatal("a failed lookup must report as undetermined, not as absence; discovery would otherwise record a name we could not check as one that does not exist")
+	}
+}
+
+// TestSameBasisIgnoresFetchTimeOnly pins the drift-suppression primitive.
+//
+// Trawl uses this to answer "did the host move, or did our provider data
+// refresh?" before raising a regression. If it started comparing fetch times,
+// every refresh would look like a change and the regression signal would be
+// noise; if it stopped comparing URLs, a genuine change of basis would be
+// suppressed.
+func TestSameBasisIgnoresFetchTimeOnly(t *testing.T) {
+	monday := []netattr.SourceProvenance{{Provider: "aws", URL: "https://example.invalid/ranges", Fetched: time.Date(2026, 9, 14, 0, 0, 0, 0, time.UTC)}}
+	tuesday := []netattr.SourceProvenance{{Provider: "aws", URL: "https://example.invalid/ranges", Fetched: time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC)}}
+	fallback := []netattr.SourceProvenance{{Provider: "aws", URL: "https://mirror.invalid/ranges", Fetched: monday[0].Fetched}}
+
+	if !vobs.SameBasis(monday, tuesday) {
+		t.Fatal("a re-fetch of the same endpoint is the same basis; treating it as a change would make every refresh look like a regression")
+	}
+	if vobs.SameBasis(monday, fallback) {
+		t.Fatal("data from a different endpoint is a different basis and must not be suppressed")
+	}
+}
+
+// TestAgeReportsAbsenceRatherThanZero pins absence being distinguishable from
+// freshness.
+//
+// A zero duration means "fetched just now", which is the strongest possible
+// claim. Returning it for missing provenance would report the least evidence
+// as the best.
+func TestAgeReportsAbsenceRatherThanZero(t *testing.T) {
+	now := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
+
+	if _, ok := vobs.Age(nil, now); ok {
+		t.Fatal("missing provenance has no age; reporting zero would present the absence of evidence as freshly fetched data")
+	}
+
+	aged, ok := vobs.Age([]netattr.SourceProvenance{
+		{Provider: "aws", Fetched: now.Add(-48 * time.Hour)},
+		{Provider: "gcp", Fetched: now.Add(-2 * time.Hour)},
+	}, now)
+	if !ok {
+		t.Fatal("present provenance must report an age")
+	}
+	if aged != 48*time.Hour {
+		t.Fatalf("age must be that of the oldest entry, so a single fresh source cannot vouch for a stale one; got %s", aged)
+	}
+}

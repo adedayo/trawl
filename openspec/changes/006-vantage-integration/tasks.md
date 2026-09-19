@@ -91,7 +91,7 @@ throughout: the pin moved only once the tag was public, so the build has never
 depended on code that existed on one machine.
 
 - [x] Bump the vantage pin to the release carrying spec `015` — `v1.4.0`, taken from the module proxy rather than a local path, so the build depends on code that exists for everyone
-- [ ] Extend the adapter's contract tests to cover the new consumed surface (`Observation`, `observation.Network`, `observation.CT`) so an incompatible upstream change fails the build
+- [x] Extend the adapter's contract tests to cover the new consumed surface (`Observation`, `observation.Network`, `observation.CT`) so an incompatible upstream change fails the build — `pkg/scanner/vantage/contract_test.go`; verified by re-pinning to `v1.3.0`, which fails at compile time rather than during a scan
 - [ ] CT hostnames into `asset-discovery` as source `ct-log`, through existing dedup and allowlist — preserve the three-state resolution; `observation.CTHost.Undetermined()` exists so a failed lookup is not read as absence
 - [ ] Provider, region, jurisdiction and provenance onto `asset-inventory`
 - [ ] Map `FailedSources` and `StaleSources` onto assessment coverage, so an unattributed asset reports `check_failed` rather than reading as clean
