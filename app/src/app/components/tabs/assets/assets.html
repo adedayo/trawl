@@ -22,6 +22,7 @@
           <th class="py-3.5 px-6">Asset Value</th>
           <th class="py-3.5 px-6">Type</th>
           <th class="py-3.5 px-6">Discovery Source</th>
+          <th class="py-3.5 px-6">Hosting</th>
           <th class="py-3.5 px-6">Status</th>
           <th class="py-3.5 px-6">First / Last Seen</th>
           <th class="py-3.5 px-6 text-right">Actions</th>
@@ -40,6 +41,38 @@
             </td>
             <td [class]="theme() === 'dark' ? 'py-4 px-6 uppercase text-slate-300 font-mono' : 'py-4 px-6 uppercase text-slate-700 font-mono'">{{ asset.type }}</td>
             <td [class]="theme() === 'dark' ? 'py-4 px-6 text-slate-400 font-mono' : 'py-4 px-6 text-slate-500 font-mono'">{{ asset.source }}</td>
+            <!--
+              Hosting states are kept visibly apart. "Could not be established"
+              must never render like "no third-party hosting": the first is a
+              gap in evidence and the second is a finding about the estate.
+            -->
+            <td class="py-4 px-6">
+              @if (hosting(asset.id).established) {
+                <button
+                  type="button"
+                  (click)="toggleHosting(asset.id)"
+                  [attr.aria-expanded]="expandedId() === asset.id"
+                  [attr.aria-label]="'Show hosting detail for ' + asset.value"
+                  [class]="theme() === 'dark' ? 'text-left hover:underline text-slate-200' : 'text-left hover:underline text-slate-800'">
+                  <span class="font-medium">{{ hosting(asset.id).providers.join(', ') || 'Unattributed' }}</span>
+                  @if (hosting(asset.id).jurisdictions.length > 0) {
+                    <span [class]="theme() === 'dark' ? 'block text-[10px] text-slate-400 font-mono mt-0.5' : 'block text-[10px] text-slate-500 font-mono mt-0.5'">
+                      {{ hosting(asset.id).jurisdictions.join(' / ') }}
+                    </span>
+                  }
+                  @if (hosting(asset.id).unattributed > 0) {
+                    <span [class]="theme() === 'dark' ? 'block text-[10px] text-amber-400 mt-0.5' : 'block text-[10px] text-amber-700 mt-0.5'">
+                      {{ hosting(asset.id).unattributed }} of {{ hosting(asset.id).total }} addresses matched no published range
+                    </span>
+                  }
+                </button>
+              } @else {
+                <span [class]="theme() === 'dark' ? 'text-slate-500 italic' : 'text-slate-400 italic'"
+                      [title]="hosting(asset.id).reason">
+                  {{ hosting(asset.id).reason }}
+                </span>
+              }
+            </td>
             <td class="py-4 px-6">
               <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 font-medium' : 'px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium'">Active</span>
             </td>
@@ -54,6 +87,53 @@
               }
             </td>
           </tr>
+          @if (expandedId() === asset.id) {
+            <tr [class]="theme() === 'dark' ? 'bg-slate-950/40' : 'bg-slate-50'">
+              <td colspan="7" class="px-6 py-4">
+                @for (group of hostGroups(asset.id); track group.host) {
+                  <div class="mb-3 last:mb-0">
+                    <div [class]="theme() === 'dark' ? 'font-mono text-[11px] text-slate-300' : 'font-mono text-[11px] text-slate-700'">
+                      {{ group.host }}
+                      @if (group.rows[0].role) {
+                        <span [class]="theme() === 'dark' ? 'text-slate-500' : 'text-slate-400'"> ({{ group.rows[0].role }})</span>
+                      }
+                    </div>
+                    <!--
+                      Every address is listed rather than reduced to one. A name
+                      balanced across two providers or two jurisdictions is a
+                      fact the operator needs, not a disagreement to resolve by
+                      picking whichever address came back first.
+                    -->
+                    @for (row of group.rows; track row.address) {
+                      <div [class]="theme() === 'dark' ? 'font-mono text-[10px] text-slate-400 pl-4' : 'font-mono text-[10px] text-slate-500 pl-4'">
+                        {{ row.address }}
+                        @if (row.provider) {
+                          — {{ row.provider }}{{ row.region ? ' / ' + row.region : '' }}{{ row.jurisdiction ? ' / ' + row.jurisdiction : '' }}
+                        } @else {
+                          <span [class]="theme() === 'dark' ? 'text-amber-400' : 'text-amber-700'">— matched no published range</span>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+                <!--
+                  The basis is shown with the attribution and never apart from
+                  it. Attribution presented alone reads as current when it may
+                  have come from a cache days old, and the oldest source is
+                  named because a single fresh one cannot vouch for the rest.
+                -->
+                @if (hosting(asset.id).oldestBasis) {
+                  <div [class]="theme() === 'dark' ? 'text-[10px] text-slate-500 mt-2 border-t border-slate-800 pt-2' : 'text-[10px] text-slate-500 mt-2 border-t border-slate-200 pt-2'">
+                    Oldest provider data: {{ hosting(asset.id).oldestBasis | date: 'medium' }}
+                  </div>
+                } @else {
+                  <div [class]="theme() === 'dark' ? 'text-[10px] text-amber-400 mt-2 border-t border-slate-800 pt-2' : 'text-[10px] text-amber-700 mt-2 border-t border-slate-200 pt-2'">
+                    No provider data recorded, so the age of this attribution is unknown.
+                  </div>
+                }
+              </td>
+            </tr>
+          }
         }
       </tbody>
     </table>

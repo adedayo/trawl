@@ -2,10 +2,13 @@ package vantage
 
 import (
 	"context"
+	"net/netip"
 	"strings"
 	"testing"
+	"time"
 
 	vfinding "github.com/adedayo/vantage/pkg/finding"
+	"github.com/adedayo/vantage/pkg/netattr"
 	vobs "github.com/adedayo/vantage/pkg/observation"
 
 	"github.com/adedayo/trawl/pkg/store"
@@ -159,5 +162,156 @@ func TestACoverageGapReachesTheStoreRecord(t *testing.T) {
 	}
 	if got.Outcome != OutcomePartial {
 		t.Fatalf("an assessment carrying a coverage gap is partial, not completed; got %s", got.Outcome)
+	}
+}
+
+// netCheckWithHosts builds a net check result carrying resolved hosts.
+func netCheckWithHosts(hosts []vobs.NetworkHost, prov []netattr.SourceProvenance) vfinding.CheckResult {
+	return vfinding.CheckResult{
+		Check:  "net",
+		Target: "example.com",
+		State:  vfinding.StateOK,
+		Observation: &vfinding.Observation{Network: &vobs.Network{
+			Domain:     "example.com",
+			Hosts:      hosts,
+			Provenance: prov,
+		}},
+	}
+}
+
+// TestAttributionIsFlattenedPerAddress keeps a name's addresses apart. A name
+// spread across two providers or two jurisdictions is a fact to show, and
+// collapsing it to one winner would answer a data-residency question with
+// whichever address happened to come back first.
+func TestAttributionIsFlattenedPerAddress(t *testing.T) {
+	res := vfinding.NewResult("vantage", "1.0.0")
+	res.Checks = []vfinding.CheckResult{netCheckWithHosts([]vobs.NetworkHost{{
+		Host: "www.example.com",
+		Role: "host",
+		Attributions: []netattr.Attribution{
+			{Address: netip.MustParseAddr("203.0.113.10"), Provider: "aws", Region: "eu-west-2", Jurisdiction: "GB", Source: "https://aws.invalid/ranges"},
+			{Address: netip.MustParseAddr("198.51.100.7"), Provider: "gcp", Region: "europe-west2", Jurisdiction: "GB"},
+		},
+	}}, nil)}
+
+	a := newAdapter(t, &fakeAssessor{result: res})
+	got, err := a.Assess(context.Background(), Request{AssetID: "asset-1", Domain: "example.com"})
+	if err != nil {
+		t.Fatalf("Assess: %v", err)
+	}
+
+	if len(got.Attribution) != 2 {
+		t.Fatalf("each address must become its own row; got %d", len(got.Attribution))
+	}
+	first := got.Attribution[0]
+	if first.AssetID != "asset-1" || first.Host != "www.example.com" || first.Role != "host" {
+		t.Fatalf("row is not attached to the asset and name that produced it: %+v", first)
+	}
+	if first.Address != "203.0.113.10" || first.Provider != "aws" || first.Region != "eu-west-2" || first.Jurisdiction != "GB" {
+		t.Fatalf("attribution fields did not survive translation: %+v", first)
+	}
+	if first.Source == "" {
+		t.Fatal("the citation must travel with the attribution, so a reader can check it rather than take it on trust")
+	}
+}
+
+// TestAnUnmatchedAddressIsKept stops the silent drop. An address that matched
+// no published range must still appear, because discarding it makes
+// 'unattributed' indistinguishable from 'never looked up' — the exact silence
+// this path exists to remove.
+func TestAnUnmatchedAddressIsKept(t *testing.T) {
+	res := vfinding.NewResult("vantage", "1.0.0")
+	res.Checks = []vfinding.CheckResult{netCheckWithHosts([]vobs.NetworkHost{{
+		Host:         "self.example.com",
+		Role:         "apex",
+		Attributions: []netattr.Attribution{{Address: netip.MustParseAddr("192.0.2.5")}},
+	}}, nil)}
+
+	a := newAdapter(t, &fakeAssessor{result: res})
+	got, err := a.Assess(context.Background(), Request{AssetID: "asset-1", Domain: "example.com"})
+	if err != nil {
+		t.Fatalf("Assess: %v", err)
+	}
+
+	if len(got.Attribution) != 1 {
+		t.Fatalf("an unmatched address must be recorded, not dropped; got %d rows", len(got.Attribution))
+	}
+	if got.Attribution[0].Attributed() {
+		t.Fatal("an address matching no published range must report itself as unattributed")
+	}
+}
+
+// TestProvenanceTravelsWithTheAttribution pins the basis. Without it, a later
+// run cannot tell a host that moved from range data that was merely
+// refreshed, and every refresh reads as a change to the estate.
+func TestProvenanceTravelsWithTheAttribution(t *testing.T) {
+	fetched := time.Date(2026, 9, 18, 6, 0, 0, 0, time.UTC)
+	res := vfinding.NewResult("vantage", "1.0.0")
+	res.Checks = []vfinding.CheckResult{netCheckWithHosts(
+		[]vobs.NetworkHost{{Host: "www.example.com", Attributions: []netattr.Attribution{{Address: netip.MustParseAddr("203.0.113.10"), Provider: "aws"}}}},
+		[]netattr.SourceProvenance{{Provider: "aws", URL: "https://aws.invalid/ranges", Fetched: fetched}},
+	)}
+
+	a := newAdapter(t, &fakeAssessor{result: res})
+	got, err := a.Assess(context.Background(), Request{AssetID: "asset-1", Domain: "example.com"})
+	if err != nil {
+		t.Fatalf("Assess: %v", err)
+	}
+
+	if len(got.AttributionProvenance) != 1 {
+		t.Fatalf("provenance rows = %d, want 1", len(got.AttributionProvenance))
+	}
+	p := got.AttributionProvenance[0]
+	if p.URL != "https://aws.invalid/ranges" {
+		t.Fatalf("the endpoint must be recorded, since a fallback is a different basis and not the same data by another route: %+v", p)
+	}
+	if !p.FetchedAt.Equal(fetched) {
+		t.Fatalf("the fetch time must be carried unrounded; got %s want %s", p.FetchedAt, fetched)
+	}
+}
+
+// TestAttributionIsNotAttemptedWithoutAnObservation is what stops a run that
+// never attributed from erasing the last run that did. An empty set is a
+// claim — 'we looked and matched nothing' — and only a check that actually
+// ran is entitled to make it.
+func TestAttributionIsNotAttemptedWithoutAnObservation(t *testing.T) {
+	res := vfinding.NewResult("vantage", "1.0.0")
+	res.Checks = []vfinding.CheckResult{
+		{Check: "spf", Target: "example.com", State: vfinding.StateOK},
+		{Check: "net", Target: "example.com", State: vfinding.StateNotChecked},
+	}
+
+	a := newAdapter(t, &fakeAssessor{result: res})
+	got, err := a.Assess(context.Background(), Request{AssetID: "asset-1", Domain: "example.com"})
+	if err != nil {
+		t.Fatalf("Assess: %v", err)
+	}
+
+	if got.AttributionAttempted {
+		t.Fatal("a net check that never ran produced no observation, so nothing may be asserted about the asset's hosting — writing an empty set would erase the previous run's attribution")
+	}
+	if len(got.Attribution) != 0 {
+		t.Fatalf("no observation means no rows; got %d", len(got.Attribution))
+	}
+}
+
+// TestAnEmptyObservationStillCountsAsAttempted is the other side of the same
+// distinction: the check ran, resolved nothing, and that absence is a real
+// result which must replace whatever was recorded before.
+func TestAnEmptyObservationStillCountsAsAttempted(t *testing.T) {
+	res := vfinding.NewResult("vantage", "1.0.0")
+	res.Checks = []vfinding.CheckResult{netCheckWithHosts(nil, nil)}
+
+	a := newAdapter(t, &fakeAssessor{result: res})
+	got, err := a.Assess(context.Background(), Request{AssetID: "asset-1", Domain: "example.com"})
+	if err != nil {
+		t.Fatalf("Assess: %v", err)
+	}
+
+	if !got.AttributionAttempted {
+		t.Fatal("a check that ran and attributed nothing has observed something, and the store must be updated to say so")
+	}
+	if len(got.Attribution) != 0 {
+		t.Fatalf("rows = %d, want none", len(got.Attribution))
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	vfinding "github.com/adedayo/vantage/pkg/finding"
 
@@ -64,6 +65,67 @@ func attributionGap(state store.CoverageState, reason string, obs *vfinding.Obse
 	}
 
 	return state, joinReasons(reason, notes...)
+}
+
+// attributionRows flattens a network observation into store rows.
+//
+// One row per address, not per host. A name that resolves to several
+// addresses may be spread across providers or jurisdictions, and collapsing
+// that to a single winner would answer a data-residency question with the
+// first address that happened to be returned.
+//
+// An address that matched no published range is kept, with an empty provider.
+// Dropping it would make an unattributed address indistinguishable from one
+// that was never looked up, which is the same silence this whole path exists
+// to remove; the accompanying coverage record says whether the ranges loaded,
+// so a reader can tell "matched nothing" from "could not look".
+func attributionRows(assetID string, obs *vfinding.Observation, libraryVersion string, at time.Time) []store.AssetAttribution {
+	if obs == nil || obs.Network == nil {
+		return nil
+	}
+
+	rows := make([]store.AssetAttribution, 0, len(obs.Network.Hosts))
+	for _, h := range obs.Network.Hosts {
+		for _, a := range h.Attributions {
+			rows = append(rows, store.AssetAttribution{
+				AssetID:        assetID,
+				Host:           h.Host,
+				Role:           h.Role,
+				Address:        a.Address.String(),
+				Provider:       a.Provider,
+				Region:         a.Region,
+				Jurisdiction:   a.Jurisdiction,
+				Source:         a.Source,
+				LibraryVersion: libraryVersion,
+				ObservedAt:     at,
+			})
+		}
+	}
+	return rows
+}
+
+// attributionProvenanceRows flattens where each provider's ranges came from.
+//
+// Fetched time is carried through unrounded. Vantage renders it to the day
+// for display, but the comparison that matters — whether two runs used the
+// same basis — is observation.SameBasis, which ignores the timestamp
+// entirely. Rounding here would discard information for a presentation
+// decision the presentation layer has already made.
+func attributionProvenanceRows(assetID string, obs *vfinding.Observation) []store.AttributionProvenance {
+	if obs == nil || obs.Network == nil {
+		return nil
+	}
+
+	out := make([]store.AttributionProvenance, 0, len(obs.Network.Provenance))
+	for _, p := range obs.Network.Provenance {
+		out = append(out, store.AttributionProvenance{
+			AssetID:   assetID,
+			Provider:  p.Provider,
+			URL:       p.URL,
+			FetchedAt: p.Fetched,
+		})
+	}
+	return out
 }
 
 // normaliseSources sorts and de-duplicates source names.

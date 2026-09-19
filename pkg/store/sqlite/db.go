@@ -252,6 +252,48 @@ func (s *SQLiteStore) migrate(ctx context.Context) error {
 		FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE
 	);
 
+	-- Where each address an asset resolves to is hosted, and on what basis.
+	--
+	-- One row per address rather than per asset: a name routinely resolves to
+	-- several, and they need not agree. A name balanced across two
+	-- jurisdictions is a fact to show, not a discrepancy to reduce to a
+	-- winner.
+	--
+	-- provider is empty when no published range matched. That is the absence
+	-- of a match and not a claim that the address is unhosted, which is why
+	-- the adapter degrades the check to check_failed whenever the ranges
+	-- failed to load.
+	CREATE TABLE IF NOT EXISTS asset_attribution (
+		asset_id TEXT NOT NULL,
+		host TEXT NOT NULL,
+		role TEXT NOT NULL DEFAULT '',
+		address TEXT NOT NULL,
+		provider TEXT NOT NULL DEFAULT '',
+		region TEXT NOT NULL DEFAULT '',
+		jurisdiction TEXT NOT NULL DEFAULT '',
+		source TEXT NOT NULL DEFAULT '',
+		library_version TEXT NOT NULL DEFAULT '',
+		observed_at DATETIME NOT NULL,
+		PRIMARY KEY(asset_id, host, address),
+		FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_attribution_provider ON asset_attribution(provider);
+
+	-- Where each provider's ranges were obtained and when. Kept separate from
+	-- the attributions because it answers a different question: not "where is
+	-- this address" but "on what basis, and how old is it". Without it, two
+	-- runs cannot distinguish a host that moved from range data that was
+	-- merely refreshed.
+	CREATE TABLE IF NOT EXISTS attribution_provenance (
+		asset_id TEXT NOT NULL,
+		provider TEXT NOT NULL,
+		url TEXT NOT NULL,
+		fetched_at DATETIME NOT NULL,
+		PRIMARY KEY(asset_id, provider, url),
+		FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE
+	);
+
 	-- Third-party reference data (cloud provider address ranges and the like),
 	-- cached across assessments so a portfolio scan fetches once rather than
 	-- once per target. fetched_at is stored so callers can disclose the age of
@@ -295,6 +337,8 @@ var erasedTables = []string{
 	"signal_observations",
 	"assessment_coverage",
 	"assessment_runs",
+	"asset_attribution",
+	"attribution_provenance",
 	"email_postures",
 	"jobs",
 	"assets",

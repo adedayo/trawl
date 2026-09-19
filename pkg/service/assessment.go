@@ -222,6 +222,18 @@ type DomainAssessment struct {
 	// to the operator instead of silently absent.
 	Unmapped []SignalView `json:"unmapped"`
 
+	// Attribution is where each address the domain resolves to is hosted.
+	// It accompanies the posture because an operator asking "is any of this
+	// somewhere it should not be" is asking a question the control model
+	// cannot answer.
+	Attribution []store.AssetAttribution `json:"attribution"`
+
+	// AttributionProvenance says where the range data came from and when. It
+	// travels with the attribution, never separately: an attribution shown
+	// without its basis invites the reader to treat it as current when it may
+	// have been fetched from a cache days ago.
+	AttributionProvenance []store.AttributionProvenance `json:"attributionProvenance"`
+
 	RegistryVersion string `json:"registryVersion"`
 	LibraryVersion  string `json:"libraryVersion"`
 	AssessedAt      string `json:"assessedAt,omitempty"`
@@ -356,6 +368,26 @@ func (svc *AssessmentService) persist(ctx context.Context, res vadapter.Result) 
 			return fmt.Errorf("assessment: saving observation %s: %w", res.Observations[i].SignalID, err)
 		}
 	}
+
+	// Only written when the network check actually produced an observation.
+	// Replacing with an empty set is how "we looked and attributed nothing"
+	// is recorded, so calling it unconditionally would erase a previous run's
+	// attribution every time the check was excluded by policy or never ran —
+	// silently, and in the direction that looks clean.
+	if res.AttributionAttempted {
+		assetID := ""
+		if len(res.Coverage) > 0 {
+			assetID = res.Coverage[0].AssetID
+		}
+		if len(res.Attribution) > 0 {
+			assetID = res.Attribution[0].AssetID
+		}
+		if assetID != "" {
+			if err := svc.store.ReplaceAssetAttribution(ctx, assetID, res.Attribution, res.AttributionProvenance); err != nil {
+				return fmt.Errorf("assessment: saving attribution: %w", err)
+			}
+		}
+	}
 	return nil
 }
 
@@ -391,10 +423,33 @@ func (svc *AssessmentService) viewWithDomain(ctx context.Context, assetID, domai
 		run = runs[0]
 	}
 
+	attribution, err := svc.store.GetAssetAttribution(ctx, assetID)
+	if err != nil {
+		return DomainAssessment{}, fmt.Errorf("assessment: reading attribution: %w", err)
+	}
+	provenance, err := svc.store.GetAttributionProvenance(ctx, assetID)
+	if err != nil {
+		return DomainAssessment{}, fmt.Errorf("assessment: reading attribution provenance: %w", err)
+	}
+
 	if domain == "" {
 		domain = svc.domainOfAsset(ctx)[assetID]
 	}
-	return svc.assemble(assetID, domain, registry, coverage, observations, run), nil
+	return svc.assemble(assetID, domain, registry, coverage, observations, run,
+		attributionBundle{rows: attribution, provenance: provenance}), nil
+}
+
+// attributionBundle keeps an asset's attribution together with the basis it
+// rests on.
+//
+// They are passed as one value rather than two arguments so that a caller
+// cannot assemble a view with attribution and forget the provenance.
+// Attribution shown without its basis reads as current when it may have come
+// from a cache days old, and that is a reassuring error rather than a visible
+// one.
+type attributionBundle struct {
+	rows       []store.AssetAttribution
+	provenance []store.AttributionProvenance
 }
 
 // effectiveRegistry returns the registry the read model should join against.
@@ -437,6 +492,14 @@ func (svc *AssessmentService) Views(ctx context.Context) ([]DomainAssessment, er
 	if err != nil {
 		return nil, fmt.Errorf("assessment: reading assessment runs: %w", err)
 	}
+	attribution, err := svc.store.GetAssetAttribution(ctx, "")
+	if err != nil {
+		return nil, fmt.Errorf("assessment: reading attribution: %w", err)
+	}
+	provenance, err := svc.store.GetAttributionProvenance(ctx, "")
+	if err != nil {
+		return nil, fmt.Errorf("assessment: reading attribution provenance: %w", err)
+	}
 
 	observationsOf := map[string][]store.SignalObservation{}
 	for _, o := range observations {
@@ -449,6 +512,17 @@ func (svc *AssessmentService) Views(ctx context.Context) ([]DomainAssessment, er
 	runOf := make(map[string]store.AssessmentRun, len(runs))
 	for _, r := range runs {
 		runOf[r.AssetID] = r
+	}
+	attributionOf := map[string]attributionBundle{}
+	for _, a := range attribution {
+		b := attributionOf[a.AssetID]
+		b.rows = append(b.rows, a)
+		attributionOf[a.AssetID] = b
+	}
+	for _, p := range provenance {
+		b := attributionOf[p.AssetID]
+		b.provenance = append(b.provenance, p)
+		attributionOf[p.AssetID] = b
 	}
 
 	// An asset with coverage but no observations is a clean assessment, and it
@@ -466,6 +540,13 @@ func (svc *AssessmentService) Views(ctx context.Context) ([]DomainAssessment, er
 	for id := range runOf {
 		seen[id] = true
 	}
+	// Attribution counts too. It is evidence that the estate was examined, so
+	// an asset carrying only attribution must still appear — dropping it would
+	// hide a domain we have hosting data for behind the fact that no check
+	// happened to record coverage against it.
+	for id := range attributionOf {
+		seen[id] = true
+	}
 
 	ids := make([]string, 0, len(seen))
 	for id := range seen {
@@ -478,7 +559,7 @@ func (svc *AssessmentService) Views(ctx context.Context) ([]DomainAssessment, er
 	out := make([]DomainAssessment, 0, len(ids))
 	for _, id := range ids {
 		out = append(out, svc.assemble(
-			id, domains[id], registry, coverageOf[id], observationsOf[id], runOf[id],
+			id, domains[id], registry, coverageOf[id], observationsOf[id], runOf[id], attributionOf[id],
 		))
 	}
 	return out, nil
@@ -494,6 +575,7 @@ func (svc *AssessmentService) assemble(
 	coverage []store.AssessmentCoverage,
 	observations []store.SignalObservation,
 	run store.AssessmentRun,
+	attribution attributionBundle,
 ) DomainAssessment {
 	entryOf := make(map[string]store.SignalRegistryEntry, len(registry))
 	for _, e := range registry {
@@ -754,19 +836,33 @@ func (svc *AssessmentService) assemble(
 		latest = run.FinishedAt
 	}
 
+	// Never nil, so the transport encodes an empty array rather than null. A
+	// consumer reading null has to decide for itself whether it means "none"
+	// or "not supplied", and the two are not the same claim.
+	rows := attribution.rows
+	if rows == nil {
+		rows = []store.AssetAttribution{}
+	}
+	provenance := attribution.provenance
+	if provenance == nil {
+		provenance = []store.AttributionProvenance{}
+	}
+
 	return DomainAssessment{
-		AssetID:         assetID,
-		Domain:          domain,
-		Outcome:         outcome,
-		Error:           run.Error,
-		Coverage:        overall,
-		Fraction:        overall.Fraction(),
-		Controls:        controls,
-		Scenarios:       scenarioViews,
-		Unmapped:        unmapped,
-		RegistryVersion: registryVersion,
-		LibraryVersion:  libraryVersion,
-		AssessedAt:      formatTime(latest),
+		AssetID:               assetID,
+		Domain:                domain,
+		Outcome:               outcome,
+		Error:                 run.Error,
+		Coverage:              overall,
+		Fraction:              overall.Fraction(),
+		Controls:              controls,
+		Scenarios:             scenarioViews,
+		Unmapped:              unmapped,
+		Attribution:           rows,
+		AttributionProvenance: provenance,
+		RegistryVersion:       registryVersion,
+		LibraryVersion:        libraryVersion,
+		AssessedAt:            formatTime(latest),
 	}
 }
 

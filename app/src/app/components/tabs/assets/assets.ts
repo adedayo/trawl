@@ -1,6 +1,8 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { WailsIpcService } from '../../../wails-ipc.service';
+import { AssetAttribution } from '../../../models/types';
+import { byHost, HostingSummary, noHosting, summariseHosting } from './hosting';
 
 @Component({
   selector: 'app-assets',
@@ -13,6 +15,42 @@ export class AssetsComponent {
   wailsIpc = inject(WailsIpcService);
   theme = this.wailsIpc.theme;
   assets = this.wailsIpc.assets;
+
+  /**
+   * Hosting, indexed by asset. Built once per change rather than per row, so
+   * that a portfolio of any size costs one pass instead of one per asset per
+   * render.
+   */
+  private hostingIndex = computed(() => {
+    const index = new Map<string, HostingSummary>();
+    for (const a of this.wailsIpc.assessments()) {
+      index.set(a.assetId, summariseHosting(a));
+    }
+    return index;
+  });
+
+  private attributionIndex = computed(() => {
+    const index = new Map<string, AssetAttribution[]>();
+    for (const a of this.wailsIpc.assessments()) {
+      index.set(a.assetId, a.attribution ?? []);
+    }
+    return index;
+  });
+
+  /** The asset whose hosting detail is open, if any. */
+  readonly expandedId = signal<string>('');
+
+  hosting(assetId: string): HostingSummary {
+    return this.hostingIndex().get(assetId) ?? noHosting;
+  }
+
+  hostGroups(assetId: string): { host: string; rows: AssetAttribution[] }[] {
+    return byHost(this.attributionIndex().get(assetId) ?? []);
+  }
+
+  toggleHosting(assetId: string): void {
+    this.expandedId.update(current => (current === assetId ? '' : assetId));
+  }
 
   /** Assets with an action in flight, so their buttons can be disabled. */
   private pending = signal<Set<string>>(new Set());

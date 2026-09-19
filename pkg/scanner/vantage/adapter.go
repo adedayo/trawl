@@ -86,6 +86,18 @@ type Result struct {
 	// requested check appears here, including those that did not run, so that
 	// a coverage figure can always accompany an aggregate.
 	Coverage []store.AssessmentCoverage
+	// Attribution is where each address the domain resolves to is hosted.
+	//
+	// Attempted distinguishes an assessment that attributed nothing from one
+	// that never attributed at all — an empty slice is a claim about the
+	// estate, and only the first of those two is entitled to make it.
+	Attribution []store.AssetAttribution
+	// AttributionProvenance records where the range data came from, so a
+	// later run can tell a host that moved from a basis that was refreshed.
+	AttributionProvenance []store.AttributionProvenance
+	// AttributionAttempted reports whether the network check ran and produced
+	// an observation at all.
+	AttributionAttempted bool
 	// LibraryVersion is the vantage build that produced the result.
 	LibraryVersion string
 	// Err carries the reason when Outcome is not completed or partial.
@@ -306,6 +318,17 @@ func (a *Adapter) translate(req Request, vres *vfinding.Result) Result {
 		// against has not concluded, whatever state it reported.
 		state, reason := attributionGap(coverageState(c.State), reasonFor(c.Check, vres.Errors), c.Observation)
 		states[c.Check] = state
+
+		// An observation arriving at all is what licenses writing attribution
+		// for this asset, including writing none. A check that never ran
+		// produces no observation, and an empty set written on its behalf
+		// would assert an absence nobody looked for.
+		if c.Observation != nil && c.Observation.Network != nil {
+			res.AttributionAttempted = true
+			res.Attribution = append(res.Attribution, attributionRows(req.AssetID, c.Observation, libVersion, now)...)
+			res.AttributionProvenance = append(res.AttributionProvenance, attributionProvenanceRows(req.AssetID, c.Observation)...)
+		}
+
 		if state == store.CoverageCheckFailed || state == store.CoverageNotChecked {
 			res.Outcome = OutcomePartial
 		}

@@ -218,6 +218,23 @@ type Store interface {
 	RecordAssessmentRun(ctx context.Context, run *AssessmentRun) error
 	GetAssessmentRuns(ctx context.Context, assetID string) ([]AssessmentRun, error)
 
+	// Network attribution.
+	//
+	// ReplaceAssetAttribution swaps an asset's attribution wholesale, within
+	// one transaction, because these rows are a snapshot of one moment and
+	// not a history. Merging would leave an address the estate no longer uses
+	// sitting alongside one it does, with nothing to tell a reader which is
+	// current.
+	//
+	// Replacement with an empty set is meaningful and is honoured: it records
+	// that the last assessment attributed nothing. The caller must therefore
+	// only call this when attribution was actually attempted — writing an
+	// empty set after a check that never ran would assert an absence nobody
+	// observed.
+	ReplaceAssetAttribution(ctx context.Context, assetID string, rows []AssetAttribution, provenance []AttributionProvenance) error
+	GetAssetAttribution(ctx context.Context, assetID string) ([]AssetAttribution, error)
+	GetAttributionProvenance(ctx context.Context, assetID string) ([]AttributionProvenance, error)
+
 	// Settings
 	GetSetting(ctx context.Context, key string) (string, error)
 	SaveSetting(ctx context.Context, key string, value string) error

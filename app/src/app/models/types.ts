@@ -115,6 +115,51 @@ export interface ScenarioView {
   supported: boolean;
 }
 
+/**
+ * One address an asset's name resolves to, and what it could be attributed to.
+ *
+ * Held per address rather than per name, because a name routinely resolves to
+ * several and they need not agree. A name balanced across two jurisdictions is
+ * a fact to show, not a discrepancy to reduce to one winner.
+ */
+export interface AssetAttribution {
+  assetId: string;
+  host: string;
+  role?: string;
+  address: string;
+  /**
+   * The operator announcing the address. Empty means no published range
+   * matched — which is the absence of a match, not a claim that the address is
+   * unhosted. It is only trustworthy when coverage says the ranges loaded, and
+   * the engine degrades the check to `check_failed` when they did not.
+   */
+  provider?: string;
+  region?: string;
+  /**
+   * The ISO 3166-1 alpha-2 country. Empty means unknown, never "assume home":
+   * an unknown jurisdiction rendered as the domestic one would turn a
+   * data-residency question into a false reassurance.
+   */
+  jurisdiction?: string;
+  source?: string;
+  libraryVersion?: string;
+  observedAt: string;
+}
+
+/**
+ * Where a provider's range data came from, and when.
+ *
+ * Travels with the attribution and is never shown apart from it: attribution
+ * displayed without its basis reads as current when it may have come from a
+ * cache days old.
+ */
+export interface AttributionProvenance {
+  assetId: string;
+  provider: string;
+  url: string;
+  fetchedAt: string;
+}
+
 export interface DomainAssessment {
   assetId: string;
   domain: string;
@@ -125,6 +170,8 @@ export interface DomainAssessment {
   controls: ControlView[];
   scenarios: ScenarioView[];
   unmapped: SignalView[];
+  attribution: AssetAttribution[];
+  attributionProvenance: AttributionProvenance[];
   registryVersion: string;
   libraryVersion: string;
   assessedAt?: string;
