@@ -69,9 +69,33 @@
 - [x] Generate operator-facing egress documentation from the declared profiles *(`docs/egress.md` via `go run ./cmd/egressdoc`; `TestEgressDocumentationIsUpToDate` fails the build if it drifts)*
 
 ## Phase 8 — Discovery and inventory enrichment
-- [ ] CT hostnames into `asset-discovery` as source `ct-log`, through existing dedup and allowlist
+
+**Upstream work is done and released; this phase is unblocked.** The `net` and
+`ct` checks computed everything this phase needs and then flattened it to
+`[]string` before it left the library, so the only route available here was
+parsing record lines. That was rejected: it fails silently and in the
+reassuring direction, because reworded prose yields no match, which reads as
+"no attribution" rather than as an error — an unattributed asset then being
+indistinguishable from one known to be in no provider range. That is guardrail
+5 inverted.
+
+Vantage spec `015-structured-observations` is implemented: `pkg/observation`
+carries the facts, `finding.CheckResult.Observation` carries them to the
+result, and `observation.SameBasis` answers "did the host move, or did our data
+refresh?" — the judgement being the library's to make, since it knows which
+fields are material.
+
+Trawl now pins `vantage v1.4.0` (`finding.SchemaVersion` 1.1, additive). The
+required check forbidding a local replacement directive stayed in force
+throughout: the pin moved only once the tag was public, so the build has never
+depended on code that existed on one machine.
+
+- [x] Bump the vantage pin to the release carrying spec `015` — `v1.4.0`, taken from the module proxy rather than a local path, so the build depends on code that exists for everyone
+- [ ] Extend the adapter's contract tests to cover the new consumed surface (`Observation`, `observation.Network`, `observation.CT`) so an incompatible upstream change fails the build
+- [ ] CT hostnames into `asset-discovery` as source `ct-log`, through existing dedup and allowlist — preserve the three-state resolution; `observation.CTHost.Undetermined()` exists so a failed lookup is not read as absence
 - [ ] Provider, region, jurisdiction and provenance onto `asset-inventory`
-- [ ] Regression suppression for attribution changes caused by provider-data refresh
+- [ ] Map `FailedSources` and `StaleSources` onto assessment coverage, so an unattributed asset reports `check_failed` rather than reading as clean
+- [ ] Regression suppression for attribution changes caused by provider-data refresh, via `observation.SameBasis`
 
 ## Phase 9 — Supersede email-authentication internals
 - [ ] Route existing `email-authentication` requirements through the adapter

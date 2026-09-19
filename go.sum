@@ -42,8 +42,8 @@ github.com/VividCortex/ewma v1.2.0 h1:f58SaIzcDXrSy3kWaHNvuJgJ3Nmz59Zji6XoJR/q1o
 github.com/VividCortex/ewma v1.2.0/go.mod h1:nz4BbCtbLyFDeC9SUHbtcT5644juEuWfUAUnGx7j5l4=
 github.com/adedayo/checkmate v1.5.0 h1:E/mkCZMQcMPJvNGs1KD0yRE9Y9xjv0AJ3cQzv5pGwH8=
 github.com/adedayo/checkmate v1.5.0/go.mod h1:38E99Vn2NlfO9RikTzyz3MXQDmi3HS2bYGv6JIhSuK8=
-github.com/adedayo/vantage v1.3.0 h1:6uXo+hBikhit+/sIfnqCIscbaXdyNNxnsdHMOvHExf8=
-github.com/adedayo/vantage v1.3.0/go.mod h1:slK9XJ3esrlOvcmQhxUeTwHcikecg8tNApyth8XJOYI=
+github.com/adedayo/vantage v1.4.0 h1:bL36L0MI11nZpdzKSJWWkC7Yu6E3wg0lOk+eBDDXlUI=
+github.com/adedayo/vantage v1.4.0/go.mod h1:slK9XJ3esrlOvcmQhxUeTwHcikecg8tNApyth8XJOYI=
 github.com/akrylysov/pogreb v0.10.1 h1:FqlR8VR7uCbJdfUob916tPM+idpKgeESDXOA1K0DK4w=
 github.com/akrylysov/pogreb v0.10.1/go.mod h1:pNs6QmpQ1UlTJKDezuRWmaqkgUE2TuU0YTWyqJZ7+lI=
 github.com/alecthomas/assert/v2 v2.7.0 h1:QtqSACNS3tF7oasA8CU6A6sXZSBDqnm7RfpLl9bZqbE=
@@ -457,8 +457,8 @@ github.com/wailsapp/go-webview2 v1.0.22 h1:YT61F5lj+GGaat5OB96Aa3b4QA+mybD0Ggq6N
 github.com/wailsapp/go-webview2 v1.0.22/go.mod h1:qJmWAmAmaniuKGZPWwne+uor3AHMB5PFhqiK0Bbj8kc=
 github.com/wailsapp/mimetype v1.4.1 h1:pQN9ycO7uo4vsUUuPeHEYoUkLVkaRntMnHJxVwYhwHs=
 github.com/wailsapp/mimetype v1.4.1/go.mod h1:9aV5k31bBOv5z6u+QP8TltzvNGJPmNJD4XlAL3U+j3o=
-github.com/wailsapp/wails/v2 v2.13.0 h1:S7OgXWpj72V91unF8iDWJKbcS9ZpwCT3R0QVru4v2Mg=
-github.com/wailsapp/wails/v2 v2.13.0/go.mod h1:nVr/wSIEZ7xxKPkzK65mjpKpaOPQI2k4pvLwGR/i4kc=
+github.com/wailsapp/wails/v2 v2.14.0 h1:+GlF6BM8Mg7Saa1lxUAzfZ6jsEMg2zQhQvUHtqB7xpc=
+github.com/wailsapp/wails/v2 v2.14.0/go.mod h1:scxrgwfsv6yR6fE6cCF+Flfl+JeU+SR87T9x4kILJ6M=
 github.com/weppos/publicsuffix-go v0.13.0/go.mod h1:z3LCPQ38eedDQSwmsSRW4Y7t2L8Ln16JPQ02lHAdn5k=
 github.com/weppos/publicsuffix-go v0.40.2/go.mod h1:XsLZnULC3EJ1Gvk9GVjuCTZ8QUu9ufE4TZpOizDShko=
 github.com/weppos/publicsuffix-go v0.50.3-0.20260104170930-90713dec78f2 h1:LiQSn5u8Nc6V/GixI+SWxt+YkNIyfKIlkVRULSw2Zt0=

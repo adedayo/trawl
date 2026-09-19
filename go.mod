@@ -4,11 +4,11 @@ go 1.26.1
 
 require (
 	github.com/adedayo/checkmate v1.5.0
-	github.com/adedayo/vantage v1.3.0
+	github.com/adedayo/vantage v1.4.0
 	github.com/google/uuid v1.6.0
 	github.com/miekg/dns v1.1.72
 	github.com/projectdiscovery/subfinder/v2 v2.14.0
-	github.com/wailsapp/wails/v2 v2.13.0
+	github.com/wailsapp/wails/v2 v2.14.0
 	modernc.org/sqlite v1.54.0
 )
 
