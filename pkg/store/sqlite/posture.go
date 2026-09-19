@@ -29,6 +29,30 @@ func (s *SQLiteStore) GetRegressions(ctx context.Context) ([]store.Regression, e
 	return regressions, nil
 }
 
+// RecordPostureBaseline records an observation without letting it raise a
+// regression.
+//
+// It exists for changes whose cause is known not to be the estate. Provider
+// range data is republished constantly, and a prefix moving between two
+// publications changes what an address attributes to without anything in the
+// estate having moved at all. Reporting that as a degradation would fill the
+// regression list with noise, and a list of mostly-noise is one an operator
+// stops reading — at which point the real degradation goes unseen too.
+//
+// The snapshot is still written, deliberately. Skipping it entirely would
+// leave the baseline sitting at the pre-refresh value, so the next comparison
+// would resurface the same change and raise it as a regression a run later,
+// which is the suppression failing quietly rather than working.
+func (s *SQLiteStore) RecordPostureBaseline(ctx context.Context, assetID string, attributeType string, value string) error {
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO posture_snapshots (asset_id, attribute_type, value, observed_at) VALUES (?, ?, ?, ?)`,
+		assetID, attributeType, value, time.Now().Format(time.RFC3339))
+	if err != nil {
+		return fmt.Errorf("failed to insert posture baseline: %w", err)
+	}
+	return nil
+}
+
 func (s *SQLiteStore) RecordPostureObservation(ctx context.Context, assetID string, attributeType string, value string) (*store.Regression, error) {
 	nowStr := time.Now().Format(time.RFC3339)
 

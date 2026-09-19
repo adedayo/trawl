@@ -1,6 +1,10 @@
 package store
 
-import "time"
+import (
+	"sort"
+	"strings"
+	"time"
+)
 
 // AssetAttribution is one address an asset's name resolves to, and what that
 // address could be attributed to.
@@ -58,6 +62,50 @@ type AssetAttribution struct {
 // comparing Provider against the empty string at each call site, where the
 // meaning of the empty string is easy to forget.
 func (a AssetAttribution) Attributed() bool { return a.Provider != "" }
+
+// AttributionAttribute is the posture attribute under which hosting changes
+// are tracked, so a move between providers or jurisdictions is visible in the
+// same place as any other degradation.
+const AttributionAttribute = "network_attribution"
+
+// HostingFingerprint renders an attribution set into a single comparable
+// value.
+//
+// Sorted, so that the order addresses were resolved in cannot present as a
+// change. Resolvers routinely rotate their answers, and a fingerprint that
+// preserved that order would report a regression on every other run — after
+// which the regression list is noise, and an operator who stops reading it
+// misses the real move too.
+//
+// Region is deliberately included alongside provider and jurisdiction. A host
+// that moves between two regions of the same provider has not changed
+// jurisdiction, but it has moved, and an operator with a data-residency
+// obligation is entitled to see it.
+//
+// The observation time is excluded. Every run would otherwise differ from the
+// last, which would make the comparison useless rather than sensitive.
+func HostingFingerprint(rows []AssetAttribution) string {
+	if len(rows) == 0 {
+		// Distinct from the empty string a missing snapshot would carry, so
+		// "we looked and attributed nothing" is not mistaken for "we have no
+		// record". The two differ in whether anything was established.
+		return "none"
+	}
+
+	parts := make([]string, 0, len(rows))
+	for _, r := range rows {
+		provider := r.Provider
+		if provider == "" {
+			// Named rather than left blank, so an address that matched no
+			// published range is visibly that, and not an empty column a
+			// reader fills in with an assumption.
+			provider = "unattributed"
+		}
+		parts = append(parts, strings.Join([]string{r.Host, r.Address, provider, r.Region, r.Jurisdiction}, "|"))
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, ";")
+}
 
 // AttributionProvenance records where a provider's range data came from and
 // when it was obtained.

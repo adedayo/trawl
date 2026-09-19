@@ -192,6 +192,14 @@ type Store interface {
 	GetRegressions(ctx context.Context) ([]Regression, error)
 	RecordPostureObservation(ctx context.Context, assetID string, attributeType string, value string) (*Regression, error)
 
+	// RecordPostureBaseline records an observation that must not raise a
+	// regression, for a change whose cause is known not to be the estate.
+	//
+	// The snapshot is still written. Not writing it would leave the baseline
+	// at the pre-change value, so the next comparison would raise the same
+	// change a run later — suppression that merely defers.
+	RecordPostureBaseline(ctx context.Context, assetID string, attributeType string, value string) error
+
 	// Email Posture
 	GetEmailPostures(ctx context.Context) ([]EmailPosture, error)
 	SaveEmailPosture(ctx context.Context, ep *EmailPosture) error

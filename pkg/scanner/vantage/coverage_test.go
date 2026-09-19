@@ -315,3 +315,37 @@ func TestAnEmptyObservationStillCountsAsAttempted(t *testing.T) {
 		t.Fatalf("rows = %d, want none", len(got.Attribution))
 	}
 }
+
+// TestARefetchOfTheSameEndpointIsTheSameBasis is what stops every provider
+// republication reading as an estate change. Vantage owns the judgement; this
+// asserts Trawl asks it the right question with its own types.
+func TestARefetchOfTheSameEndpointIsTheSameBasis(t *testing.T) {
+	monday := []store.AttributionProvenance{{Provider: "aws", URL: "https://aws.invalid/ranges", FetchedAt: time.Date(2026, 9, 14, 0, 0, 0, 0, time.UTC)}}
+	tuesday := []store.AttributionProvenance{{Provider: "aws", URL: "https://aws.invalid/ranges", FetchedAt: time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC)}}
+
+	if !SameAttributionBasis(monday, tuesday) {
+		t.Fatal("a re-fetch of the same endpoint is the same basis; treating it as a change would make every refresh look like a regression")
+	}
+}
+
+// TestAFallbackEndpointIsADifferentBasis keeps the other direction honest. A
+// fallback is different data, not the same data by another route, so an
+// attribution difference across it cannot be attributed to the estate.
+func TestAFallbackEndpointIsADifferentBasis(t *testing.T) {
+	preferred := []store.AttributionProvenance{{Provider: "aws", URL: "https://aws.invalid/ranges"}}
+	fallback := []store.AttributionProvenance{{Provider: "aws", URL: "https://mirror.invalid/ranges"}}
+
+	if SameAttributionBasis(preferred, fallback) {
+		t.Fatal("data from a different endpoint is a different basis")
+	}
+}
+
+// TestAFirstRunHasNoBasisToCompareAgainst stops a baseline presenting as a
+// regression. There is nothing to have moved from.
+func TestAFirstRunHasNoBasisToCompareAgainst(t *testing.T) {
+	current := []store.AttributionProvenance{{Provider: "aws", URL: "https://aws.invalid/ranges"}}
+
+	if SameAttributionBasis(nil, current) {
+		t.Fatal("no previous basis is not the same basis; the first attribution must be recorded as a baseline rather than compared against nothing")
+	}
+}

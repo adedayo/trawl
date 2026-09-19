@@ -7,6 +7,8 @@ import (
 	"time"
 
 	vfinding "github.com/adedayo/vantage/pkg/finding"
+	"github.com/adedayo/vantage/pkg/netattr"
+	"github.com/adedayo/vantage/pkg/observation"
 
 	"github.com/adedayo/trawl/pkg/store"
 )
@@ -123,6 +125,36 @@ func attributionProvenanceRows(assetID string, obs *vfinding.Observation) []stor
 			Provider:  p.Provider,
 			URL:       p.URL,
 			FetchedAt: p.Fetched,
+		})
+	}
+	return out
+}
+
+// SameAttributionBasis reports whether two runs attributed against the same
+// provider data.
+//
+// It answers the question that decides whether an attribution change is worth
+// raising: did the host move, or did our reference data change underneath it?
+// Provider ranges are republished constantly, and a prefix moving between two
+// publications changes what an address attributes to without anything in the
+// estate having moved.
+//
+// The judgement is vantage's, not Trawl's. observation.SameBasis knows which
+// fields are material — it compares provider and endpoint and ignores the
+// fetch time, because a re-fetch of the same endpoint is the same basis.
+// Reimplementing that here would mean maintaining a second opinion about the
+// library's own data, and the two would drift.
+func SameAttributionBasis(previous, current []store.AttributionProvenance) bool {
+	return observation.SameBasis(toSourceProvenance(previous), toSourceProvenance(current))
+}
+
+func toSourceProvenance(in []store.AttributionProvenance) []netattr.SourceProvenance {
+	out := make([]netattr.SourceProvenance, 0, len(in))
+	for _, p := range in {
+		out = append(out, netattr.SourceProvenance{
+			Provider: p.Provider,
+			URL:      p.URL,
+			Fetched:  p.FetchedAt,
 		})
 	}
 	return out

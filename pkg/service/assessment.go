@@ -383,10 +383,57 @@ func (svc *AssessmentService) persist(ctx context.Context, res vadapter.Result) 
 			assetID = res.Attribution[0].AssetID
 		}
 		if assetID != "" {
+			// Before the replacement, because the comparison needs the basis
+			// the previous attribution rested on and the replacement discards
+			// it.
+			if err := svc.recordAttributionChange(ctx, assetID, res); err != nil {
+				return err
+			}
 			if err := svc.store.ReplaceAssetAttribution(ctx, assetID, res.Attribution, res.AttributionProvenance); err != nil {
 				return fmt.Errorf("assessment: saving attribution: %w", err)
 			}
 		}
+	}
+	return nil
+}
+
+// recordAttributionChange tracks hosting as a posture attribute, suppressing
+// changes that the provider data explains.
+//
+// A change in what an address attributes to has two possible causes, and only
+// one of them is a change in the estate. Providers republish their ranges
+// constantly; a prefix moving between two publications makes an address
+// attribute differently without anything having moved. Raising that as a
+// regression would fill the list with noise, and a list of mostly noise is
+// one an operator stops reading — at which point the genuine move is missed
+// as well.
+//
+// So the comparison is conditioned on the basis. When both runs attributed
+// against the same provider data, a difference is the estate's and is raised.
+// When the basis itself changed, the difference is recorded as the new
+// baseline and nothing is raised: not because it does not matter, but because
+// this evidence cannot distinguish it from a republication.
+//
+// The suppressed case still writes the snapshot. Skipping it would leave the
+// baseline at the pre-refresh value, so the next run would raise the same
+// change anyway — suppression that defers rather than suppresses.
+func (svc *AssessmentService) recordAttributionChange(ctx context.Context, assetID string, res vadapter.Result) error {
+	previous, err := svc.store.GetAttributionProvenance(ctx, assetID)
+	if err != nil {
+		return fmt.Errorf("assessment: reading the previous attribution basis: %w", err)
+	}
+
+	fingerprint := store.HostingFingerprint(res.Attribution)
+
+	if vadapter.SameAttributionBasis(previous, res.AttributionProvenance) {
+		if _, err := svc.store.RecordPostureObservation(ctx, assetID, store.AttributionAttribute, fingerprint); err != nil {
+			return fmt.Errorf("assessment: recording the hosting change: %w", err)
+		}
+		return nil
+	}
+
+	if err := svc.store.RecordPostureBaseline(ctx, assetID, store.AttributionAttribute, fingerprint); err != nil {
+		return fmt.Errorf("assessment: recording the hosting baseline: %w", err)
 	}
 	return nil
 }
