@@ -92,9 +92,9 @@ depended on code that existed on one machine.
 
 - [x] Bump the vantage pin to the release carrying spec `015` — `v1.4.0`, taken from the module proxy rather than a local path, so the build depends on code that exists for everyone
 - [x] Extend the adapter's contract tests to cover the new consumed surface (`Observation`, `observation.Network`, `observation.CT`) so an incompatible upstream change fails the build — `pkg/scanner/vantage/contract_test.go`; verified by re-pinning to `v1.3.0`, which fails at compile time rather than during a scan
-- [ ] CT hostnames into `asset-discovery` as source `ct-log`, through existing dedup and allowlist — preserve the three-state resolution; `observation.CTHost.Undetermined()` exists so a failed lookup is not read as absence
+- [x] Map `FailedSources` and `StaleSources` onto assessment coverage, so an unattributed asset reports `check_failed` rather than reading as clean — `pkg/scanner/vantage/coverage.go`; stale sources annotate without degrading, since cached ranges remain usable and degrading them would suppress real findings on every publisher outage. Taken before inventory enrichment deliberately: enriching first would leave a window in which attribution is displayed confidently for assets whose provider ranges never loaded
 - [ ] Provider, region, jurisdiction and provenance onto `asset-inventory`
-- [ ] Map `FailedSources` and `StaleSources` onto assessment coverage, so an unattributed asset reports `check_failed` rather than reading as clean
+- [ ] CT hostnames into `asset-discovery` as source `ct-log`, through existing dedup and allowlist — preserve the three-state resolution; `observation.CTHost.Undetermined()` exists so a failed lookup is not read as absence
 - [ ] Regression suppression for attribution changes caused by provider-data refresh, via `observation.SameBasis`
 
 ## Phase 9 — Supersede email-authentication internals

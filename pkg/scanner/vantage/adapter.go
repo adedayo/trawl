@@ -302,7 +302,9 @@ func (a *Adapter) translate(req Request, vres *vfinding.Result) Result {
 	// when attributing findings to it.
 	states := make(map[string]store.CoverageState, len(vres.Checks))
 	for _, c := range vres.Checks {
-		state := coverageState(c.State)
+		// A check that could not load the provider ranges it attributes
+		// against has not concluded, whatever state it reported.
+		state, reason := attributionGap(coverageState(c.State), reasonFor(c.Check, vres.Errors), c.Observation)
 		states[c.Check] = state
 		if state == store.CoverageCheckFailed || state == store.CoverageNotChecked {
 			res.Outcome = OutcomePartial
@@ -312,7 +314,7 @@ func (a *Adapter) translate(req Request, vres *vfinding.Result) Result {
 			AssetID:        req.AssetID,
 			CheckID:        c.Check,
 			State:          state,
-			Reason:         reasonFor(c.Check, vres.Errors),
+			Reason:         reason,
 			LibraryVersion: libVersion,
 			AssessedAt:     now,
 		})
