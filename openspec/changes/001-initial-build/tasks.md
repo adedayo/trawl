@@ -1,85 +1,120 @@
 # Tasks: 001-initial-build
 
-## Phase 0 — Foundations
-- [ ] Write self-authorization/scope document (seed CIDRs + domains, explicitly non-destructive) — blocks all scanning work
-- [ ] Create the repo (Apache-2.0 license, README, NOTICE disclosing the self-hosted-Convex FSL-1.1 dependency) as the canonical engine location
-- [ ] Docker Compose skeleton in `deploy/compose/`: self-hosted Convex + dashboard (SQLite), Ofelia cron sidecar, nginx container for the Angular build
-- [ ] Angular CLI app scaffold under `app/`; job container skeleton under `jobs/`
-- [ ] Set up a `.env`/Docker-secrets convention (LLM API key, optional Shodan/Censys key, alert webhook URL)
-- [ ] Draft and commit Convex schema v1: `assets`, `scans`, `findings`, `config`
-- [ ] Scaffold Angular app with latest-stable Angular (standalone, signals, `@if`/`@for`/`@switch` only), Tailwind + spartan/ui installed from day one — not retrofitted later
-- [ ] `ci-cd-pipeline` skeleton: GitHub Actions running lint + TypeScript type-check + Vitest on every PR, required to pass before merge, from the very first commit
+> **Reconciled 30 August 2026 against the code, not against memory.**
+>
+> This ledger was written before Change 003 replaced the datastore, and it had
+> drifted to reading 68 open / 0 done while most of the product was shipping.
+> That is worse than untidy: this is the file someone opens to decide what to
+> build next, and it would have sent them either to redo finished work or to
+> conclude the record was fiction and stop reading it.
+>
+> Three outcomes are used, and the distinction matters:
+>
+> - **[x] Shipped** — the capability exists. Where it shipped in a different
+>   shape than planned, the shape is named.
+> - **[x] Superseded** — a later change made this unnecessary or wrong, and
+>   that change is named. Ticked because it is a conclusion, not pending work.
+> - **[ ] Open** — genuinely not built, and someone still intends to.
+>
+> Where the plan named a Convex function, a job container or an Ofelia
+> schedule, the capability usually still exists — it now runs in-process in the
+> Go engine. Those are marked shipped with the substitution stated, because
+> "we do this differently now" and "we never did this" must not share a
+> rendering.
 
-## Phase 1 — MVP: seed scan → dashboard
-- [ ] Build `scan-worker` container: `naabu` + `httpx` + `nuclei` (KEV-tagged templates only)
-- [ ] Implement `--dry-run` flag on `scan-worker`; write allowlist-enforcement test
-- [ ] Convex HTTP action: ingest scan results, dedup, write `findings`
-- [ ] Capture TLS version/cipher/protocol, certificate fields, and open port/service set as structured, comparable fields (not just raw output) — foundation for Phase 3's `posture-regression` capability
-- [ ] Vitest unit tests for the ingestion-dedup logic, required in CI per `ci-cd-pipeline`'s coverage-floor requirement
-- [ ] Angular v1: read-only asset/findings list via Convex live query; single-user auth gate; explicit loading/empty/error states from the start (not retrofitted)
-- [ ] Ofelia → daily `scan-worker` execution via `docker compose run`
-- [ ] Staged rollout: personal/sandbox domain → one non-critical subdomain → full seed list
-- [ ] **Exit criteria**: live dashboard shows current assets + KEV-flagged findings, refreshed daily, allowlist test passing in CI
+## Phase 0 — Foundations
+- [x] Self-authorization/scope document — `docs/scope-authorization.example.md`; the record is enforced fail-closed in `pkg/core/core.go`
+- [x] Repo created, Apache-2.0, README, NOTICE. **Superseded in part:** the FSL-1.1 disclosure described the self-hosted Convex dependency, which Change 003 removed. The dependency no longer exists.
+- [x] **Superseded (003):** Compose skeleton with a separate datastore service and an Ofelia cron sidecar. `deploy/compose/` brings up the engine and dashboard only — the store is embedded, so there is no datastore service, and scheduling moved in-process.
+- [x] Angular CLI app under `app/`; worker skeleton under `jobs/scan-worker/`
+- [x] `.env`/secrets convention
+- [x] **Superseded (003):** Convex schema v1. The schema is `pkg/store/sqlite` with auto-migrations.
+- [ ] **spartan/ui was specified and never installed.** Standalone components, signals, `@if`/`@for` and Tailwind all shipped; the component library did not. The item argued it must not be retrofitted later, and retrofitting is now exactly what adopting it would mean. Left open deliberately: this needs a decision recorded, not a tick.
+- [x] CI gating every PR — `.github/workflows/ci.yml`, since extended with gofmt, `go vet`, `-race` tests, a retracted-dependency check and the spec-datastore guard
+
+## Phase 1 — MVP: seed scan to dashboard
+- [x] **Withdrawn (004):** `naabu` + `httpx` + `nuclei` runners. Reconsidered, not deferred — each is a template- or probe-driven engine whose blast radius updates independently of this repository, the shape Change 006 Phase 7 refuses. `jobs/scan-worker/` remains as the ingestion path for externally-run tools.
+- [x] `--dry-run` and allowlist enforcement — exercised by `test.sh`
+- [x] Ingest, dedup, write findings — **shipped as Change 005's `pkg/core/ingest.go`**, correlating payloads behind a scope filter. Raw payloads are written verbatim first, so a parser change cannot lose evidence already received.
+- [x] TLS/cipher/certificate and port-set captured as structured comparable fields — via the vantage adapter (006) and `pkg/store/posture.go`
+- [x] Unit tests for ingestion/dedup — `pkg/core/ingest_test.go`
+- [x] Angular v1: read-only asset and findings views with explicit loading/empty/error states. The three-state requirement was only fully honoured in Change 014; before that, a failed load and an empty estate shared a rendering.
+- [x] **Superseded (003/005):** Ofelia-driven daily execution. Scheduling belongs to the engine; the background cron runner is tracked in Change 005 and is still open there.
+- [ ] Staged rollout: sandbox domain, then one non-critical subdomain, then the full seed list. Operational rather than code — but not done, and it is the step that catches a scope error while it is still cheap.
 
 ## Phase 2 — Discovery automation
-- [ ] Build `discovery-worker` container: CT log queries, `subfinder`/`amass`, ASN/WHOIS pivots
-- [ ] Confidence-scoring logic; scope-ceiling enforcement independent of confidence
-- [ ] Convex logic: diff against inventory, auto-promote high-confidence, queue medium/low for review
-- [ ] Angular v2: Pending Assets review queue, asset detail/history view
-- [ ] First alerting: Convex action → Slack/Teams webhook on new-asset and new-critical-finding events, with dedup
-- [ ] Email-authentication check: Convex scheduled action querying SPF/DKIM/DMARC (+ BIMI/MTA-STS/TLS-RPT/CAA) via DNS-over-HTTPS for each in-scope domain; no new job container
-- [ ] Angular v2 addition: email-authentication posture panel per domain (policy, priority, last-checked)
-- [ ] **Exit criteria**: new real-world asset (test with a known-but-unlisted subdomain) is discovered, queued, and approvable within one cycle; a seed domain's DMARC/SPF/DKIM posture is checked and surfaced without a job container, and a policy regression on a re-check produces a new finding rather than a silent overwrite
+- [x] Discovery — `pkg/service/discovery.go`, **in-process rather than a container**. CT-log sourcing is tracked in 006 Phase 8 and remains open there.
+- [x] Confidence scoring, with a scope ceiling enforced independently of confidence — proposed domains authorise nothing until moved across deliberately
+- [x] Diff against inventory and queue for review — `proposedDomains`/`dismissedDomains`, dismissals remembered so a reviewer is not asked weekly
+- [x] Angular v2: review queue, asset detail and history
+- [ ] **Alerting is not built.** No webhook delivery, no dedup, nothing fires on a new asset or a new critical finding. Everything discovered is discovered only by someone looking at the dashboard. For a tool whose value is noticing change, this is the largest genuine gap in this ledger.
+- [x] Email authentication checks — `pkg/scanner/email.go`, in-process. To be routed through the vantage adapter and the interim path removed (006 Phase 9, gated on its gap analysis).
+- [x] Angular v2: email-authentication posture panel per domain
 
 ## Phase 3 — Vulnerability intel enrichment
-- [ ] Convex scheduled function: pull CISA KEV JSON, NVD API deltas, EPSS scores into reference tables
-- [ ] CPE/CVE correlation logic (pure function, unit-tested)
-- [ ] Deterministic priority-scoring function (KEV override + CVSS/EPSS/exposure composite for non-KEV)
-- [ ] Recompute-on-feed-update job
-- [ ] Angular v3: severity-sorted findings view with KEV badge, EPSS score, plain-language "why this matters" line
-- [ ] `posture-regression` capability: shared `postureSnapshots`/`regressions` schema, versioned better/worse ordering config per attribute type, two-consecutive-observation confirmation logic, `regression` finding category wired into `alerting`
-- [ ] Wire `scanning`'s TLS/cipher/certificate/port-set snapshots and `email-authentication`'s DMARC-policy snapshots into the shared regression mechanism
-- [ ] Angular v3 addition: per-asset posture timeline view (regressions and restorations, not just current state)
-- [ ] **Exit criteria**: a known KEV-listed CVE against a fingerprinted service in inventory produces a `priority: critical` finding without manual intervention; a TLS/cipher downgrade or DMARC policy weakening confirmed across two consecutive scheduled checks produces a `regression` finding and fires an alert, while a single transient change does not
+- [ ] **KEV/NVD/EPSS feed ingestion is not built.** `kev` and `epssScore` exist as fields and are populated from ingested payloads, so the dashboard can rank by them — but nothing pulls the catalogues. The values are only as fresh as the payload that carried them, and no asset is re-evaluated when CISA adds a CVE. The executive view's "Exploited in the wild" counter rests on this.
+- [ ] CPE/CVE correlation as a unit-tested pure function
+- [x] **Superseded (002 to 009):** the deterministic composite priority score. `pkg/core/ingest.go` deliberately leaves `Priority` unset rather than inventing a composite; ordering is supplied by Change 014's `rankFindings` (KEV, then EPSS, then severity, then id — a total order). A calibrated score arrives with 009.
+- [ ] Recompute-on-feed-update job — blocked on feed ingestion above
+- [x] Angular v3: severity-sorted findings with KEV badge and EPSS
+- [x] `posture-regression`: snapshots, per-attribute better/worse ordering, two-consecutive-observation confirmation — `pkg/store/posture.go`
+- [x] TLS/certificate/port-set and DMARC-policy snapshots wired into the shared regression mechanism
+- [ ] Per-asset posture timeline view. The data exists; only the view is missing. Change 014 surfaces current regressions but not history.
 
 ## Phase 4 — Repository secrets scanning
-- [ ] Add `repository` asset type; `config.seedRepos[]` (operator-declared, public repos only — reject/flag any URL requiring auth)
-- [ ] Build `repo-scan-worker` container: clone (bounded by `config.maxRepoCloneSizeMb`), run Gitleaks/TruffleHog across full history
-- [ ] Incremental rescanning: persist `lastScannedSha` per repository, scan only new commits after first run
-- [ ] Live verification: read-only calls to issuing providers (e.g. AWS STS `get-caller-identity`), gated entirely by `config.secretVerificationEnabled` (default true)
-- [ ] Redaction: mask/hash raw secret values into `secretFindings.redactedRef` at ingestion; verify no raw value reaches storage, dashboard, or alert payloads
-- [ ] Deterministic priority function: verified-active > unverified pattern match, by scope/provider
-- [ ] Wire new/removed secret findings into the shared `posture-regression` mechanism (Phase 3)
-- [ ] Angular v4: dashboard secret-verification toggle (writes `config.secretVerificationEnabled` live, no redeploy) and per-repository findings view
-- [ ] **Exit criteria**: a seeded public test repo with a planted, revoked test credential in its history is scanned end-to-end and produces a redacted, correctly-prioritized finding; toggling verification off in the dashboard UI stops outbound provider calls on the next scheduled run without a code change
+- [x] `repository` asset type and `config.seedRepos[]`
+- [x] Secret scanning across full history — **in-process via the checkmate SDK (`pkg/scanner/secrets.go`)**, not a separate container. One fewer container to schedule, sign and keep current.
+- [ ] Incremental rescanning with a persisted `lastScannedSha`. Every run rescans full history: correct, and increasingly slow.
+- [x] Live verification against issuing providers, with a `verified` flag persisted
+- [x] Redaction — only `RedactedRef` (a checksum) is stored; no raw secret value reaches storage, dashboard or any payload
+- [x] Verified-active ranked above unverified pattern match
+- [ ] Secret findings wired into the posture-regression mechanism, so a newly appearing secret registers as a change and not only as a finding
+- [ ] Dashboard toggle writing `secretVerificationEnabled` live. Verification is configuration-only; there is no way to stop outbound provider calls from the UI.
 
-## Phase 5 — AI provider & triage layer
-- [ ] Build the `ai-provider` client: single OpenAI-compatible implementation, config-driven (`config.aiProvider.baseUrl`/`.apiKey`/`.model`/`.timeoutMs`); no per-provider branching, no Anthropic-native adapter
-- [ ] Timeout/retry policy; on failure, mark annotation unavailable for the cycle without blocking the deterministic pipeline
-- [ ] Convex action: build grounded prompt (scan evidence + CVE/KEV/EPSS + asset metadata only) for findings above `triageThreshold`
-- [ ] Store AI annotation as a separate field; verify it never mutates priority/severity/KEV/EPSS
-- [ ] Surface AI summary + suggested remediation in dashboard
-- [ ] Duplicate-flag logic: collapse display only, never delete underlying record
-- [ ] **Exit criteria**: synthetic critical finding gets an AI annotation within one processing cycle against a BYOK cloud provider; annotation accuracy spot-checked against evidence; a simulated LLM timeout leaves priority/severity intact and does not fail the pipeline
+## Phase 5 — AI provider and triage layer
+**None of this is built.** There is no AI provider client, no annotation and no
+triage layer anywhere in `pkg/` or `app/`.
 
-## Phase 6 — Portability, deployment packaging & software-quality automation
-- [ ] Audit codebase for any hardcoded organization- or instance-specific value; move all to `config`
-- [ ] Write same-day redeployment runbook (new Convex project, new config, new secrets)
-- [ ] Rehearse a real redeployment against a second (test) instance to validate the runbook
-- [ ] Repo audit: confirm zero employer-identifying or instance-identifying strings outside gitignored/local config
-- [ ] Build the guided first-run setup command (`./setup.sh` or equivalent): prompts for seed domains/repos, LLM API key **or** local-model choice, alert webhook, admin credential; validates Docker/Compose; brings the stack up; waits on health checks; prints the dashboard URL
-- [ ] Add the optional, profile-gated `ollama` Compose service; guided setup enables it (and points `config.aiProvider.baseUrl` at it) only when the operator chooses the local-model path, and validates reachability instead of accepting an unreachable local-only address
-- [ ] **Rehearsal**: on a clean machine, clone the repo and complete setup via the guided command alone — self-hosted Convex, dashboard, Ofelia-scheduled jobs, Angular dashboard, no manual file editing required
-- [ ] Playwright e2e suite covering the dashboard's critical flows (review-queue approval, operational-toggle write, live-finding update) wired into `ci-cd-pipeline`
-- [ ] Automated accessibility scan (e.g. axe-core via Playwright) wired into `ci-cd-pipeline`, gating on WCAG 2.1 AA
-- [ ] Configure Renovate (or equivalent) with `minimumReleaseAge` cooldown (3-day floor, 14-day for direct runtime deps and anything with install scripts), covering npm packages, Convex, and all job-container base images
-- [ ] Build the agentic triage job: scheduled CI workflow invoking an AI coding agent against cooldown-cleared dependency-update PRs, running the full test suite, classifying risk, and auto-merging only when both the deterministic gate and the agent's classification agree; everything else routes to human review with the agent's rationale attached
-- [ ] Least-privilege scoping for the dependency-update and agentic-triage automation credentials (open/comment/approve/merge only, no push access beyond the tool's own proposed diff)
-- [ ] Craft-extraction pass: capture design lessons back into `PKM/Craft/` separate from any running instance's data
-- [ ] **Exit criteria**: a second instance stands up from the runbook alone (no code edits, under one business day); a third party can bring up the stack via the guided setup command alone; a seeded low-risk dependency-update PR clears cooldown, passes tests, is classified low-risk by the agent, and auto-merges with its rationale recorded; a seeded major-version or security-relevant-package update never auto-merges regardless of test results or agent classification
+Worth stating plainly because Change 014's ledger records "AI annotation
+labelled advisory and visually subordinate" as satisfied — true only in the
+vacuous sense that there is no annotation to subordinate. The requirement binds
+if one is added.
 
-## Phase 7 — Stretch
-- [ ] Historical trend charts (asset count over time, mean-time-to-detection/resolution)
-- [ ] Ticketing integration (e.g. Zendesk) as an alternate/additional alert channel
-- [ ] Attack-path chaining view (AI-suggested multi-finding chains)
-- [ ] Multi-user RBAC on the dashboard
+- [ ] `ai-provider` client: one OpenAI-compatible implementation, config-driven, no per-provider branching
+- [ ] Timeout and retry; on failure the annotation is unavailable for the cycle and the deterministic pipeline is unaffected
+- [ ] Grounded prompt built from evidence only, for findings above `triageThreshold`
+- [ ] Annotation stored in a separate field, proven never to mutate priority, severity, KEV or EPSS
+- [ ] Surface the summary and suggested remediation, labelled advisory
+- [ ] Duplicate-flag logic collapses display only, never deletes the record
+
+## Phase 6 — Portability, packaging and software-quality automation
+- [x] No hardcoded organisation- or instance-specific values; all externalised to config
+- [x] Guided first-run setup — `setup.sh`
+- [x] Renovate with `minimumReleaseAge` cooldown (3 days, 14 for direct runtime dependencies)
+- [x] Agentic dependency triage — `.github/workflows/dependency-triage.yml` with `.github/scripts/`; deterministic gate first, agent classification second, both required to agree before auto-merge
+- [ ] Same-day redeployment runbook, and a rehearsal against a second instance. `docs/distribution.md` covers artefacts, not standing up a fresh instance.
+- [ ] Repo audit confirming zero employer- or instance-identifying strings outside gitignored config
+- [ ] **Reconsider alongside Phase 5:** the optional profile-gated `ollama` Compose service. Not built. A local-model service with no provider client to talk to would be scaffolding for nothing.
+- [ ] Playwright e2e suite covering review-queue approval, operational-toggle write and live-finding update
+- [ ] Accessibility scanning gating on WCAG 2.1 AA. **Partially shipped (014):** axe-core runs against the executive view in unit tests, but it is not wired across all views and **colour contrast is excluded**, because jsdom cannot compute a ratio. Completing this is the same task as the Playwright suite above.
+- [ ] Least-privilege scoping for the automation credentials (open, comment, approve and merge only; no push beyond the tool's own diff)
+- [x] **Out of scope:** craft-extraction pass into `PKM/Craft/`. A personal knowledge-management practice, not a deliverable of this repository.
+
+---
+
+## What this reconciliation surfaced
+
+**Alerting (Phase 2) and feed ingestion (Phase 3) are the two gaps that most
+affect what the tool claims.** Without alerting, nothing reaches an operator who
+is not already looking. Without feed ingestion, the "Exploited in the wild"
+counter reflects whatever a payload happened to carry rather than the current
+KEV catalogue — a figure a CISO will read as current. The interface labels its
+coverage honestly, but the underlying freshness gap is real and is not visible
+from the dashboard.
+
+**The remaining open items here are not a backlog for this change.** 001 is the
+original build plan; several of its gaps belong to later changes that already
+track them (005 for cron, 006 for CT logs and email routing, 009 for scoring).
+What remains genuinely unclaimed is listed in `openspec/STATUS.md` under
+*Unclaimed work* so it is visible somewhere other than a heading that reads
+like history.

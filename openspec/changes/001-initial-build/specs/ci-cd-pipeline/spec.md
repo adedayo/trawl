@@ -2,12 +2,21 @@
 
 ## Purpose
 
-Gate every change — human-authored or dependency-bot-authored — on automated tests, lint, and type-checks before merge, and keep every dependency (npm packages, job-container base images, Convex itself) current through an automated update pipeline with a supply-chain-aware cooldown and an AI-agent triage layer, so the engine stays free of both regressions and known-vulnerable dependencies without demanding constant manual attention from a single-operator project. This capability applies the same discipline the rest of the engine already uses on itself: deterministic gates decide, an agent narrates and recommends, and the agent's opinion never substitutes for the gate.
+Gate every change — human-authored or dependency-bot-authored — on automated tests, lint, and type-checks before merge, and keep every dependency (Go modules, npm packages, container base images) current through an automated update pipeline with a supply-chain-aware cooldown and an AI-agent triage layer, so the engine stays free of both regressions and known-vulnerable dependencies without demanding constant manual attention from a single-operator project. This capability applies the same discipline the rest of the engine already uses on itself: deterministic gates decide, an agent narrates and recommends, and the agent's opinion never substitutes for the gate.
 
 ## ADDED Requirements
 
 ### Requirement: Automated test/lint/type-check gate on every change
-Every pull request SHALL run, in CI: unit tests (Vitest) for pure-logic modules and Convex functions, integration/end-to-end tests (Playwright) for critical dashboard flows, a full TypeScript type-check, and lint. Merge SHALL be blocked on any failure, with no override path other than fixing the failure.
+Every pull request SHALL run, in CI: Go unit tests under the race detector and
+`go vet` for the engine, unit tests for pure-logic frontend modules, a full
+TypeScript type-check, and lint. Merge SHALL be blocked on any failure, with no
+override path other than fixing the failure.
+
+CI SHALL additionally fail on any dependency the Go module graph reports as
+retracted. A retraction is the author stating that the version in use is
+defective, which is a stronger and more urgent signal than a routine version
+bump, and SHALL NOT be subject to the update cooldown that governs ordinary
+upgrades.
 
 #### Scenario: Failing test blocks merge
 - **GIVEN** a pull request whose changes cause an existing unit or integration test to fail

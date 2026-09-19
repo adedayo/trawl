@@ -75,22 +75,27 @@ These are enforced in code, not just documented as policy.
 
 ### Change map
 
+Per-change counts and the outstanding-ledger notes live in
+`openspec/STATUS.md`. Completed changes move to `openspec/changes/archive/`.
+
 | Change | Capability | State |
 |---|---|---|
-| 001 | Initial build — fourteen capabilities | Partly superseded by 003/004/005 |
-| 002 | Susceptibility scoring | **Superseded by 009.** Do not implement as written. |
-| 003 | Go + SQLite engine | Phases 1–3 largely implemented |
-| 004 | Wails desktop packaging | In progress |
-| 005 | Cloud continuous EASM | In progress |
-| 006 | Vantage integration — measured-state signals, coverage model | Proposed |
+| 001 | Initial build — fourteen capabilities | **Reconciled 30 Aug 2026 against the code.** 22 open / 34 done. Holds the live capability specs, so it is not archivable when its ledger closes. |
+| 002 | Susceptibility scoring | **Superseded by 009 — archived.** Two constraints it got right are carried forward. |
+| 003 | Go + SQLite engine | **Complete — archived** |
+| 004 | Wails desktop packaging | **Complete — archived.** The three scanner runners were withdrawn, not deferred. |
+| 005 | Cloud continuous EASM | In progress; partly gated on 006 Phase 9 |
+| 006 | Vantage integration — measured-state signals, coverage model | Phases 1–7 landed; 8–9 outstanding |
 | 007 | Contact probability — the keystone; supplies P(contact) | Proposed |
 | 008 | Risk model packs — versioned, signed, source-cited parameters | Proposed |
-| 009 | Exploit probability engine — three layers, three evidence classes | Proposed |
+| 009 | Exploit probability engine — three layers, three evidence classes | Proposed; absorbs the archived 002 |
 | 010 | Scenario loss model — frequency, magnitude, FAIR overlay | Proposed |
 | 011 | Control portfolio ROI, remediation queue, capacity model | Proposed |
 | 012 | Executive workbench — three views over one ledger | Proposed |
-| 013 | Distribution and release — packaging, signing, provenance | Largely implemented; verification outstanding |
-| 014 | Operator dashboard with an executive area — observed exposure, not priced risk | Proposed |
+| 013 | Distribution and release — packaging, signing, provenance | Largely implemented; verification needs a clean machine |
+| 014 | Operator dashboard with an executive area — observed exposure, not priced risk | Implemented; four items outstanding |
+| 015 | Spec datastore hygiene | **Complete — archived** |
+| 016 | Deployment parity — one engine, three transports | Substantially delivered. Renumbered from 007, which was ambiguous. |
 
 Suggested build order: **006 Phase 1** (the vantage embedding API, upstream work and the long pole) and **008 precision primitives** in parallel, then **007**, then 009 → 010 → 011 → 012.
 

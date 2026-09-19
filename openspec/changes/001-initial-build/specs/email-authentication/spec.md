@@ -53,13 +53,22 @@ The system SHALL also check BIMI, MTA-STS, TLS-RPT, and CAA records for each in-
 - **WHEN** the check runs
 - **THEN** an informational finding is recorded, at a priority tier below any open SPF/DKIM/DMARC finding on the same domain
 
-### Requirement: No new job container; runs as a scheduled Convex action
-The system SHALL implement all checks in this capability as DNS-over-HTTPS queries (a plain HTTPS call to a public DoH resolver) executed from a Convex scheduled action, identically to the existing KEV/NVD/EPSS feed-pull functions. This capability SHALL NOT require a Docker Compose job container, since it involves no raw DNS sockets and no scanning binaries.
+### Requirement: No new job container; runs in-process
+The system SHALL implement all checks in this capability as DNS queries issued
+from the engine process itself, alongside the other assessment checks. This
+capability SHALL NOT require a separate job container, since it involves no
+scanning binaries.
+
+The resolver SHALL be the one the deployment's egress policy permits, so that
+an operator who has restricted the engine to a nominated resolver does not find
+this capability quietly reaching a different one.
 
 #### Scenario: No job container needed
-- **GIVEN** Convex is either self-hosted or pointed at Convex Cloud
+- **GIVEN** the engine running as either the desktop application or the
+  headless server
 - **WHEN** the email-authentication check runs
-- **THEN** it executes as a Convex action making an outbound HTTPS call, with no job container or scheduler-triggered container execution involved either way
+- **THEN** it executes in-process, with no job container or scheduler-triggered
+  container execution involved either way
 
 ### Requirement: Scope-limited, scheduled re-check
 The system SHALL only check domains within the configured authorized scope (seed domains, or a configured mail-domain subset), and SHALL re-run checks on a configurable schedule so that policy drift (a domain's DMARC policy weakening after initial check) is caught, not just recorded once.

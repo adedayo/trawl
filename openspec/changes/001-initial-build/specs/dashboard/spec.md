@@ -63,7 +63,9 @@ The app SHALL style exclusively through Tailwind utility classes plus a single s
 - **THEN** it draws colors, spacing, and typography from the shared Tailwind config rather than introducing new ad hoc values
 
 ### Requirement: Loading, empty, and error states are designed, not blank
-Every view that depends on a Convex live query SHALL render an explicit loading state (skeleton, not a blank screen) while data resolves, an explicit empty state with guidance text when there is genuinely no data yet (e.g., "no findings yet — your first scheduled scan runs at..."), and an explicit error state distinct from either, rather than a silently blank or broken-looking screen in any of the three cases.
+Every view that loads data asynchronously SHALL render an explicit loading state (skeleton, not a blank screen) while data resolves, an explicit empty state with guidance text when there is genuinely no data yet (e.g., "no findings yet — your first scheduled scan runs at..."), and an explicit error state distinct from either, rather than a silently blank or broken-looking screen in any of the three cases.
+
+These are three states, not two. "Still loading", "loaded and found nothing" and "could not load" are three different claims about the estate, and only one of them is good news. Collapsing any two leaves a blank view meaning either that nothing is wrong or that nothing was fetched, with no way for the reader to tell which.
 
 #### Scenario: Zero-findings first run shows guidance, not a blank table
 - **GIVEN** a freshly-deployed instance with no scans run yet

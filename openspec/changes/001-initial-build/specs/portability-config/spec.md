@@ -11,7 +11,7 @@ All organization-specific values (seed domains/CIDRs, seed repository URLs, aler
 
 #### Scenario: Config-only redeployment
 - **GIVEN** the operator moves to a new environment or organization
-- **WHEN** they redeploy using a new config file and a fresh Convex project
+- **WHEN** they redeploy using a new config file and an empty database
 - **THEN** no source file requires editing to remove the previous instance's identifiers
 
 ### Requirement: Secrets never committed
@@ -31,9 +31,10 @@ The repository SHALL be structured so that "engine" code (schema, jobs, correlat
 - **THEN** zero matches are found outside of local, gitignored config
 
 ### Requirement: Same-day redeployment runbook
-A documented runbook SHALL exist describing the steps to stand up a new instance (new Convex project, new config, new secrets) in under one business day.
+A documented runbook SHALL exist describing the steps to stand up a new instance
+(a new database file, new config, new secrets) in under one business day.
 
 #### Scenario: Fresh deployment following the runbook
-- **GIVEN** a fresh Convex project has been created
+- **GIVEN** a clean machine with no prior instance data
 - **WHEN** the operator follows the redeployment runbook
 - **THEN** the system is fully operational for the new environment without any code modification

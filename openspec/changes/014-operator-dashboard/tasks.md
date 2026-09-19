@@ -6,12 +6,12 @@ persistence, egress policy), both of which have landed.**
 ## Phase 0 — Spec hygiene
 - [ ] Retire the Convex references in the Change 001 `dashboard` spec by
       accepting this change's MODIFIED and REMOVED deltas
-- [ ] Raise the remaining Convex references as a separate housekeeping change:
-      `scope-authorization`, `email-authentication`, `vulnerability-correlation`
-      and `ai-provider` all still specify Convex. `scope-authorization` is the
-      urgent one — it specifies where authorisation state is persisted, and a
-      guardrail spec naming a datastore that no longer exists cannot be
-      verified against anything.
+- [x] Raise the remaining Convex references as a separate housekeeping change:
+      raised as **Change 015 — spec datastore hygiene**, which covers the six
+      live Change 001 specs and adds a CI guard. Historical references in
+      Changes 002 and 003 are deliberately left alone: they explain what was
+      migrated away from, and erasing them would destroy the reasoning behind a
+      decision future readers would otherwise have to reconstruct.
 
 ## Phase 1 — Read models
 - [x] Estate summary read model: asset counts by status, findings by severity,
@@ -39,7 +39,9 @@ persistence, egress policy), both of which have landed.**
       state — `lastUpdatedAt` and `streamHealthy` on `WailsIpcService`, fed by
       `stream:up`/`stream:down` emitted on the transport's connection *edges*
       rather than on every retry
-- [ ] Test: a dropped stream changes what the interface says about freshness
+- [x] Test: a dropped stream changes what the interface says about freshness —
+      `executive.spec.ts`, flipping `streamHealthy` and asserting the rendered
+      "Not live" state and the explicit staleness caveat
 
 ## Phase 3 — Executive area
 - [x] Executive route and shell, following Trawl conventions — standalone,
@@ -61,8 +63,12 @@ persistence, egress policy), both of which have landed.**
 - [x] Withheld checks lower coverage rather than leaving the denominator —
       `estateCoverage` counts only `ok + notFound` as concluded, asserted in
       `estate.spec.ts`
-- [ ] Test: `check_failed` never renders in passing styling — the interface
-      counterpart to the store-level test in 006 Phase 5
+- [x] Test: `check_failed` never renders in passing styling — the interface
+      counterpart to the store-level test in 006 Phase 5. Asserts the chip
+      carries none of this view's "sound" vocabulary. The coverage chips were
+      also moved out of the refusal branch so they render *alongside a
+      displayed score* — which is precisely when an unstated gap would flatter
+      the number, and where the original markup omitted them.
 
 ## Phase 5 — Regressions and ordering
 - [x] Regression surface: previous value, current value, confirmation time,
@@ -76,14 +82,25 @@ persistence, egress policy), both of which have landed.**
       order and requiring an identical result
 
 ## Phase 6 — Empty, loading, error and AI states
-- [ ] Skeletons on every asynchronous view
+- [x] Skeletons on every asynchronous view — shown on first load only. On a
+      refresh the previous figures stay on screen, because replacing a real
+      number with a shimmer tells the operator less than the slightly stale
+      number it replaced.
 - [x] Empty states distinguishing nothing-found from nothing-looked-at — the
       `nothing-assessed` and `below-floor` refusals are separate outcomes with
       separate copy, and "no open findings" is qualified by the coverage it was
       observed across
-- [ ] Error states distinct from both
-- [ ] AI annotation labelled advisory and visually subordinate
-- [ ] Test: every view renders completely with no AI provider configured
+- [x] Error states distinct from both — `loadState` is a three-way signal
+      rather than a boolean, since "still loading", "loaded and empty" and
+      "could not load" are three different claims about the estate and only one
+      is good news. `refreshAll` moved from `Promise.all` to `allSettled`: a
+      rejection was discarding the results of everything that succeeded, so one
+      failing endpoint blanked views that had good data — and a blank view is a
+      claim, not a neutral state.
+- [x] AI annotation labelled advisory and visually subordinate — the executive
+      area carries no AI annotation at all, so there is nothing to subordinate.
+      The requirement applies if one is added.
+- [x] Test: every view renders completely with no AI provider configured
 
 ## Phase 7 — Boundary enforcement and accessibility
 - [x] **Required CI check**: no view in this capability emits a currency symbol
@@ -91,8 +108,18 @@ persistence, egress policy), both of which have landed.**
       rendered output, so it runs in CI rather than depending on review. The
       assertion is on the absence of a *quantity*, not of the words, so the
       boundary note stays free to name what it is denying.
-- [ ] Per-view automated accessibility scanning at WCAG 2.1 AA
-- [ ] Test: coverage, severity and regression state survive loss of colour
+- [x] Per-view automated accessibility scanning at WCAG 2.1 AA — `axe-core`
+      over the rendered component. Colour contrast is excluded because jsdom
+      has no layout or paint: axe cannot compute a ratio there and would report
+      false passes, which is worse than reporting nothing. Contrast needs a
+      real browser and is **still outstanding**.
+- [x] Test: coverage, severity and regression state survive loss of colour —
+      each coverage state names itself in words and differs in border
+      treatment as well as hue. Board packs are very often printed.
+
+## Still outstanding
+- [ ] Colour-contrast verification in a real browser, which jsdom cannot do
+
 
 ## Deferred deliberately
 - [ ] Charting library. Most of what this change surfaces is better served by

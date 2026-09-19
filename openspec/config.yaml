@@ -1,0 +1,71 @@
+schema: spec-driven
+
+context: |
+  Trawl — continuous external attack surface monitoring, continuous external
+  control validation, and quantified risk decision support.
+
+  Engine is Go: a single statically linked binary, no cgo, no daemon. SQLite
+  via modernc.org/sqlite. Desktop is Wails v2; the same engine runs headless as
+  `trawl server`. Frontend is Angular — standalone components and signals only,
+  no NgModule, no *ngIf/*ngFor. Tailwind v4 for styling.
+
+  Full project context, including repository layout and release conventions,
+  is in openspec/project.md. The reasoning behind the risk-quantification arc
+  is in openspec/RISK-ARC.md; specs cite it by section.
+
+rules:
+  spec:
+    - Every requirement needs at least one scenario. A requirement with no
+      scenario cannot be verified, and an unverifiable requirement is a wish.
+    - Requirements use SHALL or MUST. Scenarios use GIVEN / WHEN / THEN.
+    - Never let "we did not look" render as "it is fine". Assessment coverage
+      is four-state (ok / not_found / not_checked / check_failed) and travels
+      with every aggregate.
+    - No unlabelled number. Any emitted probability or monetary figure carries
+      an uncertainty interval, a calibration label, and the coverage of its
+      inputs.
+    - Severity, priority, KEV and EPSS are computed by pure functions. AI
+      output is advisory annotation and never overwrites them.
+    - Exposure is a prior, not an observation of attackers. No scan-derived
+      path may write a contact posterior.
+
+  tasks:
+    - A ticked box means the work landed, or that a decision not to do it was
+      recorded in place. Both are conclusions. Withdrawn and superseded items
+      are ticked with their reasoning rather than left as phantom backlog.
+    - Keep tasks.md current as work lands. A project whose central argument is
+      "say what you expect, then record what happened" cannot run an
+      unmaintained ledger.
+
+operations:
+  apply:
+    guidance:
+      - >-
+        Scope enforcement is defence-in-depth. Every scan path independently
+        validates targets before touching them. Where a library is embedded,
+        enforcement belongs in the transport: the goal is "we cannot ask", not
+        "we do not ask".
+      - Non-destructive only. Contact must be deliberate — attributable to a
+        named check, against an in-scope target, for a stated reason, and
+        recorded. Incidental contact is the defect, not contact itself.
+      - No org-specific data in the engine. Seed domains, CIDRs, webhook URLs
+        and org names are external configuration, never committed.
+      - Pure-logic unit tests must exist before a feature is considered done.
+      - Prefer embedding Go libraries over shelling out to CLIs; it keeps the
+        single-binary property and makes scope enforceable in the transport.
+
+  archive:
+    guidance:
+      - Archive only what has been verified against the code, not against the
+        ledger. An archived delta reads as settled truth, and a wrongly
+        archived one is harder to notice than an open change folder.
+      - Where a requirement is an invariant about the whole codebase rather
+        than a feature, prefer landing an automated check before archiving.
+        Grep can show an invariant holds today; only a test stops the next
+        change from breaking it.
+      - Archive one change at a time and commit between each. Reverting a
+        single bad fold is trivial; unpicking one from a batch is not.
+      - After archiving, confirm with `ls openspec/changes` and check that no
+        ledger is empty. An editor with unsaved buffers on a moved directory
+        will silently recreate it — this has happened, and also produced
+        zero-byte ledgers.

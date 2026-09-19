@@ -15,13 +15,18 @@
     "test": "npm --prefix app run test:ci",
     "test:classifier": "vitest run .github/scripts",
     "typecheck": "npm --prefix app run typecheck && npx tsc --noEmit --project tsconfig.json",
-    "check": "./test.sh"
+    "check": "./test.sh",
+    "spec:list": "openspec list",
+    "spec:specs": "openspec list --specs",
+    "spec:validate": "openspec validate --all --strict",
+    "spec:archive": "openspec archive"
   },
   "bugs": {
     "url": "https://github.com/adedayo/trawl/issues"
   },
   "homepage": "https://github.com/adedayo/trawl#readme",
   "devDependencies": {
+    "@fission-ai/openspec": "^1.11.0",
     "concurrently": "^10.0.3",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"

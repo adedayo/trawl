@@ -39,12 +39,21 @@ If an OpenAI-compatible server (Ollama or otherwise) is already running on the o
 - **THEN** the Compose `ollama` service is not started, and `ai-triage` reaches the existing instance directly
 
 ### Requirement: Reachability constraint is documented and validated, not silently broken
-A locally-hosted model is only reachable when Convex itself runs in the same network as that model (i.e., self-hosted Convex in the same Docker Compose stack). If Convex is instead hosted anywhere Convex's own infrastructure runs the actions (for example, Convex Cloud managed hosting), `config.aiProvider.baseUrl` must be a publicly-reachable endpoint — a local-only address will never be reachable from there. This constraint SHALL be documented, and guided setup SHALL validate reachability of the configured `baseUrl` rather than allowing an unreachable local-only address to be configured silently.
+The engine makes AI calls from its own process, so `config.aiProvider.baseUrl`
+must be reachable from wherever the engine runs. On the desktop this is the
+operator's own machine, and a local address works. In a container it is the
+container's network, where `localhost` refers to the container itself rather
+than to the host — the most common way this is misconfigured. This constraint
+SHALL be documented, and guided setup SHALL validate reachability of the
+configured `baseUrl` rather than allowing an unreachable address to be
+configured silently.
 
-#### Scenario: Setup rejects an unreachable local address when Convex isn't self-hosted alongside it
-- **GIVEN** the operator is using a Convex hosting option other than self-hosted-alongside-the-model
-- **WHEN** they attempt to set `config.aiProvider.baseUrl` to a local-network-only address
-- **THEN** setup flags it as unreachable rather than accepting it and failing silently at triage time
+#### Scenario: Setup rejects an address the engine cannot reach
+- **GIVEN** the engine running in a container
+- **WHEN** the operator sets `config.aiProvider.baseUrl` to an address reachable
+  only from the host
+- **THEN** setup flags it as unreachable rather than accepting it and failing
+  silently at triage time
 
 ### Requirement: Deterministic timeout and failure handling; annotation stays best-effort
 Each LLM call SHALL be bounded by a configurable timeout and retry policy. On failure or timeout, the affected finding's AI annotation SHALL be marked unavailable for that cycle — the deterministic finding pipeline (priority, severity, KEV/EPSS) SHALL NOT block or fail because of an LLM-call failure.
