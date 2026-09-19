@@ -67,6 +67,20 @@ export class WailsIpcService {
   public scanStatusMessage = signal<string>('');
 
   /**
+   * Whether the store has been read yet, and whether the read succeeded.
+   *
+   * Three states rather than a boolean, because "still loading", "loaded and
+   * empty" and "could not load" are three different claims about the estate
+   * and only one of them is good news. Collapsing them leaves an empty table
+   * meaning either that nothing is wrong or that nothing was fetched, with no
+   * way for the reader to tell which.
+   */
+  public loadState = signal<'loading' | 'ready' | 'error'>('loading');
+
+  /** What went wrong on the last load, phrased for the operator. */
+  public loadError = signal<string>('');
+
+  /**
    * How the current status message should be read.
    *
    * Carried alongside the message rather than inferred from its wording. A
@@ -607,7 +621,19 @@ export class WailsIpcService {
 
   /** Reloads every view from the store. */
   public async refreshAll(): Promise<void> {
-    await Promise.all([
+    if (this.loadState() === 'loading' && !this.lastUpdatedAt()) {
+      // First load: leave the state as `loading` so views show skeletons
+      // rather than an empty estate they have no basis for claiming.
+    } else {
+      this.loadState.set('loading');
+    }
+
+    // `allSettled`, not `all`. A rejected member of `all` abandons the results
+    // of everything that succeeded, so one failing endpoint would blank views
+    // that had perfectly good data — and an empty view is a claim, not a
+    // neutral state. Here each loader keeps whatever it managed to fetch and
+    // the failures are reported alongside it.
+    const results = await Promise.allSettled([
       this.refreshAssets(),
       this.refreshSecretFindings(),
       this.refreshEmailPostures(),
@@ -615,5 +641,20 @@ export class WailsIpcService {
       this.refreshRegressions()
     ]);
     this.findings.set([]);
+
+    const failed = results.filter(r => r.status === 'rejected') as PromiseRejectedResult[];
+    if (failed.length === 0) {
+      this.loadError.set('');
+      this.loadState.set('ready');
+      return;
+    }
+
+    this.loadError.set(
+      failed.length === results.length
+        ? 'Could not reach the engine. Nothing below has been loaded.'
+        : `${failed.length} of ${results.length} views could not be loaded. What is shown is incomplete.`
+    );
+    this.loadState.set('error');
+    this.streamHealthy.set(false);
   }
 }

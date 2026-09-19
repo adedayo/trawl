@@ -78,8 +78,60 @@
     </div>
   }
 
-  <!-- ── Nothing discovered yet ─────────────────────────────────────────── -->
-  @if (!hasEstate()) {
+  <!-- ── Load failure ───────────────────────────────────────────────────
+       Distinct from both empty states. "We could not read the store" and
+       "the store says nothing is wrong" are opposite claims, and they must
+       never share a rendering. Shown above whatever data did arrive, since a
+       partial load is still worth reading provided its incompleteness is
+       stated. -->
+  @if (hasLoadError()) {
+    <div role="alert"
+      [class]="dark
+        ? 'rounded-xl border border-rose-900 bg-rose-950/40 p-5 flex items-start gap-3'
+        : 'rounded-xl border border-rose-200 bg-rose-50 p-5 flex items-start gap-3'">
+      <span aria-hidden="true" class="text-lg leading-none mt-0.5">⚠</span>
+      <div>
+        <p [class]="dark ? 'text-sm font-bold text-rose-300' : 'text-sm font-bold text-rose-900'">
+          Some figures could not be loaded
+        </p>
+        <p [class]="dark ? 'text-xs text-rose-200/80 mt-1' : 'text-xs text-rose-800 mt-1'">
+          {{ loadError() }} Treat anything below as incomplete rather than as an
+          all-clear.
+        </p>
+      </div>
+    </div>
+  }
+
+  <!-- ── First load ─────────────────────────────────────────────────────
+       Skeletons only before the store has ever been read. They stand for "we
+       do not know yet", which is neither an estate nor an empty one. -->
+  @if (isLoading()) {
+    <div aria-busy="true" aria-live="polite" class="space-y-5">
+      <span class="sr-only">Loading the estate…</span>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        @for (block of [1, 2, 3]; track block) {
+          <div aria-hidden="true"
+            [class]="dark
+              ? 'rounded-2xl bg-slate-900 border border-slate-800 p-6 h-48 animate-pulse'
+              : 'rounded-2xl bg-white border border-slate-200 p-6 h-48 animate-pulse'">
+            <div [class]="dark ? 'h-3 w-28 rounded bg-slate-800' : 'h-3 w-28 rounded bg-slate-200'"></div>
+            <div [class]="dark ? 'h-10 w-24 rounded bg-slate-800 mt-5' : 'h-10 w-24 rounded bg-slate-200 mt-5'"></div>
+            <div [class]="dark ? 'h-2 w-full rounded bg-slate-800 mt-6' : 'h-2 w-full rounded bg-slate-200 mt-6'"></div>
+          </div>
+        }
+      </div>
+      <div
+        [class]="dark
+          ? 'rounded-2xl bg-slate-900 border border-slate-800 p-6 h-56 animate-pulse'
+          : 'rounded-2xl bg-white border border-slate-200 p-6 h-56 animate-pulse'"
+        aria-hidden="true">
+        <div [class]="dark ? 'h-3 w-40 rounded bg-slate-800' : 'h-3 w-40 rounded bg-slate-200'"></div>
+        @for (row of [1, 2, 3, 4]; track row) {
+          <div [class]="dark ? 'h-3 w-full rounded bg-slate-800 mt-5' : 'h-3 w-full rounded bg-slate-200 mt-5'"></div>
+        }
+      </div>
+    </div>
+  } @else if (!hasEstate()) {
     <div
       [class]="dark
         ? 'rounded-2xl border border-dashed border-slate-700 p-12 text-center'
@@ -185,21 +237,34 @@
                   </p>
                 </div>
               }
-
-              <div class="mt-auto pt-4 flex flex-wrap gap-2">
-                @if (p.coverage.checkFailed > 0) {
-                  <span [class]="dark ? 'text-[11px] px-2 py-1 rounded bg-slate-800 text-slate-300' : 'text-[11px] px-2 py-1 rounded bg-slate-100 text-slate-700'">
-                    {{ p.coverage.checkFailed }} could not tell
-                  </span>
-                }
-                @if (p.coverage.notChecked > 0) {
-                  <span [class]="dark ? 'text-[11px] px-2 py-1 rounded bg-slate-800 text-slate-300' : 'text-[11px] px-2 py-1 rounded bg-slate-100 text-slate-700'">
-                    {{ p.coverage.notChecked }} not checked
-                  </span>
-                }
-              </div>
             </div>
           }
+
+          <!-- Four-state coverage, rendered in *both* branches.
+               These chips matter most when a score is on screen: that is
+               exactly when an unattempted or inconclusive check would
+               otherwise flatter the number. `could not tell` is styled as the
+               gap it is, never as a pass. -->
+          <div class="mt-auto pt-4 flex flex-wrap gap-2">
+            @if (p.coverage.checkFailed > 0) {
+              <span
+                [class]="dark
+                  ? 'text-[11px] px-2 py-1 rounded bg-amber-950/60 text-amber-300 border border-amber-900'
+                  : 'text-[11px] px-2 py-1 rounded bg-amber-50 text-amber-800 border border-amber-200'"
+                [attr.title]="'Attempted but inconclusive — an assessment gap, not a clean result.'">
+                {{ p.coverage.checkFailed }} could not tell
+              </span>
+            }
+            @if (p.coverage.notChecked > 0) {
+              <span
+                [class]="dark
+                  ? 'text-[11px] px-2 py-1 rounded bg-slate-800/60 text-slate-300 border border-dashed border-slate-600'
+                  : 'text-[11px] px-2 py-1 rounded bg-slate-50 text-slate-700 border border-dashed border-slate-400'"
+                [attr.title]="'Never attempted, including checks withheld by egress policy.'">
+                {{ p.coverage.notChecked }} not checked
+              </span>
+            }
+          </div>
         }
       </div>
 

@@ -51,6 +51,22 @@ export class ExecutiveComponent {
   isAuthorized = this.wailsIpc.isAuthorized;
   lastUpdatedAt = this.wailsIpc.lastUpdatedAt;
   streamHealthy = this.wailsIpc.streamHealthy;
+  loadError = this.wailsIpc.loadError;
+
+  /**
+   * True only before the store has ever been read.
+   *
+   * Skeletons are shown on the first load and never afterwards. On a refresh
+   * the previous figures stay on screen, because replacing a real number with
+   * a shimmering placeholder tells the operator less than the slightly stale
+   * number it replaced.
+   */
+  readonly isLoading = computed(
+    () => this.wailsIpc.loadState() === 'loading' && this.lastUpdatedAt() === null
+  );
+
+  /** True when the last load failed, in whole or in part. */
+  readonly hasLoadError = computed(() => this.wailsIpc.loadState() === 'error');
 
   /** The floor beneath which no headline figure is offered. */
   readonly coverageFloor = signal(DEFAULT_COVERAGE_FLOOR);
