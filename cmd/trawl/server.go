@@ -18,6 +18,7 @@ import (
 	"github.com/adedayo/trawl/pkg/event"
 	"github.com/adedayo/trawl/pkg/service"
 	"github.com/adedayo/trawl/pkg/store"
+	"github.com/adedayo/trawl/pkg/version"
 )
 
 // maxBodyBytes bounds ingest payloads. Scan output is large but not unbounded.
@@ -136,6 +137,12 @@ func (s *server) waitForInflight(grace time.Duration) {
 func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /healthz", s.handleHealth)
 
+	// Build identity. Served because a container operator has no other way to
+	// ask: the desktop build reports its version over IPC, and a deployment
+	// that cannot state which binary it is running cannot be reasoned about
+	// when its results disagree with another instance's.
+	mux.HandleFunc("GET /api/v1/version", s.handleGetVersion)
+
 	// Read API consumed by the dashboard. Every capability the desktop build
 	// exposes over Wails IPC has an equivalent here; the two are kept in step
 	// by both delegating to pkg/core.
@@ -144,6 +151,11 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/findings", s.handleGetFindings)
 	mux.HandleFunc("GET /api/v1/secret-findings", s.handleGetSecretFindings)
 	mux.HandleFunc("GET /api/v1/email-postures", s.handleGetEmailPostures)
+	// Triggering an email-posture scan reaches a third party's DNS, so it is
+	// authed — and it exists at all because the desktop build can run one. A
+	// capability present on one transport and absent on the other is the
+	// defect this capability was written to prevent.
+	mux.HandleFunc("POST /api/v1/email-postures/{domain}", s.authed(s.handleScanEmailPosture))
 	mux.HandleFunc("GET /api/v1/regressions", s.handleGetRegressions)
 	mux.HandleFunc("GET /api/v1/jobs", s.handleGetJobs)
 
@@ -209,6 +221,14 @@ func (s *server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+// handleGetVersion reports the build identity of the running server.
+//
+// It reads from pkg/version, the same source the desktop binding reports, so
+// the two deployments cannot disagree about what they are.
+func (s *server) handleGetVersion(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, version.Get())
+}
+
 func (s *server) handleGetAssets(w http.ResponseWriter, r *http.Request) {
 	assets, err := s.core.Assets(r.Context(), store.AssetStatus(r.URL.Query().Get("status")))
 	if err != nil {
@@ -252,6 +272,20 @@ func (s *server) handleGetEmailPostures(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeJSON(w, http.StatusOK, postures)
+}
+
+// handleScanEmailPosture assesses one domain's email authentication posture.
+//
+// It runs inline and returns the result, rather than detaching: the caller
+// asked about one domain and can wait, and a detached run would have to report
+// its outcome somewhere the caller is not looking.
+func (s *server) handleScanEmailPosture(w http.ResponseWriter, r *http.Request) {
+	posture, err := s.core.ScanEmailPosture(r.Context(), r.PathValue("domain"))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, posture)
 }
 
 func (s *server) handleGetRegressions(w http.ResponseWriter, r *http.Request) {

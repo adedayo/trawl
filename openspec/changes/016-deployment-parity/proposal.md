@@ -1,4 +1,10 @@
-# Change: 007-deployment-parity
+# Change: 016-deployment-parity
+
+> Renumbered from 007 on 30 August 2026. Two changes shared that number, which
+> made "Change 007" ambiguous in conversation and in commit messages — an
+> ambiguity that would have outlived anyone's memory of which was which.
+> `007-contact-probability` kept the number because the documented build order
+> already refers to it by it.
 
 ## Why
 

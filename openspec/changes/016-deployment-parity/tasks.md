@@ -1,4 +1,4 @@
-# Tasks: 007-deployment-parity
+# Tasks: 016-deployment-parity (renumbered from 007)
 
 ## Phase 1 — Application layer
 - [x] `pkg/core`: the single home for every operation Trawl performs
@@ -16,6 +16,7 @@
 - [x] `app.go` reduced to forwarding; no decisions remain in it
 - [x] Assessment bindings exposed: list, read, run
 - [x] Registry seeded on startup
+- [x] **Required check**: transports hold no behaviour of their own — `cmd/trawl/boundary_test.go` fails when any method on `*App` or `*server` calls a domain package directly. Import position alone was too blunt: a transport legitimately names domain types, and the composition root must construct a store. The check is on *calls*, which is where behaviour accumulates. It found five server-only methods reaching past core (the job queue, `ingestRaw`, `handleIngestEmailPosture`); these are recorded as named exemptions with reasons so the count can only go down, and a companion test fails if an exemption outlives the method it excuses. Verified by mutation.
 
 ## Phase 4 — HTTP transport
 - [x] Server rebuilt over `pkg/core` rather than the store
@@ -25,7 +26,9 @@
 - [x] Scan trigger: `POST /api/v1/scans`, detached from the request context
 - [x] Secret findings and regressions exposed
 - [x] Mutating endpoints authed; read endpoints unchanged
-- [ ] **Required check**: an automated assertion that every `App` method has an HTTP counterpart, so a capability added to one transport cannot ship without the other
+- [x] Build identity: `GET /api/v1/version`, from the same `pkg/version` source the desktop transport reports
+- [x] Email-posture scan: `POST /api/v1/email-postures/{domain}`, authed because it reaches a third party's DNS
+- [x] **Required check**: an automated assertion that every `App` method has an HTTP counterpart, so a capability added to one transport cannot ship without the other — `cmd/trawl/parity_test.go`. It found two capabilities that had reached the desktop build and never reached HTTP (`GetVersion`, `ScanEmailPosture`), which is the argument for the check: both had been present and unnoticed for as long as parity was defended by review alone. Verified by mutation — removing a route fails the test, naming the operation the container deployment cannot perform.
 
 ## Phase 5 — Live events
 - [x] SSE broadcaster over the event bus, with an allowlist of streamed types
@@ -41,6 +44,7 @@
 - [x] `HttpTransport` over REST and `EventSource`
 - [x] Runtime detection; one bundle, both deployments
 - [x] `WailsIpcService` delegates and holds no transport knowledge
+- [x] **Required check**: no component names a concrete transport — `app/src/app/transport/boundary.spec.ts` fails when `WailsTransport` or `HttpTransport` is named outside `transport/`. This is the failure mode a component test cannot reach: such a component compiles, renders and passes its own tests, then fails only in the container deployment, which is the one a developer is least likely to be running. Verified by mutation.
 - [ ] Test: the service drives a fake transport, with no `window.go` present
 
 ## Phase 7 — Autoscaled deployment
@@ -58,7 +62,11 @@
 - [ ] A bus implementation that fans out across instances, so "live" is not per-instance
 
 ## Phase 8 — Outstanding
-- [ ] Worker containers reach the assessment path; today they post raw payloads that nothing parses
+- [x] Worker containers reach the assessment path. Delivered by Change 005:
+      `pkg/core/ingest.go` correlates naabu, httpx and nuclei payloads into
+      typed rows behind a scope filter, and `ingestRaw` writes verbatim first
+      so a parser change can never lose evidence already received. The claim
+      that raw payloads go unparsed has not been true since that landed.
 - [ ] Authorisation model for the read API when exposed beyond loopback
 - [ ] Operator documentation covering all three distributions and where they differ (they should not, except where the platform forces it)
 
