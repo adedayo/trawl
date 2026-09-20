@@ -86,6 +86,13 @@ jobs:
       - name: Specification datastore check
         run: ./scripts/check-spec-datastore.sh
 
+      # A change archived with `git mv` while an editor held an unsaved buffer
+      # has twice been recreated at its old path, once leaving a zero-byte
+      # ledger behind a proposal that went on citing its phases. Both are
+      # invisible on inspection and obvious to a reader of the directory.
+      - name: Specification ledger check
+        run: go run ./cmd/specledger --check
+
   validate:
     name: Build, Typecheck & Test
     runs-on: ubuntu-latest

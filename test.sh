@@ -79,6 +79,15 @@ npm test
 step "Dependency gate — classifier tests"
 npm run test:classifier
 
+# ─── Specifications ───────────────────────────────────────────────────────────
+
+# The ledger is this project's central argument, and it has twice been broken
+# by ordinary housekeeping: a change archived with `git mv` recreated at its
+# old path by an editor buffer, and a tasks.md truncated to nothing behind a
+# proposal still citing its phases. Neither is visible on inspection.
+step "Specifications — ledger reconciliation"
+go run ./cmd/specledger --check
+
 # ─── Deployment ───────────────────────────────────────────────────────────────
 
 step "Compose — manifest validation"
