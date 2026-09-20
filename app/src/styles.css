@@ -1,3 +1,20 @@
 /* You can add global styles to this file, and also import other style files */
 
 @import 'tailwindcss';
+
+/*
+  The page beneath the application.
+
+  `Canvas` is the system's own surface colour and follows whatever
+  `color-scheme` is in force — which `ThemeService` sets on the document as
+  soon as it resolves the appearance. That keeps the overscroll region and the
+  moment before Angular boots in step with the theme, without restating the
+  light-or-dark decision here; a second statement of it would be one more
+  place to forget when the rule changes.
+
+  Before the service has run no `color-scheme` is set, so `Canvas` resolves
+  light — which is the documented default.
+*/
+html {
+  background-color: Canvas;
+}

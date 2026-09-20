@@ -2,9 +2,10 @@
 
 ## Status
 
-**Proposed, not started.** Depends on Change 006 Phase 9, which landed the
-four-state email posture in the store and the API. The data exists and is
-served; no view reads it.
+**Implemented.** The view now renders the posture record. The coverage figure
+is computed in Go by `EmailPosture.Assessed` and exposed additively on the
+wire, so there is one definition of "assessed" rather than two — the reasoning
+is recorded in Phase 1 of `tasks.md`.
 
 ## Why
 

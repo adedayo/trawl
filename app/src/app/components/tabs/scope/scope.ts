@@ -6,8 +6,7 @@ import { WailsIpcService } from '../../../wails-ipc.service';
   selector: 'app-scope',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './scope.html',
-  styleUrls: ['./scope.css']
+  templateUrl: './scope.html'
 })
 export class ScopeComponent {
   wailsIpc = inject(WailsIpcService);

@@ -216,6 +216,7 @@ func (s *SQLiteStore) migrate(ctx context.Context) error {
 		state TEXT NOT NULL,
 		severity TEXT NOT NULL,
 		evidence TEXT,
+		detail TEXT,
 		mapped INTEGER NOT NULL DEFAULT 0,
 		registry_version TEXT NOT NULL,
 		library_version TEXT NOT NULL,
@@ -330,6 +331,13 @@ var addedColumns = map[string]map[string]string{
 	"email_postures": {
 		"controls": "TEXT",
 		"details":  "TEXT",
+	},
+	// Findings used to carry only the library's general explanation, which is
+	// the same for every occurrence of an identifier. The sentence naming the
+	// particular item at fault is specific to the observation, so it is kept
+	// with it rather than recomputed from a catalogue that does not know it.
+	"signal_observations": {
+		"detail": "TEXT",
 	},
 }
 

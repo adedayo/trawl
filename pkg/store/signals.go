@@ -62,6 +62,21 @@ type SignalObservation struct {
 	Severity FindingSeverity `json:"severity"`
 	Evidence string          `json:"evidence"`
 
+	// Detail is the part of the library's description that is specific to this
+	// occurrence, such as which include term in an SPF record is broken.
+	//
+	// It is stored per row, unlike the rest of the description, because it is
+	// not library text: the catalogue prose is identical for every occurrence
+	// of an identifier and is read from the installed library at view-build
+	// time, whereas this sentence is a property of what was measured here. A
+	// library upgrade should be free to reword the general explanation, but it
+	// cannot restate which of this domain's exchangers failed to resolve on
+	// the day of the scan.
+	//
+	// Empty for signals that name no particular item, and for observations
+	// recorded before this column existed.
+	Detail string `json:"detail,omitempty"`
+
 	// Mapped records whether SignalID resolved against the signal registry.
 	// An unmapped identifier is retained rather than discarded, so that a
 	// library upgrade adding a finding is visible instead of silently dropped.

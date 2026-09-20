@@ -1,6 +1,7 @@
-import { Injectable, signal } from '@angular/core';
-import { DomainAssessment } from './models/types';
+import { inject, Injectable, signal } from '@angular/core';
+import { DomainAssessment, EmailPostureUI } from './models/types';
 import { RegressionUI } from './dashboard/estate';
+import { ThemeService } from './theme.service';
 import { createTransport, DiscoveryOptions, DiscoveryResult, ProposedDomain, Scope, TrawlTransport } from './transport';
 
 /**
@@ -19,14 +20,33 @@ export class WailsIpcService {
   /** The transport in use, exposed so the UI can disclose the deployment. */
   public readonly transport: TrawlTransport = createTransport();
 
+  private readonly themes = inject(ThemeService);
+
   // UI State
-  public theme = signal<'light' | 'dark'>('light');
+
+  /**
+   * The appearance in force, read-only.
+   *
+   * Exposed here so that every component keeps reading the theme where it
+   * always did, but resolved and persisted by `ThemeService`. It is not a
+   * writable signal: a component that set it directly would change the
+   * appearance without recording the operator's choice, and the next launch
+   * would silently undo them.
+   */
+  public readonly theme = this.themes.theme;
   public activeTab = signal<'executive' | 'overview' | 'assets' | 'findings' | 'email' | 'secrets' | 'scope'>('executive');
 
   // Data State
   public assets = signal<any[]>([]);
   public findings = signal<any[]>([]);
-  public emailPostures = signal<any[]>([]);
+  /**
+   * The persisted email-authentication posture of each domain.
+   *
+   * Typed rather than `any[]`: this signal held a stale shape for an entire
+   * phase — booleans, after the backend had widened to four-state controls —
+   * and nothing complained, because nothing could.
+   */
+  public emailPostures = signal<EmailPostureUI[]>([]);
   public secretFindings = signal<any[]>([]);
 
   /**

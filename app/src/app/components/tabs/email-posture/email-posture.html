@@ -15,10 +15,11 @@
     <p [class]="dark ? 'text-xs text-slate-400 mb-6' : 'text-xs text-slate-600 mb-6'">
       Externally observable configuration of each defensive control, assessed without credentials.
       Every control carries one of four states: assessed, not published, not checked, or could not tell.
-      A control that was never assessed is never shown as passing.
+      A control that was never assessed is never shown as passing, and every rating is shown beside the
+      record it was derived from.
     </p>
 
-    @if (assessments().length === 0) {
+    @if (rows().length === 0) {
       <div [class]="dark ? 'border border-dashed border-slate-700 rounded-lg p-8 text-center' : 'border border-dashed border-slate-300 rounded-lg p-8 text-center'">
         <p [class]="dark ? 'text-sm text-slate-400' : 'text-sm text-slate-600'">
           No domain has been assessed yet. Authorise a scope and run a scan to populate this view.
@@ -26,7 +27,7 @@
       </div>
     }
 
-    @if (assessments().length > 1) {
+    @if (rows().length > 1) {
       <div class="flex items-center gap-2 mb-3">
         <button type="button" (click)="expandAll()"
           [class]="dark
@@ -44,7 +45,8 @@
     }
 
     <div class="space-y-3">
-      @for (a of assessments(); track a.assetId) {
+      @for (row of rows(); track row.domain) {
+        @let a = row.assessment;
         <div [class]="dark ? 'bg-slate-950 border border-slate-800 rounded-lg' : 'bg-slate-50 border border-slate-200 rounded-lg'">
 
           <!-- Collapsed row: enough to decide whether to open it -->
@@ -52,17 +54,35 @@
             <button
               type="button"
               class="flex-1 min-w-0 text-left"
-              [attr.aria-expanded]="isOpen(a.domain)"
-              (click)="toggleDomain(a.domain)">
-              <div class="flex items-center gap-2">
+              [attr.aria-expanded]="isOpen(row.domain)"
+              (click)="toggleDomain(row.domain)">
+              <div class="flex flex-wrap items-center gap-2">
                 <span [class]="dark ? 'text-slate-500 text-[10px]' : 'text-slate-400 text-[10px]'">
-                  {{ isOpen(a.domain) ? '▾' : '▸' }}
+                  {{ isOpen(row.domain) ? '▾' : '▸' }}
                 </span>
-                <h3 [class]="dark ? 'font-mono font-bold text-white text-sm truncate' : 'font-mono font-bold text-slate-900 text-sm truncate'">{{ a.domain }}</h3>
+                <h3 [class]="dark ? 'font-mono font-bold text-white text-sm truncate' : 'font-mono font-bold text-slate-900 text-sm truncate'">{{ row.domain }}</h3>
+
+                <!-- Control coverage, computed by the engine and carried on the record -->
                 <span [class]="dark ? 'text-[10px] font-mono text-slate-500' : 'text-[10px] font-mono text-slate-500'">
-                  {{ coveragePercent(a) }}% coverage
+                  {{ coverageLine(row) }}
                 </span>
-                @if (significantCount(a) > 0) {
+
+                <!--
+                  The engine's rating, verbatim. A domain with no rating shows
+                  none: an unassessed control has no severity, and inventing a
+                  floor would let a resolver outage manufacture a finding.
+                -->
+                @if (hasPriority(row)) {
+                  <span [class]="'px-1.5 py-0.5 rounded border text-[10px] uppercase font-bold ' + severityClasses(priority(row), dark)">
+                    {{ priority(row) }}
+                  </span>
+                } @else {
+                  <span [class]="dark ? 'text-[10px] font-mono text-slate-500 italic' : 'text-[10px] font-mono text-slate-500 italic'">
+                    not rated
+                  </span>
+                }
+
+                @if (a && significantCount(a) > 0) {
                   <span [class]="dark
                     ? 'px-1.5 py-0.5 rounded bg-rose-950 border border-rose-800 text-rose-400 text-[10px] font-bold'
                     : 'px-1.5 py-0.5 rounded bg-rose-50 border border-rose-300 text-rose-800 text-[10px] font-bold'">
@@ -71,126 +91,221 @@
                 }
               </div>
 
-              <!-- Headline controls, always all four, unknown included -->
+              <!-- Headline controls, always all four, unassessed included -->
               <div class="flex flex-wrap items-center gap-2 mt-2 ml-4">
-                @for (c of summaryControls(a); track c.control) {
+                @for (c of summaryControls(row); track c.key) {
                   <span
-                    [title]="controlLabel(c.control) + ': ' + postureLabel(c.posture)"
-                    [class]="dark
-                      ? 'inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded border border-slate-800 bg-slate-900 text-[10px] font-mono text-slate-300'
-                      : 'inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded border border-slate-200 bg-white text-[10px] font-mono text-slate-700'">
-                    <span [class]="'w-1.5 h-1.5 rounded-full ' + summaryDotClasses(c.posture)"></span>
-                    {{ controlLabel(c.control) }}
-                    <span class="sr-only">{{ postureLabel(c.posture) }}</span>
+                    [title]="controlTitle(c)"
+                    [class]="'inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded border text-[10px] font-mono ' + stateBadgeClasses(c.state, dark)">
+                    <span aria-hidden="true">{{ stateGlyph(c.state) }}</span>
+                    {{ c.label }}
+                    <span class="opacity-80">{{ controlHeadline(c) }}</span>
                   </span>
                 }
               </div>
 
               <p [class]="dark ? 'text-[11px] text-slate-400 mt-2 ml-4' : 'text-[11px] text-slate-600 mt-2 ml-4'">
-                {{ summaryLine(a) }}
+                {{ summaryLine(row) }}
               </p>
             </button>
 
             <button
               type="button"
-              (click)="reassess(a.domain)"
-              [disabled]="isRunning(a.domain)"
+              (click)="reassess(row.domain)"
+              [disabled]="isRunning(row.domain)"
               [class]="dark
                 ? 'px-3 py-1.5 rounded border border-slate-700 text-slate-200 text-[11px] font-semibold hover:bg-slate-800 disabled:opacity-50'
                 : 'px-3 py-1.5 rounded border border-slate-300 text-slate-700 text-[11px] font-semibold hover:bg-slate-100 disabled:opacity-50'">
-              {{ isRunning(a.domain) ? 'Assessing…' : 'Re-assess' }}
+              {{ isRunning(row.domain) ? 'Assessing…' : 'Re-assess' }}
             </button>
           </div>
 
-          @if (isOpen(a.domain)) {
+          @if (isOpen(row.domain)) {
           <div [class]="dark ? 'border-t border-slate-800 p-5' : 'border-t border-slate-200 p-5'">
 
-          <p [class]="dark ? 'text-[11px] text-slate-500 mb-4' : 'text-[11px] text-slate-500 mb-4'">
-            @if (a.assessedAt) { Assessed {{ a.assessedAt | date:'medium' }} · }
-            vantage {{ a.libraryVersion || 'unknown' }} · registry {{ a.registryVersion || 'unknown' }}
-            · {{ a.coverage.assessedOnly }}/{{ a.coverage.total }} checks concluded
-          </p>
+          @if (a) {
+            <p [class]="dark ? 'text-[11px] text-slate-500 mb-4' : 'text-[11px] text-slate-500 mb-4'">
+              @if (a.assessedAt) { Assessed {{ a.assessedAt | date:'medium' }} · }
+              vantage {{ a.libraryVersion || 'unknown' }} · registry {{ a.registryVersion || 'unknown' }}
+              · {{ a.coverage.assessedOnly }}/{{ a.coverage.total }} checks concluded
+            </p>
 
-          @if (outcomeNote(a)) {
-            <div [class]="dark
-              ? 'mb-4 px-3 py-2 rounded bg-amber-950/60 border border-amber-900 text-amber-300 text-xs'
-              : 'mb-4 px-3 py-2 rounded bg-amber-50 border border-amber-300 text-amber-800 text-xs'">
-              {{ outcomeNote(a) }}
-            </div>
-          }
+            @if (outcomeNote(a)) {
+              <div [class]="dark
+                ? 'mb-4 px-3 py-2 rounded bg-amber-950/60 border border-amber-900 text-amber-300 text-xs'
+                : 'mb-4 px-3 py-2 rounded bg-amber-50 border border-amber-300 text-amber-800 text-xs'">
+                {{ outcomeNote(a) }}
+              </div>
+            }
 
-          @if (hasGaps(a)) {
-            <p [class]="dark ? 'mb-3 text-[11px] text-slate-400' : 'mb-3 text-[11px] text-slate-600'">
-              {{ a.coverage.notChecked }} not checked · {{ a.coverage.checkFailed }} could not tell.
-              Controls behind those checks are shown as not established.
+            @if (hasGaps(a)) {
+              <p [class]="dark ? 'mb-3 text-[11px] text-slate-400' : 'mb-3 text-[11px] text-slate-600'">
+                {{ a.coverage.notChecked }} not checked · {{ a.coverage.checkFailed }} could not tell.
+                Controls behind those checks are shown as not established.
+              </p>
+            }
+          } @else {
+            <p [class]="dark ? 'text-[11px] text-slate-500 mb-4' : 'text-[11px] text-slate-500 mb-4'">
+              A posture record exists for this domain; no measured-state assessment has been run against it.
             </p>
           }
 
-          <!-- Mail controls -->
+          <!--
+            Recorded DMARC policy drift. A weakening is the one change that
+            matters most and the one a point-in-time view cannot show, so it is
+            surfaced rather than overwritten. Nothing appears for an assessment
+            that did not conclude — the engine writes no fingerprint for one.
+          -->
+          @for (d of driftFor(row); track d.id) {
+            <div [class]="dark
+              ? 'mb-4 px-3 py-2 rounded bg-rose-950/60 border border-rose-900 text-rose-300 text-xs'
+              : 'mb-4 px-3 py-2 rounded bg-rose-50 border border-rose-300 text-rose-800 text-xs'">
+              <strong>Policy drift.</strong> {{ driftLine(d) }}
+              Confirmed {{ d.confirmedAt | date:'medium' }} after {{ d.consecutiveFails }} consecutive observation(s).
+            </div>
+          }
+
+          <!-- The seven email-authentication controls, from the posture record -->
           <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            @for (c of emailControls(a); track c.control) {
-              <ng-container *ngTemplateOutlet="controlCard; context: { c: c, domain: a.domain }"></ng-container>
+            @for (c of row.controls; track c.key) {
+              <div [class]="dark ? 'rounded-lg border border-slate-800 bg-slate-900/60' : 'rounded-lg border border-slate-200 bg-white'">
+                <button
+                  type="button"
+                  class="w-full text-left p-3"
+                  [attr.aria-expanded]="isExpanded(row.domain, c.key)"
+                  (click)="toggle(row.domain, c.key)">
+                  <div class="flex items-center justify-between gap-2">
+                    <span [class]="dark ? 'font-mono text-xs font-bold text-slate-100' : 'font-mono text-xs font-bold text-slate-900'">
+                      {{ c.label }}
+                    </span>
+                    <span [class]="'inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] uppercase font-bold ' + stateBadgeClasses(c.state, dark)">
+                      <span aria-hidden="true">{{ stateGlyph(c.state) }}</span>
+                      {{ controlHeadline(c) }}
+                    </span>
+                  </div>
+
+                  @if (c.detail) {
+                    <div [class]="dark ? 'mt-1.5 text-[10px] font-mono text-slate-400 break-all' : 'mt-1.5 text-[10px] font-mono text-slate-600 break-all'">
+                      {{ c.detail }}
+                    </div>
+                  }
+
+                  <!-- An inconclusive state that does not say why is a gap the reader cannot close -->
+                  @if (needsReason(c)) {
+                    <div [class]="dark ? 'mt-1.5 text-[10px] text-slate-400' : 'mt-1.5 text-[10px] text-slate-600'">
+                      {{ reasonText(c) }}
+                    </div>
+                  }
+
+                  @if (c.signals.length > 0) {
+                    <div [class]="dark ? 'mt-1.5 text-[10px] font-mono text-slate-500' : 'mt-1.5 text-[10px] font-mono text-slate-500'">
+                      {{ c.signals.length }} advisory(s)
+                    </div>
+                  }
+                </button>
+
+                @if (isExpanded(row.domain, c.key)) {
+                  <div [class]="dark ? 'border-t border-slate-800 p-3 space-y-3' : 'border-t border-slate-200 p-3 space-y-3'">
+
+                    <!-- The observed record, so a rating can be checked against it -->
+                    @if (c.evidence.length > 0) {
+                      <div class="flex flex-wrap gap-1.5">
+                        @for (e of c.evidence; track e) {
+                          <span [class]="dark
+                            ? 'px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-[10px] font-mono text-slate-300'
+                            : 'px-1.5 py-0.5 rounded bg-slate-50 border border-slate-200 text-[10px] font-mono text-slate-700'">
+                            {{ e }}
+                          </span>
+                        }
+                      </div>
+                    }
+
+                    <!-- What the record does not say on its face -->
+                    @for (n of c.notes; track n) {
+                      <p [class]="dark ? 'text-[11px] text-amber-400 leading-relaxed' : 'text-[11px] text-amber-700 leading-relaxed'">
+                        {{ n }}
+                      </p>
+                    }
+
+                    @if (c.signals.length > 0) {
+                      <div [class]="dark ? 'border-t border-slate-800 pt-3 space-y-2' : 'border-t border-slate-200 pt-3 space-y-2'">
+                        @for (s of c.signals; track s.signalId) {
+                          <ng-container *ngTemplateOutlet="advisory; context: { s: s }"></ng-container>
+                        }
+                      </div>
+                    }
+
+                    @if (c.evidence.length === 0 && c.notes.length === 0 && c.signals.length === 0) {
+                      <p [class]="dark ? 'text-[11px] text-slate-400' : 'text-[11px] text-slate-600'">
+                        Nothing further was recorded for this control.
+                      </p>
+                    }
+                  </div>
+                }
+              </div>
             }
           </div>
 
-          <!-- Remaining surface, so the coverage figures above are accountable -->
-          @if (otherControls(a).length > 0) {
-            <h4 [class]="dark ? 'text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-5 mb-2' : 'text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-5 mb-2'">
-              Other surface
-            </h4>
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              @for (c of otherControls(a); track c.control) {
-                <ng-container *ngTemplateOutlet="controlCard; context: { c: c, domain: a.domain }"></ng-container>
-              }
-            </div>
-          }
+          @if (a) {
+            <!-- Remaining surface, so the coverage figures above are accountable -->
+            @if (otherControls(a).length > 0) {
+              <h4 [class]="dark ? 'text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-5 mb-2' : 'text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-5 mb-2'">
+                Other surface
+              </h4>
+              <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                @for (c of otherControls(a); track c.control) {
+                  <ng-container *ngTemplateOutlet="controlCard; context: { c: c, domain: row.domain }"></ng-container>
+                }
+              </div>
+            }
 
-          <!-- Scenarios -->
-          @if (a.scenarios.length > 0) {
-            <h4 [class]="dark ? 'text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-5 mb-2' : 'text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-5 mb-2'">
-              Attack scenarios
-            </h4>
-            <div class="flex flex-wrap gap-2">
-              @for (s of a.scenarios; track s.scenario) {
-                <span
-                  [class]="dark
-                    ? 'px-2 py-1 rounded border border-slate-800 bg-slate-900 text-[10px] font-mono text-slate-300'
-                    : 'px-2 py-1 rounded border border-slate-200 bg-white text-[10px] font-mono text-slate-700'"
-                  [title]="scenarioHint(s)">
-                  {{ s.scenario }}
-                  @if (s.supported) {
-                    <!--
-                      The weightier count leads, but the total follows it
-                      whenever the two differ. Showing only the filtered number
-                      would quietly retire low findings from view; showing only
-                      the raw one made a shared mail provider weigh the same as
-                      an absent transport policy.
-                    -->
-                    <strong [class]="s.significant > 0 ? 'text-rose-500' : (s.aggravating > 0 ? 'text-amber-500' : 'text-emerald-500')">
-                      {{ s.significant }}
-                    </strong>
-                    @if (s.aggravating > s.significant) {
-                      <span [class]="dark ? 'text-slate-500' : 'text-slate-500'">
-                        (+{{ s.aggravating - s.significant }} minor)
-                      </span>
+            <!-- Scenarios -->
+            @if (a.scenarios.length > 0) {
+              <h4 [class]="dark ? 'text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-5 mb-2' : 'text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-5 mb-2'">
+                Attack scenarios
+              </h4>
+              <div class="flex flex-wrap gap-2">
+                @for (s of a.scenarios; track s.scenario) {
+                  <span
+                    [class]="dark
+                      ? 'px-2 py-1 rounded border border-slate-800 bg-slate-900 text-[10px] font-mono text-slate-300'
+                      : 'px-2 py-1 rounded border border-slate-200 bg-white text-[10px] font-mono text-slate-700'"
+                    [title]="scenarioHint(s)">
+                    {{ s.scenario }}
+                    @if (s.supported) {
+                      <!--
+                        The weightier count leads, but the total follows it
+                        whenever the two differ. Showing only the filtered number
+                        would quietly retire low findings from view; showing only
+                        the raw one made a shared mail provider weigh the same as
+                        an absent transport policy.
+                      -->
+                      <strong [class]="s.significant > 0 ? 'text-rose-500' : (s.aggravating > 0 ? 'text-amber-500' : 'text-emerald-500')">
+                        {{ s.significant }}
+                      </strong>
+                      @if (s.aggravating > s.significant) {
+                        <span [class]="dark ? 'text-slate-500' : 'text-slate-500'">
+                          (+{{ s.aggravating - s.significant }} minor)
+                        </span>
+                      }
+                    } @else {
+                      <strong class="text-slate-400">unsupported</strong>
                     }
-                  } @else {
-                    <strong class="text-slate-400">unsupported</strong>
-                  }
-                </span>
-              }
-            </div>
-          }
+                  </span>
+                }
+              </div>
+            }
 
-          <!-- Unmapped identifiers: surfaced, never silently dropped -->
-          @if (a.unmapped.length > 0) {
-            <div [class]="dark
-              ? 'mt-5 px-3 py-2 rounded bg-slate-900 border border-slate-800 text-[11px] text-slate-400'
-              : 'mt-5 px-3 py-2 rounded bg-white border border-slate-200 text-[11px] text-slate-600'">
-              <strong>{{ a.unmapped.length }} unmapped signal(s).</strong>
-              The assessment library raised findings this build's registry does not describe:
-              <span class="font-mono">{{ a.unmapped | slice:0:6 | json }}</span>
-            </div>
+            <!-- Unmapped identifiers: surfaced, never silently dropped -->
+            @if (a.unmapped.length > 0) {
+              <div [class]="dark
+                ? 'mt-5 px-3 py-2 rounded bg-slate-900 border border-slate-800 text-[11px] text-slate-400'
+                : 'mt-5 px-3 py-2 rounded bg-white border border-slate-200 text-[11px] text-slate-600'">
+                <strong>{{ a.unmapped.length }} unmapped signal(s).</strong>
+                The assessment library raised findings this build's registry does not describe:
+                <span class="font-mono">{{ a.unmapped | slice:0:6 | json }}</span>
+              </div>
+            }
           }
           </div>
           }
@@ -200,7 +315,63 @@
   </div>
 </div>
 
-<!-- One control: posture, coverage, and the advisories behind it -->
+<!-- One advisory, with what it means and what to do about it -->
+<ng-template #advisory let-s="s">
+  @let dark = theme() === 'dark';
+  <div>
+    <div class="flex items-center gap-2">
+      <span [class]="'text-[10px] uppercase font-bold ' + severityClasses(s.severity, dark)">{{ s.severity }}</span>
+      <span [class]="dark ? 'font-mono text-[10px] text-slate-500' : 'font-mono text-[10px] text-slate-500'">{{ s.signalId }}</span>
+    </div>
+    <p [class]="dark ? 'text-[11px] text-slate-300 mt-0.5' : 'text-[11px] text-slate-700 mt-0.5'">
+      {{ s.condition || s.evidence }}
+    </p>
+
+    <!--
+      What it means, then what to do. Without these the advisory is a title and
+      a set of evidence keys, which says what was seen but never why it matters
+      — and an operator who cannot interpret a finding cannot act on it.
+    -->
+    @if (s.description) {
+      <p [class]="dark ? 'text-[11px] text-slate-400 mt-1.5 leading-relaxed' : 'text-[11px] text-slate-600 mt-1.5 leading-relaxed'">
+        {{ s.description }}
+      </p>
+    }
+    <!--
+      The catalogue describes the identifier; this names what was found here.
+      It is given its own line above the remediation because it is the thing
+      the operator has to act on, and burying it in the evidence string is
+      what made the advisory hard to act on in the first place.
+    -->
+    @if (s.detail) {
+      <p [class]="dark ? 'text-[11px] text-slate-200 mt-1.5 leading-relaxed' : 'text-[11px] text-slate-900 mt-1.5 leading-relaxed'">
+        {{ s.detail }}
+      </p>
+    }
+    @if (s.remediation) {
+      <p [class]="dark ? 'text-[11px] text-sky-300 mt-1.5 leading-relaxed' : 'text-[11px] text-sky-800 mt-1.5 leading-relaxed'">
+        <strong>What to do:</strong> {{ s.remediation }}
+      </p>
+    }
+    @if (s.condition && s.evidence) {
+      <p [class]="dark ? 'text-[10px] font-mono text-slate-500 mt-1.5 break-all' : 'text-[10px] font-mono text-slate-500 mt-1.5 break-all'">
+        Observed: {{ s.evidence }}
+      </p>
+    }
+    @if (s.references?.length) {
+      <div class="flex flex-wrap gap-2 mt-1">
+        @for (r of s.references; track r) {
+          <a [href]="r" target="_blank" rel="noopener noreferrer"
+            [class]="dark ? 'text-[10px] text-sky-400 underline break-all' : 'text-[10px] text-sky-700 underline break-all'">
+            {{ r }}
+          </a>
+        }
+      </div>
+    }
+  </div>
+</ng-template>
+
+<!-- One assessed control outside the posture record: posture, coverage, advisories -->
 <ng-template #controlCard let-c="c" let-domain="domain">
   @let dark = theme() === 'dark';
   <div [class]="dark ? 'rounded-lg border border-slate-800 bg-slate-900/60' : 'rounded-lg border border-slate-200 bg-white'">
@@ -244,47 +415,7 @@
         @if (c.signals.length > 0) {
           <div [class]="dark ? 'border-t border-slate-800 pt-3 space-y-2' : 'border-t border-slate-200 pt-3 space-y-2'">
             @for (s of c.signals; track s.signalId) {
-              <div>
-                <div class="flex items-center gap-2">
-                  <span [class]="'text-[10px] uppercase font-bold ' + severityClasses(s.severity, dark)">{{ s.severity }}</span>
-                  <span [class]="dark ? 'font-mono text-[10px] text-slate-500' : 'font-mono text-[10px] text-slate-500'">{{ s.signalId }}</span>
-                </div>
-                <p [class]="dark ? 'text-[11px] text-slate-300 mt-0.5' : 'text-[11px] text-slate-700 mt-0.5'">
-                  {{ s.condition || s.evidence }}
-                </p>
-
-                <!--
-                  What it means, then what to do. Without these the advisory is
-                  a title and a set of evidence keys, which says what was seen
-                  but never why it matters — and an operator who cannot
-                  interpret a finding cannot act on it.
-                -->
-                @if (s.description) {
-                  <p [class]="dark ? 'text-[11px] text-slate-400 mt-1.5 leading-relaxed' : 'text-[11px] text-slate-600 mt-1.5 leading-relaxed'">
-                    {{ s.description }}
-                  </p>
-                }
-                @if (s.remediation) {
-                  <p [class]="dark ? 'text-[11px] text-sky-300 mt-1.5 leading-relaxed' : 'text-[11px] text-sky-800 mt-1.5 leading-relaxed'">
-                    <strong>What to do:</strong> {{ s.remediation }}
-                  </p>
-                }
-                @if (s.condition && s.evidence) {
-                  <p [class]="dark ? 'text-[10px] font-mono text-slate-500 mt-1.5 break-all' : 'text-[10px] font-mono text-slate-500 mt-1.5 break-all'">
-                    Observed: {{ s.evidence }}
-                  </p>
-                }
-                @if (s.references?.length) {
-                  <div class="flex flex-wrap gap-2 mt-1">
-                    @for (r of s.references; track r) {
-                      <a [href]="r" target="_blank" rel="noopener noreferrer"
-                        [class]="dark ? 'text-[10px] text-sky-400 underline break-all' : 'text-[10px] text-sky-700 underline break-all'">
-                        {{ r }}
-                      </a>
-                    }
-                  </div>
-                }
-              </div>
+              <ng-container *ngTemplateOutlet="advisory; context: { s: s }"></ng-container>
             }
           </div>
         } @else if (c.posture === 'compliant') {

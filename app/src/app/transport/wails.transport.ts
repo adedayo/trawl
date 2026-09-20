@@ -1,4 +1,4 @@
-import { DomainAssessment } from '../models/types';
+import { DomainAssessment, EmailPostureUI } from '../models/types';
 import { DiscoveryOptions, DiscoveryResult, Scope, TrawlTransport } from './trawl-transport';
 
 declare const window: any;
@@ -64,8 +64,8 @@ export class WailsTransport implements TrawlTransport {
     return this.call<any[]>('GetSecretFindings', [], repoUrl);
   }
 
-  getEmailPostures(): Promise<any[]> {
-    return this.call<any[]>('GetEmailPostures', []);
+  getEmailPostures(): Promise<EmailPostureUI[]> {
+    return this.call<EmailPostureUI[]>('GetEmailPostures', []);
   }
 
   getRegressions(): Promise<any[]> {

@@ -353,3 +353,59 @@ func TestViews_SignalsCarryCatalogueExplanation(t *testing.T) {
 		t.Error("Expected the catalogue references to reach the view")
 	}
 }
+
+// The catalogue explains the identifier; the observation explains this
+// occurrence of it. Both have to reach the UI, and from different places: a
+// finding that says an include target is broken without saying which one
+// identifies a problem without pointing at it.
+func TestViews_SignalsCarryOccurrenceDetail(t *testing.T) {
+	svc, s, ctx := newAssessmentService(t)
+
+	detail := "Specifically, the term `include:dead.example` names " +
+		"`dead.example`, which does not resolve or publishes no SPF record."
+
+	seedAsset(t, s, ctx, "asset-spf", "spf.example")
+	if err := s.SaveSignalObservation(ctx, &store.SignalObservation{
+		AssetID:  "asset-spf",
+		SignalID: "SURF-SPF-009",
+		CheckID:  "spf",
+		State:    store.CoverageOK,
+		Severity: store.SeverityMedium,
+		Evidence: "spf.term=include:dead.example",
+		Detail:   detail,
+		Mapped:   true,
+	}); err != nil {
+		t.Fatalf("Failed to save observation: %v", err)
+	}
+
+	views, err := svc.Views(ctx)
+	if err != nil {
+		t.Fatalf("Views failed: %v", err)
+	}
+
+	var found *service.SignalView
+	for _, v := range views {
+		for _, c := range v.Controls {
+			for i := range c.Signals {
+				if c.Signals[i].SignalID == "SURF-SPF-009" {
+					found = &c.Signals[i]
+				}
+			}
+		}
+	}
+	if found == nil {
+		t.Fatal("Expected SURF-SPF-009 to appear against a control")
+	}
+	if found.Detail != detail {
+		t.Errorf("Detail = %q, want %q", found.Detail, detail)
+	}
+	// The catalogue half must still come from the library, and must not have
+	// been displaced by the observation's half.
+	if found.Description == "" {
+		t.Error("Expected the catalogue description to reach the view as well")
+	}
+	if found.Description == found.Detail {
+		t.Error("Description and Detail must be distinct: one explains the " +
+			"identifier, the other explains this occurrence")
+	}
+}

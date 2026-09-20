@@ -32,6 +32,7 @@ export namespace service {
 	    description?: string;
 	    remediation?: string;
 	    references?: string[];
+	    detail?: string;
 	    registryVersion: string;
 	    libraryVersion: string;
 	    observedAt: string;
@@ -58,6 +59,7 @@ export namespace service {
 	        this.description = source["description"];
 	        this.remediation = source["remediation"];
 	        this.references = source["references"];
+	        this.detail = source["detail"];
 	        this.registryVersion = source["registryVersion"];
 	        this.libraryVersion = source["libraryVersion"];
 	        this.observedAt = source["observedAt"];

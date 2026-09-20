@@ -1,4 +1,0 @@
-/* Styling is Tailwind utilities in the template, per the project's design-system
-   rule: one shared token source, no component-local values that duplicate a
-   token which already exists. This file exists because the component declares
-   a styleUrl, and stays empty deliberately. */

@@ -160,6 +160,18 @@ type SignalView struct {
 	Remediation string   `json:"remediation,omitempty"`
 	References  []string `json:"references,omitempty"`
 
+	// Detail is the opposite case, and comes from the observation: the part of
+	// the explanation that names what was found here — which include term is
+	// broken, which exchanger does not resolve. The catalogue cannot supply it
+	// because the catalogue has never seen this domain.
+	//
+	// It is presented separately from Evidence so that the item at fault is
+	// read as prose rather than recovered from a list of key=value pairs. The
+	// finding that prompted this printed an entire SPF record and appended the
+	// offending term after it, which identified a problem without pointing at
+	// it.
+	Detail string `json:"detail,omitempty"`
+
 	RegistryVersion string `json:"registryVersion"`
 	LibraryVersion  string `json:"libraryVersion"`
 	ObservedAt      string `json:"observedAt"`
@@ -730,6 +742,7 @@ func (svc *AssessmentService) assemble(
 			State:           o.State,
 			Severity:        o.Severity,
 			Evidence:        o.Evidence,
+			Detail:          o.Detail,
 			Mapped:          o.Mapped,
 			RegistryVersion: o.RegistryVersion,
 			LibraryVersion:  o.LibraryVersion,

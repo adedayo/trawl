@@ -110,6 +110,22 @@ export interface EmailPostureUI {
   /** Computed in Go from the tags above. Never set by the AI-triage layer. */
   priority: 'critical' | 'high' | 'medium' | 'low' | 'info' | '';
   lastChecked: string;
+
+  /**
+   * How many of the seven controls reached a conclusion, and how many were
+   * examined at all.
+   *
+   * Computed in Go by `EmailPosture.Assessed` and added at the serialisation
+   * boundary, not mirrored here. "Assessed" is defined once, in the engine
+   * that also computes severity from it; a second definition in TypeScript
+   * would eventually disagree, and then one half of the product would report
+   * coverage the other half denied.
+   *
+   * Optional only so that a record written by an older build — which served
+   * no such field — reads as absent rather than as zero controls assessed.
+   */
+  assessedControls?: number;
+  totalControls?: number;
 }
 
 /** The seven controls a posture carries, in the order an operator reasons about them. */
@@ -162,6 +178,18 @@ export interface SignalView {
   description?: string;
   remediation?: string;
   references?: string[];
+  /**
+   * The part of the explanation that is specific to this observation: which
+   * include term is broken, which exchanger does not resolve. It comes from
+   * the stored observation rather than the catalogue, because the catalogue
+   * describes an identifier and has never seen this domain.
+   *
+   * Rendered as prose next to the description, so that the item at fault is
+   * read rather than recovered from the evidence string. Absent for signals
+   * that name no particular item, and for observations recorded before the
+   * field existed.
+   */
+  detail?: string;
   mapped: boolean;
   registryVersion: string;
   libraryVersion: string;

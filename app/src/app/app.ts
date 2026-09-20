@@ -31,8 +31,7 @@ import { ScopeComponent } from './components/tabs/scope/scope';
     SecretsComponent,
     ScopeComponent
   ],
-  templateUrl: './app.html',
-  styleUrl: './app.css'
+  templateUrl: './app.html'
 })
 export class App implements OnInit, OnDestroy {
   wailsIpc = inject(WailsIpcService);

@@ -39,14 +39,15 @@ func (s *SQLiteStore) SaveSignalObservation(ctx context.Context, obs *store.Sign
 
 	query := `
 	INSERT INTO signal_observations (
-		id, asset_id, signal_id, check_id, state, severity, evidence, mapped,
+		id, asset_id, signal_id, check_id, state, severity, evidence, detail, mapped,
 		registry_version, library_version, observed_at, first_seen, last_seen
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(asset_id, signal_id) DO UPDATE SET
 		check_id = excluded.check_id,
 		state = excluded.state,
 		severity = excluded.severity,
 		evidence = excluded.evidence,
+		detail = excluded.detail,
 		mapped = excluded.mapped,
 		registry_version = excluded.registry_version,
 		library_version = excluded.library_version,
@@ -55,7 +56,7 @@ func (s *SQLiteStore) SaveSignalObservation(ctx context.Context, obs *store.Sign
 	`
 	_, err := s.db.ExecContext(ctx, query,
 		obs.ID, obs.AssetID, obs.SignalID, obs.CheckID, string(obs.State), string(obs.Severity),
-		obs.Evidence, obs.Mapped, obs.RegistryVersion, obs.LibraryVersion,
+		obs.Evidence, obs.Detail, obs.Mapped, obs.RegistryVersion, obs.LibraryVersion,
 		obs.ObservedAt.Format(time.RFC3339), obs.FirstSeen.Format(time.RFC3339), obs.LastSeen.Format(time.RFC3339),
 	)
 	if err != nil {
@@ -66,7 +67,7 @@ func (s *SQLiteStore) SaveSignalObservation(ctx context.Context, obs *store.Sign
 
 func (s *SQLiteStore) GetSignalObservations(ctx context.Context, assetID string) ([]store.SignalObservation, error) {
 	query := `
-	SELECT id, asset_id, signal_id, check_id, state, severity, evidence, mapped,
+	SELECT id, asset_id, signal_id, check_id, state, severity, evidence, detail, mapped,
 	       registry_version, library_version, observed_at, first_seen, last_seen
 	FROM signal_observations`
 	args := []any{}
@@ -86,14 +87,17 @@ func (s *SQLiteStore) GetSignalObservations(ctx context.Context, assetID string)
 	for rows.Next() {
 		var o store.SignalObservation
 		var state, severity, observedAt, firstSeen, lastSeen string
-		var evidence sql.NullString
+		// Nullable: rows written before the column existed carry NULL, which
+		// is the same absence as a signal that names no particular item.
+		var evidence, detail sql.NullString
 		if err := rows.Scan(&o.ID, &o.AssetID, &o.SignalID, &o.CheckID, &state, &severity, &evidence,
-			&o.Mapped, &o.RegistryVersion, &o.LibraryVersion, &observedAt, &firstSeen, &lastSeen); err != nil {
+			&detail, &o.Mapped, &o.RegistryVersion, &o.LibraryVersion, &observedAt, &firstSeen, &lastSeen); err != nil {
 			return nil, fmt.Errorf("failed to scan signal observation: %w", err)
 		}
 		o.State = store.CoverageState(state)
 		o.Severity = store.FindingSeverity(severity)
 		o.Evidence = evidence.String
+		o.Detail = detail.String
 		o.ObservedAt, _ = time.Parse(time.RFC3339, observedAt)
 		o.FirstSeen, _ = time.Parse(time.RFC3339, firstSeen)
 		o.LastSeen, _ = time.Parse(time.RFC3339, lastSeen)

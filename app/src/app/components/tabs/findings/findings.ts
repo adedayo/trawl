@@ -6,8 +6,7 @@ import { WailsIpcService } from '../../../wails-ipc.service';
   selector: 'app-findings',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './findings.html',
-  styleUrls: ['./findings.css']
+  templateUrl: './findings.html'
 })
 export class FindingsComponent {
   wailsIpc = inject(WailsIpcService);

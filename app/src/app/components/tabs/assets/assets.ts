@@ -8,8 +8,7 @@ import { byHost, HostingSummary, noHosting, summariseHosting } from './hosting';
   selector: 'app-assets',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './assets.html',
-  styleUrls: ['./assets.css']
+  templateUrl: './assets.html'
 })
 export class AssetsComponent {
   wailsIpc = inject(WailsIpcService);

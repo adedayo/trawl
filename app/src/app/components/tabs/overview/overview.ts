@@ -6,8 +6,7 @@ import { WailsIpcService } from '../../../wails-ipc.service';
   selector: 'app-overview',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './overview.html',
-  styleUrls: ['./overview.css']
+  templateUrl: './overview.html'
 })
 export class OverviewComponent {
   wailsIpc = inject(WailsIpcService);

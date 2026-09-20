@@ -7,8 +7,7 @@ import { SecretFindingUI } from '../../../models/types';
   selector: 'app-secrets',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './secrets.html',
-  styleUrls: ['./secrets.css']
+  templateUrl: './secrets.html'
 })
 export class SecretsComponent {
   wailsIpc = inject(WailsIpcService);

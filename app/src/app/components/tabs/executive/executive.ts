@@ -36,8 +36,7 @@ import {
   selector: 'app-executive',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './executive.html',
-  styleUrls: ['./executive.css']
+  templateUrl: './executive.html'
 })
 export class ExecutiveComponent {
   wailsIpc = inject(WailsIpcService);

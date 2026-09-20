@@ -1,4 +1,4 @@
-import { DomainAssessment } from '../models/types';
+import { DomainAssessment, EmailPostureUI } from '../models/types';
 import { DiscoveryOptions, DiscoveryResult, Scope, TrawlTransport } from './trawl-transport';
 
 /**
@@ -84,8 +84,8 @@ export class HttpTransport implements TrawlTransport {
     return this.get<any[]>(`/api/v1/secret-findings${query}`, []);
   }
 
-  getEmailPostures(): Promise<any[]> {
-    return this.get<any[]>('/api/v1/email-postures', []);
+  getEmailPostures(): Promise<EmailPostureUI[]> {
+    return this.get<EmailPostureUI[]>('/api/v1/email-postures', []);
   }
 
   getRegressions(): Promise<any[]> {

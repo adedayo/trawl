@@ -1,4 +1,4 @@
-import { DomainAssessment } from '../models/types';
+import { DomainAssessment, EmailPostureUI } from '../models/types';
 
 /**
  * The scope is the operator's declared authorisation. It is the same record in
@@ -86,7 +86,7 @@ export interface TrawlTransport {
   removeAsset(id: string): Promise<void>;
   getFindings(assetId: string): Promise<any[]>;
   getSecretFindings(repoUrl?: string): Promise<any[]>;
-  getEmailPostures(): Promise<any[]>;
+  getEmailPostures(): Promise<EmailPostureUI[]>;
   getRegressions(): Promise<any[]>;
 
   getAssessments(): Promise<DomainAssessment[]>;

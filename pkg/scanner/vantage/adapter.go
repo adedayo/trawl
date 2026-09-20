@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -415,6 +416,7 @@ func (a *Adapter) translate(req Request, vres *vfinding.Result) Result {
 			State:          state,
 			Severity:       severity(f.Severity),
 			Evidence:       evidence(f),
+			Detail:         detail(f),
 			LibraryVersion: libVersion,
 			ObservedAt:     now,
 			FirstSeen:      now,
@@ -525,6 +527,42 @@ func evidence(f vfinding.Finding) string {
 		out += fmt.Sprintf("%s=%s", e.Name, e.Value)
 	}
 	return out
+}
+
+// detail extracts the part of a finding's description that belongs to this
+// occurrence rather than to the identifier.
+//
+// vantage builds every finding's description from its catalogue entry and then
+// appends to it: which include term is broken, which selector carries the weak
+// key, why the severity was adjusted from the catalogue default. The catalogue
+// half is library text that Trawl reads at view-build time, so storing it per
+// row would duplicate prose a library upgrade should be free to correct. The
+// appended half cannot be recovered that way — the catalogue has never seen
+// this domain — so it is what gets stored.
+//
+// Taking the difference rather than asking vantage for the two parts keeps the
+// coupling to one field. The cost is that an upgrade which reworded a
+// catalogue description without changing the finding would make the prefix
+// stop matching; that case is handled by keeping the whole description, which
+// is redundant but never loses the specifics.
+func detail(f vfinding.Finding) string {
+	described := strings.TrimSpace(f.Description)
+	if described == "" {
+		return ""
+	}
+
+	entry, ok := vfinding.Lookup(f.ID)
+	if !ok {
+		// An identifier this build's catalogue does not know. The description
+		// is all there is, and it is certainly not duplicated library text.
+		return described
+	}
+
+	base := strings.TrimSpace(entry.Description)
+	if base == "" || !strings.HasPrefix(described, base) {
+		return described
+	}
+	return strings.TrimSpace(strings.TrimPrefix(described, base))
 }
 
 // reasonFor finds the recorded error for a check, so that a non-conclusive

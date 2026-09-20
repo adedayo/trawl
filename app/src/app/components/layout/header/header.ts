@@ -1,17 +1,20 @@
 import { Component, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { WailsIpcService } from '../../../wails-ipc.service';
+import { ThemeService } from '../../../theme.service';
 
 @Component({
   selector: 'app-header',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './header.html',
-  styleUrls: ['./header.css']
+  templateUrl: './header.html'
 })
 export class HeaderComponent {
   wailsIpc = inject(WailsIpcService);
+  private themes = inject(ThemeService);
   theme = this.wailsIpc.theme;
+  /** True while the interface is tracking the operating system's appearance. */
+  followsEnvironment = this.themes.followsEnvironment;
   activeTab = this.wailsIpc.activeTab;
   isScanning = this.wailsIpc.isScanning;
   isAuthorized = this.wailsIpc.isAuthorized;
@@ -28,9 +31,26 @@ export class HeaderComponent {
   activeAssetCount = computed(() => this.assets().filter(a => a.status === 'active').length);
   kevCount = computed(() => this.findings().filter(f => f.kev).length);
 
+  /**
+   * Switches appearance and records the choice.
+   *
+   * Recording it is the point: until the operator touches this, the interface
+   * follows their system, and from the moment they do it follows them instead
+   * — on this launch and every later one.
+   */
   toggleTheme() {
-    this.wailsIpc.theme.update(t => t === 'light' ? 'dark' : 'light');
+    this.themes.toggle();
   }
+
+  /** Withdraws that choice, so the system's appearance is followed again. */
+  followSystemTheme() {
+    this.themes.followEnvironment();
+  }
+
+  /** Wording for the appearance control, which states what it will do. */
+  themeButtonTitle = computed(() =>
+    this.theme() === 'dark' ? 'Switch to light appearance' : 'Switch to dark appearance'
+  );
 
   triggerScan() {
     if (!this.wailsIpc.isAuthorized()) {

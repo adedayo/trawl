@@ -1,6 +1,7 @@
 package store
 
 import (
+	"encoding/json"
 	"strconv"
 	"time"
 )
@@ -229,6 +230,33 @@ func (p EmailPosture) Assessed() (assessed, total int) {
 
 func (p EmailPosture) controls() []EmailControl {
 	return []EmailControl{p.SPF, p.DKIM, p.DMARC, p.MTASTS, p.TLSRPT, p.BIMI, p.CAA}
+}
+
+// MarshalJSON serialises the posture together with its coverage.
+//
+// Assessed is a method, so it does not serialise, and a view showing "3 of 7
+// assessed" would otherwise have to define "assessed" a second time in
+// TypeScript. Two definitions of a coverage figure eventually disagree, and
+// then one half of the product reports coverage the other half denies. The
+// figure is therefore computed here, once, and travels with the record over
+// both transports.
+//
+// It is added at the serialisation boundary rather than as a struct field
+// because a stored count can go stale against the states it counts. Derived
+// on the way out, it cannot.
+func (p EmailPosture) MarshalJSON() ([]byte, error) {
+	// The alias sheds this method, so marshalling the alias does not recurse.
+	type posture EmailPosture
+	assessed, total := p.Assessed()
+	return json.Marshal(struct {
+		posture
+		AssessedControls int `json:"assessedControls"`
+		TotalControls    int `json:"totalControls"`
+	}{
+		posture:          posture(p),
+		AssessedControls: assessed,
+		TotalControls:    total,
+	})
 }
 
 // DMARCPolicyAttribute is the posture attribute under which DMARC policy
