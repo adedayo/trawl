@@ -175,7 +175,12 @@ func (s *SQLiteStore) migrate(ctx context.Context) error {
 		mta_sts_found INTEGER DEFAULT 0,
 		mta_sts_mode TEXT,
 		dnssec_valid INTEGER DEFAULT 0,
-		dane_valid INTEGER DEFAULT 0
+		dane_valid INTEGER DEFAULT 0,
+		-- controls and details hold the four-state posture. The boolean
+		-- columns above are retained so an older build can still open the
+		-- database, and are written as a lossy mirror; these are the record.
+		controls TEXT,
+		details TEXT
 	);
 
 	CREATE TABLE IF NOT EXISTS jobs (
@@ -306,8 +311,76 @@ func (s *SQLiteStore) migrate(ctx context.Context) error {
 
 	`
 
-	_, err := s.db.ExecContext(ctx, schema)
-	return err
+	if _, err := s.db.ExecContext(ctx, schema); err != nil {
+		return err
+	}
+
+	return s.addColumns(ctx)
+}
+
+// addedColumns are columns introduced after their table first shipped.
+//
+// CREATE TABLE IF NOT EXISTS is a no-op against a database that already has
+// the table, so a column added to the schema above reaches new installations
+// only. Every existing database would keep the old shape and fail on the first
+// write — at run time, on a user's machine, rather than here.
+var addedColumns = map[string]map[string]string{
+	// The email posture was a row of booleans. It is now four-state per
+	// control, held as JSON because the shape is nested and is read whole.
+	"email_postures": {
+		"controls": "TEXT",
+		"details":  "TEXT",
+	},
+}
+
+// addColumns brings an existing database up to the current shape.
+//
+// It is idempotent and additive only: nothing is dropped or retyped, so a
+// database opened by an older build still works. SQLite has no
+// ADD COLUMN IF NOT EXISTS, so the current columns are read first — an error
+// from the ALTER cannot be distinguished from a real failure by its text
+// without matching on a message SQLite is free to reword.
+func (s *SQLiteStore) addColumns(ctx context.Context) error {
+	for table, columns := range addedColumns {
+		existing, err := s.columnsOf(ctx, table)
+		if err != nil {
+			return err
+		}
+		for name, decl := range columns {
+			if existing[name] {
+				continue
+			}
+			stmt := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, name, decl)
+			if _, err := s.db.ExecContext(ctx, stmt); err != nil {
+				return fmt.Errorf("adding column %s.%s: %w", table, name, err)
+			}
+		}
+	}
+	return nil
+}
+
+func (s *SQLiteStore) columnsOf(ctx context.Context, table string) (map[string]bool, error) {
+	rows, err := s.db.QueryContext(ctx, fmt.Sprintf("PRAGMA table_info(%s)", table))
+	if err != nil {
+		return nil, fmt.Errorf("reading columns of %s: %w", table, err)
+	}
+	defer rows.Close()
+
+	columns := map[string]bool{}
+	for rows.Next() {
+		var (
+			cid        int
+			name, typ  string
+			notNull    int
+			defaultVal any
+			pk         int
+		)
+		if err := rows.Scan(&cid, &name, &typ, &notNull, &defaultVal, &pk); err != nil {
+			return nil, fmt.Errorf("scanning columns of %s: %w", table, err)
+		}
+		columns[name] = true
+	}
+	return columns, rows.Err()
 }
 
 // erasedTables are the tables holding what the engine discovered, in the order

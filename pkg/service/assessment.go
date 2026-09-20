@@ -407,12 +407,54 @@ func (svc *AssessmentService) persist(ctx context.Context, res vadapter.Result) 
 			}
 		}
 	}
+
+	// The email-authentication posture, and the policy drift it may represent.
+	if res.EmailPosture != nil {
+		assetID := ""
+		if len(res.Coverage) > 0 {
+			assetID = res.Coverage[0].AssetID
+		}
+		if err := svc.recordEmailPosture(ctx, assetID, res.EmailPosture); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// recordEmailPosture writes the posture and tracks DMARC policy as a posture
+// attribute, so that a weakening is a raised transition with history rather
+// than a silent overwrite.
+//
+// The drift is recorded only when the policy was actually assessed. An
+// unassessed run that wrote its fingerprint would move the baseline to
+// "unknown", and the next successful run would then report a change from
+// nothing to the policy that had been there all along — a regression invented
+// by our own outage, arriving in the operator's list alongside the real ones
+// and indistinguishable from them.
+func (svc *AssessmentService) recordEmailPosture(ctx context.Context, assetID string, posture *store.EmailPosture) error {
+	// Recomputed here rather than trusted from the caller. Priority is a
+	// deterministic function of the observed tags, and deriving it at the
+	// boundary means no code path — present or future, adapter or importer —
+	// can persist a domain under a severity its evidence does not support.
+	posture.Priority = posture.WorstSeverity()
+
+	if err := svc.store.SaveEmailPosture(ctx, posture); err != nil {
+		return fmt.Errorf("assessment: saving the email posture for %s: %w", posture.Domain, err)
+	}
+
+	fingerprint := posture.DMARCFingerprint()
+	if fingerprint == "" || assetID == "" {
+		return nil
+	}
+
+	if _, err := svc.store.RecordPostureObservation(ctx, assetID, store.DMARCPolicyAttribute, fingerprint); err != nil {
+		return fmt.Errorf("assessment: recording the DMARC policy change for %s: %w", posture.Domain, err)
+	}
 	return nil
 }
 
 // recordAttributionChange tracks hosting as a posture attribute, suppressing
-// changes that the provider data explains.
-//
+// changes that the provider data explains.//
 // A change in what an address attributes to has two possible causes, and only
 // one of them is a change in the estate. Providers republish their ranges
 // constantly; a prefix moving between two publications makes an address

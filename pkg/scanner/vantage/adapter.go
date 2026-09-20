@@ -125,6 +125,14 @@ type Result struct {
 	// take the inventory for complete. The coverage reason names them too;
 	// this is the machine-readable form.
 	DiscoveryUndetermined []string
+	// EmailPosture is the domain's email-authentication posture, or nil when
+	// no check bearing on it ran.
+	//
+	// Nil rather than an empty posture: writing seven not_checked controls
+	// would imply an assessment took place, and would overwrite a
+	// better-evidenced posture from an earlier run with a record of having
+	// looked at nothing.
+	EmailPosture *store.EmailPosture
 	// LibraryVersion is the vantage build that produced the result.
 	LibraryVersion string
 	// Err carries the reason when Outcome is not completed or partial.
@@ -340,6 +348,7 @@ func (a *Adapter) translate(req Request, vres *vfinding.Result) Result {
 	// Coverage first, so that the state each check settled on is available
 	// when attributing findings to it.
 	states := make(map[string]store.CoverageState, len(vres.Checks))
+	reasons := make(map[string]string, len(vres.Checks))
 	for _, c := range vres.Checks {
 		// A check that could not load the provider ranges it attributes
 		// against has not concluded, whatever state it reported.
@@ -355,6 +364,7 @@ func (a *Adapter) translate(req Request, vres *vfinding.Result) Result {
 		state, reason = discoveryGap(state, reason, c.Observation, undetermined)
 
 		states[c.Check] = state
+		reasons[c.Check] = reason
 
 		// An observation arriving at all is what licenses writing attribution
 		// for this asset, including writing none. A check that never ran
@@ -379,6 +389,11 @@ func (a *Adapter) translate(req Request, vres *vfinding.Result) Result {
 			AssessedAt:     now,
 		})
 	}
+
+	// The email-authentication posture is assembled from the same coverage
+	// states recorded above, so the capability's view and the assessment's
+	// view of what was established cannot drift apart.
+	res.EmailPosture = emailPosture(req.Domain, vres.Checks, states, reasons, now)
 
 	for _, f := range vres.Findings {
 		// A finding is evidence that the check reached a conclusion, so its

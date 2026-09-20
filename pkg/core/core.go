@@ -201,14 +201,21 @@ func (c *Core) SaveScope(ctx context.Context, s Scope) error {
 	return c.store.SaveSetting(ctx, ScopeSettingsKey, string(payload))
 }
 
-// ─── Email posture (legacy path) ─────────────────────────────────────────────
+// ─── Email posture ───────────────────────────────────────────────────────────
 
 func (c *Core) EmailPostures(ctx context.Context) ([]store.EmailPosture, error) {
 	return c.store.GetEmailPostures(ctx)
 }
 
+// ScanEmailPosture assesses one domain's email-authentication posture within
+// the operator's authorised scope.
+//
+// The scope is read here rather than defaulted in the service, so that the
+// authorisation governing this capability is the same one governing every
+// other assessment — there is no second, more permissive path to the network.
 func (c *Core) ScanEmailPosture(ctx context.Context, domain string) (store.EmailPosture, error) {
-	return c.emailScanner.ScanAndSave(ctx, domain)
+	scope := c.Scope(ctx)
+	return c.emailScanner.ScanAndSave(ctx, domain, scope.SeedDomainsList, scope.ConsentedEndpoints)
 }
 
 // ─── Measured-state assessment ───────────────────────────────────────────────
@@ -299,12 +306,12 @@ func (c *Core) RunScan(ctx context.Context, req ScanRequest) error {
 			}
 		}()
 
-		// The legacy email path is retained until the Change 006 Phase 9 gap
-		// analysis closes. Its failure is recorded rather than ignored.
+		// Email-authentication posture, now assessed through the same
+		// scope-guarded adapter as everything else.
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if _, err := c.emailScanner.ScanAndSave(ctx, req.Domain); err != nil {
+			if _, err := c.ScanEmailPosture(ctx, req.Domain); err != nil {
 				record(fmt.Errorf("email posture: %w", err))
 			}
 		}()

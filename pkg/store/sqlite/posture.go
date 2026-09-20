@@ -2,6 +2,8 @@ package sqlite
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -106,8 +108,37 @@ func (s *SQLiteStore) RecordPostureObservation(ctx context.Context, assetID stri
 	return nil, nil
 }
 
+// emailControls is the four-state posture as persisted.
+//
+// It is held as JSON rather than as forty columns because it is nested, it is
+// always read whole, and nothing queries across its parts. The boolean columns
+// beside it are a lossy mirror kept only so that an older build can open the
+// database; this is the record.
+type emailControls struct {
+	SPF    store.EmailControl `json:"spf"`
+	DKIM   store.EmailControl `json:"dkim"`
+	DMARC  store.EmailControl `json:"dmarc"`
+	MTASTS store.EmailControl `json:"mtaSts"`
+	TLSRPT store.EmailControl `json:"tlsRpt"`
+	BIMI   store.EmailControl `json:"bimi"`
+	CAA    store.EmailControl `json:"caa"`
+}
+
+// emailDetails is the parsed evidence severity is computed from.
+type emailDetails struct {
+	DMARCSubdomainPolicy  string   `json:"dmarcSubdomainPolicy,omitempty"`
+	DMARCPercent          int      `json:"dmarcPercent"`
+	DMARCAlignmentSPF     string   `json:"dmarcAlignmentSpf,omitempty"`
+	DMARCAlignmentDKIM    string   `json:"dmarcAlignmentDkim,omitempty"`
+	DMARCReporting        bool     `json:"dmarcReporting"`
+	SPFAllMechanism       string   `json:"spfAllMechanism,omitempty"`
+	SPFLookups            int      `json:"spfLookups"`
+	DKIMSelectorsExamined []string `json:"dkimSelectorsExamined,omitempty"`
+	DKIMSelectorsFound    []string `json:"dkimSelectorsFound,omitempty"`
+}
+
 func (s *SQLiteStore) GetEmailPostures(ctx context.Context) ([]store.EmailPosture, error) {
-	query := `SELECT domain, spf_valid, dkim_found, dmarc_policy, priority, last_checked FROM email_postures ORDER BY domain ASC`
+	query := `SELECT domain, dmarc_policy, priority, last_checked, controls, details FROM email_postures ORDER BY domain ASC`
 	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query email postures: %w", err)
@@ -116,36 +147,102 @@ func (s *SQLiteStore) GetEmailPostures(ctx context.Context) ([]store.EmailPostur
 
 	postures := []store.EmailPosture{}
 	for rows.Next() {
-		var p store.EmailPosture
-		var spfInt, dkimInt int
-		var lastChecked string
-		if err := rows.Scan(&p.Domain, &spfInt, &dkimInt, &p.DMARCPolicy, &p.Priority, &lastChecked); err != nil {
+		var (
+			p                         store.EmailPosture
+			priority                  string
+			lastChecked               string
+			controlsJSON, detailsJSON sql.NullString
+		)
+		if err := rows.Scan(&p.Domain, &p.DMARCPolicy, &priority, &lastChecked,
+			&controlsJSON, &detailsJSON); err != nil {
 			return nil, fmt.Errorf("failed to scan email posture: %w", err)
 		}
-		p.SPFValid = spfInt == 1
-		p.DKIMFound = dkimInt == 1
+		p.Priority = store.FindingSeverity(priority)
 		p.LastChecked, _ = time.Parse(time.RFC3339, lastChecked)
+
+		// A row written before the widening has no controls. Every state is
+		// then left at its zero value, which is not a recognised state and so
+		// reads as unassessed — the honest account, since what that row holds
+		// cannot distinguish an absent control from a failed lookup. Inventing
+		// "ok" from a legacy boolean would be the collapse this change exists
+		// to undo, preserved in the migration.
+		if controlsJSON.Valid && controlsJSON.String != "" {
+			var c emailControls
+			if err := json.Unmarshal([]byte(controlsJSON.String), &c); err != nil {
+				return nil, fmt.Errorf("failed to read email controls for %s: %w", p.Domain, err)
+			}
+			p.SPF, p.DKIM, p.DMARC = c.SPF, c.DKIM, c.DMARC
+			p.MTASTS, p.TLSRPT, p.BIMI, p.CAA = c.MTASTS, c.TLSRPT, c.BIMI, c.CAA
+		}
+
+		if detailsJSON.Valid && detailsJSON.String != "" {
+			var d emailDetails
+			if err := json.Unmarshal([]byte(detailsJSON.String), &d); err != nil {
+				return nil, fmt.Errorf("failed to read email details for %s: %w", p.Domain, err)
+			}
+			p.DMARCSubdomainPolicy = d.DMARCSubdomainPolicy
+			p.DMARCPercent = d.DMARCPercent
+			p.DMARCAlignmentSPF = d.DMARCAlignmentSPF
+			p.DMARCAlignmentDKIM = d.DMARCAlignmentDKIM
+			p.DMARCReporting = d.DMARCReporting
+			p.SPFAllMechanism = d.SPFAllMechanism
+			p.SPFLookups = d.SPFLookups
+			p.DKIMSelectorsExamined = d.DKIMSelectorsExamined
+			p.DKIMSelectorsFound = d.DKIMSelectorsFound
+		}
+
 		postures = append(postures, p)
 	}
-	return postures, nil
+	return postures, rows.Err()
 }
 
 func (s *SQLiteStore) SaveEmailPosture(ctx context.Context, ep *store.EmailPosture) error {
 	query := `
-	INSERT INTO email_postures (domain, spf_valid, dkim_found, dmarc_policy, priority, last_checked)
-	VALUES (?, ?, ?, ?, ?, ?)
+	INSERT INTO email_postures (domain, spf_valid, dkim_found, dmarc_policy, priority, last_checked, controls, details)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(domain) DO UPDATE SET
 		spf_valid = excluded.spf_valid,
 		dkim_found = excluded.dkim_found,
 		dmarc_policy = excluded.dmarc_policy,
 		priority = excluded.priority,
-		last_checked = excluded.last_checked
+		last_checked = excluded.last_checked,
+		controls = excluded.controls,
+		details = excluded.details
 	`
+
+	controls, err := json.Marshal(emailControls{
+		SPF: ep.SPF, DKIM: ep.DKIM, DMARC: ep.DMARC,
+		MTASTS: ep.MTASTS, TLSRPT: ep.TLSRPT, BIMI: ep.BIMI, CAA: ep.CAA,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to encode email controls: %w", err)
+	}
+
+	details, err := json.Marshal(emailDetails{
+		DMARCSubdomainPolicy:  ep.DMARCSubdomainPolicy,
+		DMARCPercent:          ep.DMARCPercent,
+		DMARCAlignmentSPF:     ep.DMARCAlignmentSPF,
+		DMARCAlignmentDKIM:    ep.DMARCAlignmentDKIM,
+		DMARCReporting:        ep.DMARCReporting,
+		SPFAllMechanism:       ep.SPFAllMechanism,
+		SPFLookups:            ep.SPFLookups,
+		DKIMSelectorsExamined: ep.DKIMSelectorsExamined,
+		DKIMSelectorsFound:    ep.DKIMSelectorsFound,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to encode email details: %w", err)
+	}
+
+	// The legacy booleans are written only so an older build can still read
+	// the row. Only an assessed, passing control sets one: an unassessed
+	// control must not mirror as true, or downgrading would resurrect the
+	// collapse in its most misleading form — an outage reading as a control
+	// in place.
 	spfInt, dkimInt := 0, 0
-	if ep.SPFValid {
+	if ep.SPF.State.Passing() {
 		spfInt = 1
 	}
-	if ep.DKIMFound {
+	if ep.DKIM.State.Passing() {
 		dkimInt = 1
 	}
 
@@ -153,13 +250,15 @@ func (s *SQLiteStore) SaveEmailPosture(ctx context.Context, ep *store.EmailPostu
 		ep.LastChecked = time.Now()
 	}
 
-	_, err := s.db.ExecContext(ctx, query,
+	_, err = s.db.ExecContext(ctx, query,
 		ep.Domain,
 		spfInt,
 		dkimInt,
 		ep.DMARCPolicy,
-		ep.Priority,
+		string(ep.Priority),
 		ep.LastChecked.Format(time.RFC3339),
+		string(controls),
+		string(details),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to save email posture: %w", err)

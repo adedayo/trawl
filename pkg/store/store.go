@@ -127,19 +127,8 @@ type Regression struct {
 	ConfirmedAt      time.Time `json:"confirmedAt"`
 }
 
-// EmailPosture represents the email authentication posture for a domain.
-type EmailPosture struct {
-	Domain      string    `json:"domain"`
-	SPFValid    bool      `json:"spfValid"`
-	DKIMFound   bool      `json:"dkimFound"`
-	DMARCPolicy string    `json:"dmarcPolicy"`
-	Priority    string    `json:"priority"`
-	LastChecked time.Time `json:"lastChecked"`
-	MTAStsFound bool      `json:"mtaStsFound"`
-	MTAStsMode  string    `json:"mtaStsMode"`
-	DNSSECValid bool      `json:"dnssecValid"`
-	DANEValid   bool      `json:"daneValid"`
-}
+// EmailPosture is declared in email.go, alongside the deterministic severity
+// it is the input to.
 
 // JobStatus defines the lifecycle state of a queued worker job.
 type JobStatus string
