@@ -35,8 +35,125 @@ func TestSchemaVersionCarriesStructuredObservations(t *testing.T) {
 	if major != 1 {
 		t.Fatalf("finding schema major version is %d, not 1: the result shape has changed incompatibly and the adapter must be reviewed, not re-pinned", major)
 	}
-	if minor < 1 {
-		t.Fatalf("finding schema is %s; structured observations arrived in 1.1, so this build reads attribution and CT data that the pinned library does not emit", vfinding.SchemaVersion)
+	if minor < 2 {
+		t.Fatalf("finding schema is %s; structured email-authentication posture arrived in 1.2, so this build reads DMARC tags and DKIM selector facts that the pinned library does not emit", vfinding.SchemaVersion)
+	}
+}
+
+// TestEmailObservationFieldsTrawlReadsStillExist names every field the
+// email-authentication path depends on, in Go rather than in prose.
+//
+// The capability's requirements are satisfied by reading these. If one is
+// renamed the build stops here rather than in a scan, and if one changes
+// meaning the value assertions below catch it — which is the more dangerous
+// change, because it keeps compiling.
+func TestEmailObservationFieldsTrawlReadsStillExist(t *testing.T) {
+	email := vobs.Email{
+		Domain: "example.com",
+		SPF: &vobs.SPF{
+			Presence:            vobs.PresencePublished,
+			Record:              "v=spf1 include:_spf.example.net +all",
+			AllMechanism:        "+",
+			Valid:               true,
+			Lookups:             3,
+			LookupLimitExceeded: false,
+			SendsMail:           true,
+		},
+		DKIM: &vobs.DKIM{
+			SelectorsExamined: []string{"default", "google"},
+			SelectorsFound:    []string{"google"},
+			UsableKeys:        1,
+			Probed:            true,
+		},
+		DMARC: &vobs.DMARC{
+			Presence:           vobs.PresencePublished,
+			Policy:             "reject",
+			SubdomainPolicy:    "none",
+			Percent:            40,
+			AlignmentSPF:       "s",
+			AlignmentDKIM:      "r",
+			AggregateReporting: true,
+			RecordCount:        1,
+			Valid:              true,
+		},
+		Adjacent: &vobs.AdjacentRecord{
+			Kind:     "mtasts",
+			Presence: vobs.PresencePublished,
+			Detail:   "testing",
+		},
+	}
+
+	result := vfinding.CheckResult{
+		Check:       "dmarc",
+		Target:      "example.com",
+		State:       vfinding.StateOK,
+		Observation: &vfinding.Observation{Email: &email},
+	}
+
+	got := result.Observation.Email
+	if got == nil || got.SPF == nil || got.DKIM == nil || got.DMARC == nil || got.Adjacent == nil {
+		t.Fatal("every part of the email observation must survive the round trip; a nil part reads as a control that was never assessed")
+	}
+	if got.SPF.AllMechanism != "+" {
+		t.Fatalf("the all-mechanism qualifier is what distinguishes a policy that authorises the internet from one that denies it; got %q", got.SPF.AllMechanism)
+	}
+	if got.DMARC.Percent != 40 || got.DMARC.SubdomainPolicy != "none" {
+		t.Fatalf("deterministic severity is a function of these tags, so each must arrive as data; got pct=%d sp=%q", got.DMARC.Percent, got.DMARC.SubdomainPolicy)
+	}
+}
+
+// TestPartialEnforcementIsNotReportedAsEnforcement pins the judgement Trawl
+// relies on the library to make.
+//
+// p=reject at pct=40 instructs receivers to reject two in five spoofed
+// messages. A reader told "policy: reject" concludes the route is closed. If
+// upstream ever relaxed this to test the policy alone, Trawl would start
+// reporting partially enforced domains as protected — silently, and in the
+// flattering direction.
+func TestPartialEnforcementIsNotReportedAsEnforcement(t *testing.T) {
+	partial := vobs.DMARC{Policy: "reject", Percent: 40}
+	if partial.Enforcing() {
+		t.Fatal("a policy applied to part of the mail is partial enforcement; reporting it as enforcement tells a reader a spoofing route is closed when it is open three times in five")
+	}
+
+	full := vobs.DMARC{Policy: "reject", Percent: 100}
+	if !full.Enforcing() {
+		t.Fatal("a reject policy at full percentage is enforcement; failing to credit it would send an operator to fix what is already correct")
+	}
+
+	monitor := vobs.DMARC{Policy: "none", Percent: 100}
+	if monitor.Enforcing() {
+		t.Fatal("monitoring observes spoofed mail; it does not stop it")
+	}
+}
+
+// TestProbedDKIMAbsenceStaysInconclusive pins the claim the capability spec
+// forbids us from making.
+//
+// Selectors are not enumerable from DNS. Probing the common list and finding
+// nothing says nothing about a domain signing with a tenant-specific
+// selector, and a CISO told "DKIM is missing" commissions work already done.
+func TestProbedDKIMAbsenceStaysInconclusive(t *testing.T) {
+	probed := vobs.DKIM{SelectorsExamined: []string{"default", "google"}, Probed: true}
+	if probed.Conclusive() {
+		t.Fatal("guessing selectors and finding none proves nothing; recording it as an absence would be a plain falsehood")
+	}
+
+	named := vobs.DKIM{SelectorsExamined: []string{"acme2026"}}
+	if !named.Conclusive() {
+		t.Fatal("selectors the operator named are evidence about their own deployment, so their absence is an answer")
+	}
+}
+
+// TestPresenceKeepsThreeStates. A control that is absent is a decision
+// somebody made; a control we could not look for is a gap in our evidence.
+// Collapsed into a boolean, an outage presents as a clean bill of health.
+func TestPresenceKeepsThreeStates(t *testing.T) {
+	if !vobs.PresenceAbsent.Settled() || !vobs.PresencePublished.Settled() {
+		t.Fatal("an answered question is settled, whichever way it went")
+	}
+	if vobs.PresenceUndetermined.Settled() {
+		t.Fatal("an unanswered lookup settles nothing, and must never be read as an absent control")
 	}
 }
 
