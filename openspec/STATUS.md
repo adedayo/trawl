@@ -33,17 +33,19 @@ their reasoning rather than left to accumulate as phantom backlog.
 
 | Change | Open | Done | What is left |
 |---|---:|---:|---|
-| `006-vantage-integration` | 6 | 50 | Phase 8 (CT hostnames, provider/jurisdiction attribution, regression suppression on provider-data refresh) and Phase 9 (routing email authentication through the adapter). Phase 9 must not begin before its gap analysis: the superseded DNS code may only be removed once it is known what vantage does *not* cover. |
-| `016-deployment-parity` | 7 | 39 | Transport-parity assertion, two tests, the read-API authorisation model, cross-distribution documentation. Two items — a networked store and a cross-instance bus — are honestly labelled as what horizontal scaling would require, not as work in progress. |
+| `006-vantage-integration` | 2 | 69 | Phases 0–9 complete. What remains is close-out: demonstrating the exit criteria in a single run rather than as separately passing tests, and publishing the commits. Phase 9's gap analysis inverted the phase — the superseded code was not working code but a placeholder that reported its own failures as answers. **Rendering the four-state email posture is Change 017**; the engine distinguishes a gap from an outage and no view yet shows the difference. |
+| `016-deployment-parity` | 6 | 44 | Transport-parity assertion, the read-API authorisation model, cross-distribution documentation. Two items — a networked store and a cross-instance bus — are honestly labelled as what horizontal scaling would require, not as work in progress. |
 | `013-distribution-and-release` | 3 | 33 | Three verification steps, all needing a **clean machine and a real workflow run**. Nothing here can be verified from a development machine, which is why it is still open. |
-| `014-operator-dashboard` | 4 | 28 | Colour contrast in a real browser (jsdom cannot compute a ratio); attribution-refresh suppression, **blocked on 006 Phase 8**; two read-model checks. |
-| `005-cloud-continuous-easm` | 6 | 13 | Background cron runner, remote-server configuration for the desktop app, Compose/Litestream setup. Partly gated on 006 Phase 9. |
+| `014-operator-dashboard` | 4 | 28 | Colour contrast in a real browser (jsdom cannot compute a ratio); attribution-refresh suppression, **now unblocked** — 006 Phase 8 landed it as `network_attribution`; two read-model checks. |
+| `005-cloud-continuous-easm` | 6 | 13 | Background cron runner, remote-server configuration for the desktop app, Compose/Litestream setup. Its 006 Phase 9 gate has lifted. |
 | `001-initial-build` | 22 | 34 | Reconciled 30 Aug 2026 against the code. Its remaining items are mostly tracked by later changes; what nothing tracks is listed under *Unclaimed work* below. Holds the **live capability specs**, so it is not archivable when its ledger closes. |
 
 ## Active — not started
 
 | Change | Open | Notes |
 |---|---:|---|
+| `017-email-posture-surface` | 21 | Renders what 006 Phase 9 produces. The posture is computed, persisted, served over both transports and read by nothing. Small, and the largest honesty gap currently open: the engine can tell a misconfiguration from an outage and the operator cannot. |
+| `018-schema-migration-durability` | 8 | 006 Phase 9 was the first change to alter an existing table, and found no mechanism for it. It added one. This hardens that mechanism — a version marker, a refusal to open a newer store, a test that a migrated shape equals a fresh one — before a second change assumes more of it than it does. |
 | `007-contact-probability` | 35 | The keystone: supplies P(contact). |
 | `008-risk-model-packs` | 25 | Versioned, signed, source-cited parameters. |
 | `009-exploit-probability-engine` | 44 | Absorbs the archived 002. |

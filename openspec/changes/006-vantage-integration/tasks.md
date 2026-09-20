@@ -124,6 +124,12 @@ first, and both are now implemented in the vantage working tree:
 - [x] Deterministic severity from `observation.DMARC`, with the adjacent records tiered as a group — computed at the persistence boundary, so no code path can store a domain under a severity its evidence does not support. An unassessed control has no severity at all: rating one would let a resolver outage manufacture a finding, and severities are maximised into aggregates. A probed DKIM absence is likewise unrated, because a rating is a claim that something is wrong
 - [x] DMARC policy drift as a posture attribute — `store.DMARCPolicyAttribute`, following the `network_attribution` pattern. The fingerprint covers only what receivers act on, so editing a reporting address is not drift; a failed run writes no fingerprint, or the baseline would move to "unknown" and the next successful run would report a regression invented by our own outage
 - [x] Remove `pkg/scanner/email.go` and `pkg/service/email_scanner.go`'s hand-rolled lookups — done last, after the above was in place and green
+- [x] Regenerate `app/wailsjs/go/models.ts` and rewrite `EmailPostureUI` against the widened shape. The generated bindings still declared `spfValid`, `dkimFound`, `dnssecValid` and `daneValid` — fields the backend had stopped sending — so the client was typed against a struct that no longer existed. Nothing broke, because no template read them, which is exactly why it went unnoticed. **Rendering the widened posture is Change 017**, not this one: the data now distinguishes a gap from an outage and the interface cannot yet show the difference
+
+## Phase 10 — Close-out
+
+- [ ] Demonstrate the exit criteria below **in a single run** against an authorised domain, from one compiled artefact, and record the evidence. Each clause is individually covered by a test today; the combined demonstration is what the criteria actually ask for, and a set of separately passing guarantees is not the same claim as one run in which all of them held together
+- [ ] Push the local commits. Vantage `main` and `v1.5.0` are published; Trawl's side of the integration exists on one machine, which is the same defect the no-local-`replace` rule exists to prevent — one repository away
 
 ## Exit Criteria
 

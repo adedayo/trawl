@@ -28,14 +28,96 @@ export interface FindingUI {
   detectedAt: string;
 }
 
+/**
+ * The assessed state of one email-authentication control on one domain.
+ *
+ * This mirrors `store.EmailControl`. It replaced a boolean, and the reason is
+ * that `spfValid: boolean` cannot distinguish "the domain publishes no SPF
+ * record" from "the resolver never answered" — and those demand opposite
+ * responses. Collapsed into one value, an outage reads as a misconfiguration,
+ * or a misconfiguration reads as a clean bill of health.
+ */
+export interface EmailControlUI {
+  state: CoverageState;
+  /** The salient value where the control has one: the DMARC policy, the MTA-STS mode. */
+  detail?: string;
+  /**
+   * Why the state is not an assessment. Render this wherever a control is
+   * `not_checked` or `check_failed`: "we could not tell" is only actionable
+   * when it says why.
+   */
+  reason?: string;
+  /**
+   * Whether the state may be read as a fact about the domain rather than
+   * about the limits of the search.
+   *
+   * This exists for DKIM. Selectors cannot be enumerated from DNS, so probing
+   * the common list and finding nothing establishes nothing. A `not_found`
+   * DKIM control with `conclusive: false` must never be rendered as "DKIM
+   * absent" — the domain may sign every message with a selector nobody
+   * guessed, and an operator told otherwise would commission work already done.
+   */
+  conclusive: boolean;
+}
+
+/**
+ * A domain's email-authentication posture, as the backend reports it.
+ *
+ * The DMARC tags are carried as data rather than prose because severity is a
+ * deterministic function of them, computed in Go. The UI renders; it does not
+ * decide severity.
+ */
 export interface EmailPostureUI {
   domain: string;
-  spfValid: boolean;
-  dkimFound: boolean;
-  dmarcPolicy: 'reject' | 'quarantine' | 'none' | 'missing';
-  priority: 'critical' | 'high' | 'medium' | 'low' | 'info';
+
+  /** The three authentication controls. */
+  spf: EmailControlUI;
+  dkim: EmailControlUI;
+  dmarc: EmailControlUI;
+
+  /** The adjacent records. Never as consequential as a missing DMARC policy. */
+  mtaSts: EmailControlUI;
+  tlsRpt: EmailControlUI;
+  bimi: EmailControlUI;
+  caa: EmailControlUI;
+
+  dmarcPolicy: string;
+  dmarcSubdomainPolicy?: string;
+  dmarcPercent: number;
+  dmarcAlignmentSpf?: string;
+  dmarcAlignmentDkim?: string;
+  dmarcReporting: boolean;
+
+  /**
+   * The qualifier on the terminating all-mechanism. "+" authorises the entire
+   * internet to send as the domain.
+   */
+  spfAllMechanism?: string;
+  /**
+   * How many DNS-querying mechanisms the record expands to. Above ten,
+   * receivers may stop evaluating it, so a domain can publish a careful policy
+   * that is enforced nowhere.
+   */
+  spfLookups: number;
+
+  /**
+   * Both are rendered together deliberately: "1 of 13 selectors found" tells a
+   * reader something quite different from "a key exists".
+   */
+  dkimSelectorsExamined?: string[];
+  dkimSelectorsFound?: string[];
+
+  /** Computed in Go from the tags above. Never set by the AI-triage layer. */
+  priority: 'critical' | 'high' | 'medium' | 'low' | 'info' | '';
   lastChecked: string;
 }
+
+/** The seven controls a posture carries, in the order an operator reasons about them. */
+export const EMAIL_POSTURE_CONTROLS = [
+  'spf', 'dkim', 'dmarc', 'mtaSts', 'tlsRpt', 'bimi', 'caa'
+] as const;
+
+export type EmailPostureControl = typeof EMAIL_POSTURE_CONTROLS[number];
 
 /**
  * The four-state assessment outcome, carried end to end from vantage.
