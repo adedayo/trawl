@@ -28,12 +28,13 @@ their reasoning rather than left to accumulate as phantom backlog.
 | `003-go-sqlite-engine` | Complete. Store, event bus, removal of the previous datastore. |
 | `004-desktop-wails-packaging` | Complete. The three scanner runners were **withdrawn**, not deferred. |
 | `015-spec-datastore-hygiene` | Complete. Specification repair after 003, plus the CI guard that stops it recurring. |
+| `017-email-posture-surface` | Complete. The four-state posture is rendered, and coverage is computed once, in Go, at the serialisation boundary. Phase 7 was added during implementation: displaying the advisories exposed a defect in them, in that a finding drawn from a set named the set and not the member. **Not retrospective** — observations stored before it carry no `detail` until their domain is re-scanned. |
 
 ## Active — substantially delivered
 
 | Change | Open | Done | What is left |
 |---|---:|---:|---|
-| `006-vantage-integration` | 2 | 69 | Phases 0–9 complete. What remains is close-out: demonstrating the exit criteria in a single run rather than as separately passing tests, and publishing the commits. Phase 9's gap analysis inverted the phase — the superseded code was not working code but a placeholder that reported its own failures as answers. **Rendering the four-state email posture is Change 017**; the engine distinguishes a gap from an outage and no view yet shows the difference. |
+| `006-vantage-integration` | 2 | 69 | Phases 0–9 complete. What remains is close-out: demonstrating the exit criteria in a single run rather than as separately passing tests, and publishing the commits. Phase 9's gap analysis inverted the phase — the superseded code was not working code but a placeholder that reported its own failures as answers. **Rendering the four-state email posture was Change 017, which has landed and is archived**; the engine distinguishes a gap from an outage, and the view now shows the difference. |
 | `016-deployment-parity` | 6 | 44 | Transport-parity assertion, the read-API authorisation model, cross-distribution documentation. Two items — a networked store and a cross-instance bus — are honestly labelled as what horizontal scaling would require, not as work in progress. |
 | `013-distribution-and-release` | 3 | 33 | Three verification steps, all needing a **clean machine and a real workflow run**. Nothing here can be verified from a development machine, which is why it is still open. |
 | `014-operator-dashboard` | 4 | 28 | Colour contrast in a real browser (jsdom cannot compute a ratio); attribution-refresh suppression, **now unblocked** — 006 Phase 8 landed it as `network_attribution`; two read-model checks. |
@@ -44,8 +45,7 @@ their reasoning rather than left to accumulate as phantom backlog.
 
 | Change | Open | Notes |
 |---|---:|---|
-| `017-email-posture-surface` | 21 | Renders what 006 Phase 9 produces. The posture is computed, persisted, served over both transports and read by nothing. Small, and the largest honesty gap currently open: the engine can tell a misconfiguration from an outage and the operator cannot. |
-| `018-schema-migration-durability` | 8 | 006 Phase 9 was the first change to alter an existing table, and found no mechanism for it. It added one. This hardens that mechanism — a version marker, a refusal to open a newer store, a test that a migrated shape equals a fresh one — before a second change assumes more of it than it does. |
+| `018-schema-migration-durability` | 8 | 006 Phase 9 was the first change to alter an existing table, and found no mechanism for it. It added one. This hardens that mechanism — a version marker, a refusal to open a newer store, a test that a migrated shape equals a fresh one — before a second change assumes more of it than it does. **017 has since been the second change to use it**, adding `signal_observations.detail`, so this is no longer hypothetical. |
 | `007-contact-probability` | 35 | The keystone: supplies P(contact). |
 | `008-risk-model-packs` | 25 | Versioned, signed, source-cited parameters. |
 | `009-exploit-probability-engine` | 44 | Absorbs the archived 002. |
