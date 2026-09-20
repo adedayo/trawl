@@ -98,9 +98,32 @@ depended on code that existed on one machine.
 - [x] Regression suppression for attribution changes caused by provider-data refresh, via `observation.SameBasis` — hosting tracked as posture attribute `network_attribution`; a change on an unchanged basis is raised, a change across a changed basis records a new baseline and raises nothing. The suppressed run still writes its snapshot, or the baseline would stay at the pre-refresh value and the next run would raise the same change — suppression that defers rather than suppresses
 
 ## Phase 9 — Supersede email-authentication internals
-- [ ] Route existing `email-authentication` requirements through the adapter
-- [ ] Gap analysis: any requirement vantage does not satisfy stays on the existing code path
-- [ ] Remove superseded DNS-lookup code only after the gap analysis is closed
+
+**Gap analysis is complete and is in `gap-analysis.md`.** It inverted the
+framing of this phase. The interim path does not satisfy four of its own six
+requirements: `+all` is never detected, DKIM probes one hard-coded selector,
+deterministic DMARC priority is literally `Priority: ""`, and BIMI, TLS-RPT and
+CAA are absent entirely. More seriously, `pkg/scanner/email.go` calls
+`net.LookupTXT` and builds its own `miekg/dns` clients, so it consults neither
+the scope guard nor the egress policy — an out-of-scope domain passed to
+`ScanAndSave` is queried today. This is not replacing working code; it is
+replacing a placeholder that reports its own failures as answers.
+
+Nothing is retained on the existing code path. Two upstream gaps had to close
+first, and both are now implemented in the vantage working tree:
+
+- [x] Gap analysis — `gap-analysis.md`, requirement by requirement against what both sides actually do
+- [x] **Upstream**: `observation.Email` carrying SPF, DKIM, DMARC and the adjacent records as data. The DMARC tags a deterministic priority must be a function of were reachable only as rendered prose and `ComputedEvidence` strings; deriving severity from those means a second parser that can disagree with the first, and when two parsers disagree one half of the system calls a domain protected while the other calls it exposed. `DMARC.Enforcing()` is false for `p=reject; pct=40`, because a policy applied to part of the mail is partial enforcement
+- [x] **Upstream**: `Request.DKIMSelectors`, so an operator who knows their own selectors gets a conclusive answer. Probing the common list and finding nothing establishes nothing — vantage already refused to say "no DKIM", and `DKIM.Conclusive()` now carries that distinction as data rather than as wording
+- [x] **Upstream**: the SPF observation shares the single include-graph evaluation, so the facts cost no additional queries — an assessment that doubled its own query count on upgrade is one an operator's egress policy might start refusing
+- [x] **Upstream**: `finding.SchemaVersion` 1.2 (additive), `docs/embedding.md`, `--dkim-selector`
+- [ ] **Blocked on a public tag**: vantage v1.5.0 pushed and tagged, then the pin bumped from the module proxy. The no-local-replace check stays in force; the pin does not move until the tag exists for everyone
+- [ ] Extend the adapter contract tests to the new surface (`observation.Email`, `Presence`, `DMARC.Enforcing`, `DKIM.Conclusive`), so an incompatible upstream change fails the build rather than a scan
+- [ ] Route `email-authentication` through the adapter, closing the scope-guard bypass
+- [ ] Widen `store.EmailPosture` to four states. `SPFValid`, `DKIMFound`, `MTAStsFound`, `DNSSECValid` and `DANEValid` are booleans derived from whether a string starts with `"error"`, so "the control is absent" and "we could not look" are the same value — the binary collapse Phase 5 forbids everywhere else, and for a CISO the difference between a gap and an outage
+- [ ] Deterministic severity from `observation.DMARC`, with the adjacent records tiered as a group in the signal registry — never elevated above an SPF/DKIM/DMARC finding on the same domain
+- [ ] DMARC policy drift as a posture attribute, following the `network_attribution` pattern from Phase 8, so `p=reject` → `p=none` is a raised transition with history rather than an overwrite
+- [ ] Remove `pkg/scanner/email.go` and `pkg/service/email_scanner.go` — last, and only once the above is in place
 
 ## Exit Criteria
 
