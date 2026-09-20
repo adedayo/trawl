@@ -310,6 +310,7 @@ func (svc *AssessmentService) Assess(
 		AssetID: assetID,
 		Domain:  domain,
 		Profile: string(vaudit.ProfileStandard),
+		Scope:   scope,
 	})
 
 	run := store.AssessmentRun{
@@ -358,6 +359,18 @@ func (svc *AssessmentService) recordRun(ctx context.Context, run store.Assessmen
 
 // persist writes observations and coverage to the store.
 func (svc *AssessmentService) persist(ctx context.Context, res vadapter.Result) error {
+	// Discovered names first. They are facts about the estate that stand
+	// independently of whether the rest of this result can be written, and
+	// recording them first means a later failure loses the assessment rather
+	// than the asset. Nothing is removed here: the inventory upserts, so a
+	// name a run did not disclose keeps its place, because a log falling
+	// silent is not evidence that a host was withdrawn.
+	for i := range res.Discovered {
+		if err := svc.store.SaveAsset(ctx, &res.Discovered[i]); err != nil {
+			return fmt.Errorf("assessment: recording %s discovered by certificate transparency: %w", res.Discovered[i].Value, err)
+		}
+	}
+
 	for i := range res.Coverage {
 		if err := svc.store.RecordAssessmentCoverage(ctx, &res.Coverage[i]); err != nil {
 			return fmt.Errorf("assessment: recording coverage for %s: %w", res.Coverage[i].CheckID, err)

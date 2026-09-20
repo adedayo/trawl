@@ -74,6 +74,20 @@ type Request struct {
 	// ExpectJurisdictions are the countries the operator declares their
 	// infrastructure should be in.
 	ExpectJurisdictions []string
+	// Scope is the authorisation names discovered during the assessment are
+	// admitted against.
+	//
+	// It is the same scope the transport enforces, supplied here because
+	// discovery writes as well as reads: a certificate names every identity
+	// on it, so enumeration surfaces hosts belonging to whoever else shares
+	// the certificate. Without this, those would enter the inventory, and the
+	// next scheduled run would assess somebody else's infrastructure — the
+	// guard defeated not by a query slipping past it, but by a name walking
+	// in through the front.
+	//
+	// A nil scope admits nothing, so a caller who omits it discovers nothing
+	// rather than everything.
+	Scope *Scope
 }
 
 // Result is an assessment translated into Trawl's types.
@@ -98,6 +112,19 @@ type Result struct {
 	// AttributionAttempted reports whether the network check ran and produced
 	// an observation at all.
 	AttributionAttempted bool
+	// Discovered are names certificate transparency disclosed, which resolve,
+	// and which lie inside the authorised scope. They are additions to the
+	// inventory, never replacements: an absent name is not evidence that
+	// anything was withdrawn.
+	Discovered []store.Asset
+	// DiscoveryUndetermined names hosts a log disclosed whose existence the
+	// resolver neither confirmed nor denied.
+	//
+	// They are carried rather than dropped because their absence from
+	// Discovered means nothing at all, and a reader who cannot see them would
+	// take the inventory for complete. The coverage reason names them too;
+	// this is the machine-readable form.
+	DiscoveryUndetermined []string
 	// LibraryVersion is the vantage build that produced the result.
 	LibraryVersion string
 	// Err carries the reason when Outcome is not completed or partial.
@@ -317,6 +344,16 @@ func (a *Adapter) translate(req Request, vres *vfinding.Result) Result {
 		// A check that could not load the provider ranges it attributes
 		// against has not concluded, whatever state it reported.
 		state, reason := attributionGap(coverageState(c.State), reasonFor(c.Check, vres.Errors), c.Observation)
+
+		// Certificate transparency discloses names; resolution settles which
+		// of them exist. Both the assets and the gap come from the same pass,
+		// so the coverage record and the inventory can never disagree about
+		// how much was established.
+		found, undetermined := discoveredHosts(req.Domain, c.Observation, req.Scope, now)
+		res.Discovered = append(res.Discovered, found...)
+		res.DiscoveryUndetermined = append(res.DiscoveryUndetermined, undetermined...)
+		state, reason = discoveryGap(state, reason, c.Observation, undetermined)
+
 		states[c.Check] = state
 
 		// An observation arriving at all is what licenses writing attribution
