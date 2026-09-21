@@ -135,7 +135,7 @@ func (cfg runtimeConfig) announce() {
 		cfg.platform, cfg.addr, cfg.scanMode, store.SchemeOf(cfg.dbDSN))
 
 	if cfg.token == "" {
-		log.Println("WARNING: TRAWL_AUTH_TOKEN is unset — mutating and ingest endpoints are unauthenticated")
+		log.Println("WARNING: TRAWL_AUTH_TOKEN is unset - mutating and ingest endpoints are unauthenticated")
 	}
 
 	if cfg.scanMode == scanInline {

@@ -339,7 +339,7 @@ export class EmailPostureComponent {
     if (p.predatesAssessment) {
       // Said before the count, because "0/7 controls assessed" invites the
       // wrong conclusion and the count is not the useful part here.
-      return 'assessed before this version of Trawl — rescan to see its posture';
+      return 'assessed before this version of Trawl - rescan to see its posture';
     }
     if (p.assessedControls === undefined || p.totalControls === undefined) {
       return 'control coverage not reported by this build';
@@ -499,7 +499,7 @@ export class EmailPostureComponent {
     if (c.reason) {
       parts.push(c.reason);
     }
-    return parts.join(' — ');
+    return parts.join(' - ');
   }
 
   /** True where the state owes the reader an explanation. */
@@ -608,7 +608,7 @@ export class EmailPostureComponent {
       const tail = significant > 0
         ? `${significant} at medium or above`
         : 'all low or informational';
-      parts.push(`${total} advisory(s) — ${tail}, over ${scope}`);
+      parts.push(`${total} advisory(s) - ${tail}, over ${scope}`);
     }
     return parts.join(' · ');
   }

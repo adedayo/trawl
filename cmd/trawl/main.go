@@ -30,7 +30,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		// fails to start still leaves its build identity in the logs.
 		// Diagnosing a crash-looping worker is materially harder when the only
 		// thing the log establishes is that something crashed.
-		log.Printf("Trawl %s — starting Cloud Continuous EASM Server...", version.Get())
+		log.Printf("Trawl %s - starting Cloud Continuous EASM Server...", version.Get())
 		runServer()
 		return 0
 
@@ -52,7 +52,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 }
 
 func usage(w io.Writer) {
-	fmt.Fprint(w, `trawl — continuous external attack surface monitoring
+	fmt.Fprint(w, `trawl - continuous external attack surface monitoring
 
 Usage:
   trawl server     Run the headless ingest server and job broker

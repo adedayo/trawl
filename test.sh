@@ -94,6 +94,13 @@ step "Dependencies — vulnerability gate"
 step "Specifications — ledger reconciliation"
 go run ./cmd/specledger --check
 
+# House style: em dashes are for the prose in this repository, not for the
+# product. They render unpredictably in terminals and in the plain-text half of
+# an email report, and they are awkward enough to type that they drift into
+# inconsistency. This checks only strings a user reads, never comments.
+step "Prose — em dashes in user-visible text"
+go run ./cmd/prosecheck
+
 # ─── Deployment ───────────────────────────────────────────────────────────────
 
 step "Compose — manifest validation"

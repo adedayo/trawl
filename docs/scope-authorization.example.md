@@ -1,4 +1,4 @@
-# Trawl — Self-Authorization & Scope Authorization Template
+# Trawl - Self-Authorization & Scope Authorization Template
 
 > **Notice to Operators**: This document is a generic template for documenting authorized security testing scope. Modify this template with your organisation's details and authorized assets before executing scans.
 

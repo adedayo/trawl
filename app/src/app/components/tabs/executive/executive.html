@@ -38,7 +38,7 @@
               ? (dark ? 'w-2 h-2 rounded-full bg-emerald-400' : 'w-2 h-2 rounded-full bg-emerald-500')
               : (dark ? 'w-2 h-2 rounded-full bg-amber-400' : 'w-2 h-2 rounded-full bg-amber-500')"></span>
           <span [class]="dark ? 'text-xs font-semibold text-slate-300' : 'text-xs font-semibold text-slate-700'">
-            {{ streamHealthy() ? 'Live' : 'Not live — reconnecting' }}
+            {{ streamHealthy() ? 'Live' : 'Not live - reconnecting' }}
           </span>
         </div>
         <span [class]="dark ? 'text-[11px] text-slate-500 font-mono' : 'text-[11px] text-slate-500 font-mono'">
@@ -141,7 +141,7 @@
       </p>
       <p [class]="dark ? 'text-sm text-slate-500 mt-2 max-w-md mx-auto' : 'text-sm text-slate-600 mt-2 max-w-md mx-auto'">
         Add a domain to the authorised scope and run a scan. Until then there is
-        nothing to report — which is not the same as nothing being wrong.
+        nothing to report - which is not the same as nothing being wrong.
       </p>
       <button type="button" (click)="goToScope()"
         [class]="dark
@@ -251,7 +251,7 @@
                 [class]="dark
                   ? 'text-[11px] px-2 py-1 rounded bg-amber-950/60 text-amber-300 border border-amber-900'
                   : 'text-[11px] px-2 py-1 rounded bg-amber-50 text-amber-800 border border-amber-200'"
-                [attr.title]="'Attempted but inconclusive — an assessment gap, not a clean result.'">
+                [attr.title]="'Attempted but inconclusive - an assessment gap, not a clean result.'">
                 {{ p.coverage.checkFailed }} could not tell
               </span>
             }
@@ -374,7 +374,7 @@
               Nothing has been assessed yet
             </p>
             <p [class]="dark ? 'text-xs text-slate-500 mt-1' : 'text-xs text-slate-600 mt-1'">
-              An empty list here means no scan has run — not that nothing is wrong.
+              An empty list here means no scan has run - not that nothing is wrong.
             </p>
           }
         </div>
@@ -417,7 +417,7 @@
                       <span [class]="dark
                         ? 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-950 text-rose-400 border border-rose-900'
                         : 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-50 text-rose-700 border border-rose-200'">
-                        Yes — KEV
+                        Yes - KEV
                       </span>
                     } @else {
                       <span [class]="dark ? 'text-[11px] text-slate-500' : 'text-[11px] text-slate-500'">
@@ -482,7 +482,7 @@
             @if (hasAssessed()) {
               Nothing tracked has degraded since the last check.
             } @else {
-              No baseline yet — a regression needs two assessments to exist.
+              No baseline yet - a regression needs two assessments to exist.
             }
           </p>
         </div>
@@ -525,7 +525,7 @@
         </h2>
         <p [class]="dark ? 'text-xs text-slate-400 mt-1 mb-5' : 'text-xs text-slate-600 mt-1 mb-5'">
           Checks that did not run, and why. These lower the coverage figure
-          above rather than being excluded from it — a narrower assessment is
+          above rather than being excluded from it - a narrower assessment is
           less assurance, not less to worry about.
         </p>
 
@@ -576,7 +576,7 @@
     <!-- ── Boundary note ────────────────────────────────────────────────── -->
     <p [class]="dark ? 'text-[11px] text-slate-600 text-center px-6' : 'text-[11px] text-slate-400 text-center px-6'">
       This view reports observed exposure only. It states no expected loss and no
-      probability of compromise — those require a calibrated model, and a number
+      probability of compromise - those require a calibrated model, and a number
       without one would be a guess wearing a decimal point.
     </p>
   }

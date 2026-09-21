@@ -8,7 +8,7 @@
       </h2>
       @if (progress(); as p) {
         <span [class]="dark ? 'text-[11px] font-mono text-sky-400' : 'text-[11px] font-mono text-sky-700'">
-          Assessing {{ p.domain }} — {{ p.check }} ({{ p.done }}/{{ p.total }})
+          Assessing {{ p.domain }} - {{ p.check }} ({{ p.done }}/{{ p.total }})
         </span>
       }
     </div>
@@ -437,7 +437,7 @@
           </p>
         } @else {
           <p [class]="dark ? 'text-[11px] text-amber-400' : 'text-[11px] text-amber-700'">
-            No advisory was raised, but not every check concluded — this is not evidence the control is in place.
+            No advisory was raised, but not every check concluded - this is not evidence the control is in place.
           </p>
         }
       </div>

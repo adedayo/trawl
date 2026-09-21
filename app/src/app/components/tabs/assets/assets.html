@@ -108,9 +108,9 @@
                       <div [class]="theme() === 'dark' ? 'font-mono text-[10px] text-slate-400 pl-4' : 'font-mono text-[10px] text-slate-500 pl-4'">
                         {{ row.address }}
                         @if (row.provider) {
-                          — {{ row.provider }}{{ row.region ? ' / ' + row.region : '' }}{{ row.jurisdiction ? ' / ' + row.jurisdiction : '' }}
+                          - {{ row.provider }}{{ row.region ? ' / ' + row.region : '' }}{{ row.jurisdiction ? ' / ' + row.jurisdiction : '' }}
                         } @else {
-                          <span [class]="theme() === 'dark' ? 'text-amber-400' : 'text-amber-700'">— matched no published range</span>
+                          <span [class]="theme() === 'dark' ? 'text-amber-400' : 'text-amber-700'">- matched no published range</span>
                         }
                       </div>
                     }

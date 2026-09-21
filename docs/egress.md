@@ -8,7 +8,7 @@ Every DNS and email assessment check states, as structured data, what it
 touches. This deployment's policy is expressed over those categories rather
 than over check names, so a check added in a future release is admitted only
 if everything it needs was already permitted. A check requiring anything else
-is withheld and recorded as `not_checked`, with the reason below — it does not
+is withheld and recorded as `not_checked`, with the reason below - it does not
 run and then get reported, and it does not run quietly.
 
 ## Categories of contact

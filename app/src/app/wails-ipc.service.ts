@@ -262,7 +262,7 @@ export class WailsIpcService {
       this.targetsDone++;
       if (this.pendingTargets > 0) {
         this.setScanStatus(
-          `Scanned ${this.targetsDone} of ${this.targetsTotal} — ${this.pendingTargets} still running…`
+          `Scanned ${this.targetsDone} of ${this.targetsTotal} - ${this.pendingTargets} still running…`
         );
       }
     }
@@ -473,7 +473,7 @@ export class WailsIpcService {
 
       if (this.pendingTargets > 0) {
         this.setScanStatus(
-          `Scanning ${this.pendingTargets} target(s) — waiting for results…`
+          `Scanning ${this.pendingTargets} target(s) - waiting for results…`
         );
         await this.awaitTargets(settled);
       }

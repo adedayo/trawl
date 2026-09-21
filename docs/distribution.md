@@ -26,13 +26,13 @@ is universal, so one download works on both Apple Silicon and Intel.
 Trawl is ad-hoc signed, not Developer ID signed. Apple only issues Developer ID
 certificates to members of its Developer Program, which costs $99 a year.
 Trawl is free software given away for the community's benefit, and it is not
-going to charge you — directly or indirectly — to fund a rent to Apple for
+going to charge you - directly or indirectly - to fund a rent to Apple for
 permission to do that. So on first launch macOS will say the app "cannot be
 opened because Apple cannot check it for malicious software."
 
 That message is about *provenance*, not about the file being damaged or
 dangerous. Apple has not checked it because we have not paid Apple to check it.
-Establish provenance yourself instead — this is stronger evidence than
+Establish provenance yourself instead - this is stronger evidence than
 notarisation, because it ties the artefact to the public build that produced
 it:
 
@@ -62,7 +62,7 @@ xattr -dr com.apple.quarantine /Applications/Trawl.app
 ### Windows
 
 Download `Trawl-windows-amd64-installer.exe` (or `-arm64-`) and run it. The
-installer is per-user and does not request administrator rights — Trawl writes
+installer is per-user and does not request administrator rights - Trawl writes
 only to your own profile, and a security tool that asks for elevation it does
 not need trains you to grant it to things that do.
 
@@ -82,7 +82,7 @@ certificate authority. See [Verifying a download](#verifying-a-download).
 
 | Format | Use when |
 |---|---|
-| `.deb` | Debian, Ubuntu and derivatives — declares its GTK/WebKit dependencies |
+| `.deb` | Debian, Ubuntu and derivatives - declares its GTK/WebKit dependencies |
 | `.rpm` | Fedora, RHEL, openSUSE |
 | `.AppImage` | Your distribution's WebKit is the wrong vintage, or you want no install at all |
 | `.tar.gz` | You want to unpack it somewhere and manage dependencies yourself |
@@ -118,7 +118,7 @@ go install github.com/adedayo/trawl/cmd/trawl@latest
 ```
 
 A `go install`-ed binary is not stamped by our release pipeline, but it still
-reports a real version — `pkg/version` falls back to the module version and
+reports a real version - `pkg/version` falls back to the module version and
 VCS stamp the Go toolchain embeds.
 
 ---
@@ -133,9 +133,9 @@ Two images, `linux/amd64` and `linux/arm64`:
 | `ghcr.io/adedayo/trawl-dashboard` | nginx serving the Angular bundle |
 
 Asset discovery and repository secret scanning run in-process inside the
-engine — discovery through embedded subfinder and vantage's
+engine - discovery through embedded subfinder and vantage's
 certificate-transparency expansion, secret scanning through checkmate as a
-linked library — so they are available to the desktop application and the
+linked library - so they are available to the desktop application and the
 server alike, rather than only to a Compose deployment.
 
 Port, HTTP and vulnerability scanning are not currently available. The worker
@@ -143,8 +143,8 @@ image that carried `naabu`, `httpx` and `nuclei` has been retired; linking
 those tools into the engine is planned. See `docs/development.md`.
 
 They are separate rather than one image with a mode flag because the roles have
-genuinely different dependencies — the server is a static Go binary, the scan
-worker carries a scanning toolchain — and collapsing them would mean every
+genuinely different dependencies - the server is a static Go binary, the scan
+worker carries a scanning toolchain - and collapsing them would mean every
 operator pulls the scanner to run the API.
 
 ```sh
@@ -167,7 +167,7 @@ OIDC identity.
 # Integrity
 sha256sum -c SHA256SUMS --ignore-missing
 
-# Provenance — proves this artefact was built by this workflow, in this repo
+# Provenance - proves this artefact was built by this workflow, in this repo
 cosign verify-blob \
   --certificate Trawl-macos-universal.dmg.pem \
   --signature   Trawl-macos-universal.dmg.sig \

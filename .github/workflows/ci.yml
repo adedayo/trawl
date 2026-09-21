@@ -93,6 +93,13 @@ jobs:
       - name: Specification ledger check
         run: go run ./cmd/specledger --check
 
+      # Checks only text a user reads - string literals, templates and the
+      # documents in docs/. Comments and openspec/ keep their own punctuation,
+      # because a check that flags a maintainer's prose is one people learn to
+      # ignore, and then it is not checking anything.
+      - name: User-visible prose check
+        run: go run ./cmd/prosecheck
+
   vulnerabilities:
     name: Dependency Vulnerability Gate
     runs-on: ubuntu-latest

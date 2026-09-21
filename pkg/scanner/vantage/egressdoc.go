@@ -44,7 +44,7 @@ func EgressDocumentation(caps vaudit.Capabilities, policy EgressPolicy) (string,
 	b.WriteString("touches. This deployment's policy is expressed over those categories rather\n")
 	b.WriteString("than over check names, so a check added in a future release is admitted only\n")
 	b.WriteString("if everything it needs was already permitted. A check requiring anything else\n")
-	b.WriteString("is withheld and recorded as `not_checked`, with the reason below — it does not\n")
+	b.WriteString("is withheld and recorded as `not_checked`, with the reason below - it does not\n")
 	b.WriteString("run and then get reported, and it does not run quietly.\n\n")
 
 	b.WriteString("## Categories of contact\n\n")
@@ -153,7 +153,7 @@ func yesNo(b bool) string {
 
 func orDash(s string) string {
 	if strings.TrimSpace(s) == "" {
-		return "—"
+		return "-"
 	}
 	return s
 }
