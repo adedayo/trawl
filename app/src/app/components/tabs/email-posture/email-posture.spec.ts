@@ -229,6 +229,39 @@ describe('EmailPosture', () => {
       expect(component.coverageLine(rowFor())).toContain('not reported');
     });
 
+    // A record from before the four-state widening reads as seven unassessed
+    // controls, which is indistinguishable from a domain nobody has reached
+    // and, at a glance, from a clean one. The remedy is a rescan rather than
+    // anything the operator must fix on the domain, so the view has to say
+    // which of the three it is looking at.
+    describe('records that predate the four-state posture', () => {
+      it('asks for a rescan instead of reporting nothing assessed', () => {
+        ipc.emailPostures.set([posture({ predatesAssessment: true, assessedControls: 0, totalControls: 7 })]);
+
+        expect(component.predatesAssessment(rowFor())).toBe(true);
+        expect(component.coverageLine(rowFor())).toContain('rescan');
+        expect(component.coverageLine(rowFor())).not.toContain('0/7');
+      });
+
+      it('renders the call to rescan', () => {
+        ipc.emailPostures.set([posture({ predatesAssessment: true, assessedControls: 0, totalControls: 7 })]);
+        fixture.detectChanges();
+
+        expect(fixture.nativeElement.textContent).toContain('rescan needed');
+      });
+
+      // A current record with genuinely low coverage must keep its figure. The
+      // two states have different remedies and must not be conflated.
+      it('leaves a current record with low coverage alone', () => {
+        ipc.emailPostures.set([posture({ assessedControls: 2, totalControls: 7 })]);
+        fixture.detectChanges();
+
+        expect(component.predatesAssessment(rowFor())).toBe(false);
+        expect(component.coverageLine(rowFor())).toBe('2/7 controls assessed');
+        expect(fixture.nativeElement.textContent).not.toContain('rescan needed');
+      });
+    });
+
     it('states coverage before any judgement on a collapsed row', () => {
       ipc.assessments.set([assessment([control('spf', 'compliant')], 'completed', 20, 18)]);
       ipc.emailPostures.set([posture({ assessedControls: 3 })]);

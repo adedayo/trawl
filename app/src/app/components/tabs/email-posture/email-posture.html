@@ -68,6 +68,19 @@
                 </span>
 
                 <!--
+                  A record written before the posture became four-state. It is
+                  called out rather than left to read as seven unassessed
+                  controls, which is indistinguishable from a domain nobody has
+                  reached and, at a glance, from a clean one. The remedy is a
+                  rescan, not a change to the domain, so the badge says so.
+                -->
+                @if (predatesAssessment(row)) {
+                  <span [class]="dark ? 'px-1.5 py-0.5 rounded border text-[10px] uppercase font-bold border-amber-500/40 bg-amber-500/10 text-amber-300' : 'px-1.5 py-0.5 rounded border text-[10px] uppercase font-bold border-amber-400 bg-amber-50 text-amber-700'">
+                    rescan needed
+                  </span>
+                }
+
+                <!--
                   The engine's rating, verbatim. A domain with no rating shows
                   none: an unassessed control has no severity, and inventing a
                   floor would let a resolver outage manufacture a finding.

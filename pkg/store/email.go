@@ -232,6 +232,45 @@ func (p EmailPosture) controls() []EmailControl {
 	return []EmailControl{p.SPF, p.DKIM, p.DMARC, p.MTASTS, p.TLSRPT, p.BIMI, p.CAA}
 }
 
+// PredatesAssessment reports a posture recorded before the four-state
+// assessment existed, which therefore carries no control states at all.
+//
+// Change 006 Phase 9 widened this record from a row of booleans to seven
+// four-state controls, and deliberately did not promote the old booleans:
+// reconstructing four states from two would have preserved exactly the
+// collapse the widening removed. The consequence is that every installation
+// upgraded across that boundary holds postures that read as wholly unassessed
+// until their domain is next scanned.
+//
+// That is true, and it is the right answer, but an interface showing seven
+// unassessed controls is indistinguishable from one showing a domain nobody
+// has got to yet — and both are indistinguishable, to a hurried reader, from a
+// clean result. This predicate is what lets a view say which it is: the row
+// was checked, at a time we can name, by a build whose answers we cannot
+// carry forward.
+//
+// The signature is a recorded check that left every control without any state
+// at all — not even check_failed. A posture written by the current engine
+// always records a state for each control, because recording that a check
+// could not be completed is itself one of the four. An unset state can
+// therefore only mean the row was written before there were states to set.
+//
+// Note that "no control was assessed" is the wrong test, and was the first one
+// written here: a domain whose every check failed — a resolver outage, say —
+// assesses nothing, and telling that operator their data predates an upgrade
+// would send them to rescan a domain that had just been scanned.
+func (p EmailPosture) PredatesAssessment() bool {
+	if p.LastChecked.IsZero() {
+		return false
+	}
+	for _, c := range p.controls() {
+		if c.State != "" {
+			return false
+		}
+	}
+	return true
+}
+
 // MarshalJSON serialises the posture together with its coverage.
 //
 // Assessed is a method, so it does not serialise, and a view showing "3 of 7
@@ -250,12 +289,14 @@ func (p EmailPosture) MarshalJSON() ([]byte, error) {
 	assessed, total := p.Assessed()
 	return json.Marshal(struct {
 		posture
-		AssessedControls int `json:"assessedControls"`
-		TotalControls    int `json:"totalControls"`
+		AssessedControls   int  `json:"assessedControls"`
+		TotalControls      int  `json:"totalControls"`
+		PredatesAssessment bool `json:"predatesAssessment,omitempty"`
 	}{
-		posture:          posture(p),
-		AssessedControls: assessed,
-		TotalControls:    total,
+		posture:            posture(p),
+		AssessedControls:   assessed,
+		TotalControls:      total,
+		PredatesAssessment: p.PredatesAssessment(),
 	})
 }
 

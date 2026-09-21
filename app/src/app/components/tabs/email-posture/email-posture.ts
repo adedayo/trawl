@@ -336,10 +336,26 @@ export class EmailPostureComponent {
     if (!p) {
       return 'no posture record';
     }
+    if (p.predatesAssessment) {
+      // Said before the count, because "0/7 controls assessed" invites the
+      // wrong conclusion and the count is not the useful part here.
+      return 'assessed before this version of Trawl — rescan to see its posture';
+    }
     if (p.assessedControls === undefined || p.totalControls === undefined) {
       return 'control coverage not reported by this build';
     }
     return `${p.assessedControls}/${p.totalControls} controls assessed`;
+  }
+
+  /**
+   * True when this record predates the four-state posture and needs a rescan
+   * rather than a remediation.
+   *
+   * Distinct from unassessed: the domain was checked, at a time we can name,
+   * by a build whose answers could not be carried forward.
+   */
+  predatesAssessment(row: DomainRow): boolean {
+    return row.posture?.predatesAssessment === true;
   }
 
   /** True when the record carries the engine's coverage figure. */

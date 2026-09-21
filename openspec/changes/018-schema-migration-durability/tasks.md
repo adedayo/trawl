@@ -19,41 +19,67 @@ change relies on it.
 
 ## Phase 1 — Record the shape
 
-- [ ] Set `PRAGMA user_version` to a constant the build declares, as part of
-      the same operation that changes the shape, so a partial migration cannot
-      leave a version claiming a shape the database does not have
-- [ ] Refuse to open a database whose recorded version exceeds the expected
-      one, naming both versions. A newer store opened by an older build is the
-      failure most likely to corrupt data quietly, because every individual
-      query still succeeds
-- [ ] The refusal is surfaced as an operator-legible message, not a failed
-      query. A store that will not open is the first thing a user sees
+- [x] `PRAGMA user_version` set to `schemaVersion` (1), inside the same
+      transaction as the shape change — `pkg/store/sqlite/db.go`. SQLite's DDL
+      is transactional, which is what makes this possible; on an engine where
+      it is not, the version would have to be written before the change and
+      repaired after. `TestMigrationRecordsTheSchemaVersion`
+- [x] A database whose recorded version exceeds the expected one is refused,
+      naming both — `ErrNewerSchema`, a distinct type so the caller can tell it
+      apart from an ordinary open failure. `TestADatabaseFromTheFutureIsRefused`
+      and `TestARefusedDatabaseIsNotWrittenTo`, the latter asserting the
+      refusal happens before anything is written, so refusing is not a side
+      effect of having already migrated
+- [x] The refusal reads as an operator message rather than a failed query:
+      it names the store format found and expected, says to upgrade Trawl, and
+      says what continuing would cost. Asserted on the message text, because a
+      store that will not open is the first thing a user sees
 
 ## Phase 2 — Guard the mechanism
 
-- [ ] A test asserting a database brought forward from an earlier shape has the
-      same schema as a fresh one. The existing tests assert the new columns
-      arrive; they do not assert nothing else differs, so a column added to the
-      `CREATE TABLE` block and forgotten in `addedColumns` passes today — which
-      is precisely the omission the mechanism exists to prevent
-- [ ] State the mechanism's limits in `db.go`: added columns only, no retype,
-      rename, drop, backfill, index or constraint change; no ordering, because
-      column additions commute and nothing else does. A convention that looks
-      like a framework suppresses the question it should provoke
-- [ ] Decide, and record here, whether a migration framework is warranted or
-      whether the additive registry plus a version marker is the right amount
-      of machinery for a single-file embedded store. Either answer is fine; an
-      unexamined one is not
+- [x] `TestAMigratedDatabaseHasTheSameShapeAsAFreshOne` compares a database
+      brought forward from `schemaAsShipped` against one created today, table
+      by table. The frozen literal is what makes it work: a test that derived
+      the old shape from the current one could only confirm that the migration
+      does what the migration does. **Verified by temporarily adding a column
+      to the CREATE TABLE block without an `addedColumns` entry — the test
+      failed, naming the column.** That omission passed before
+- [x] The mechanism's limits stated in `addColumns`'s doc comment: added
+      columns only; no retype, rename, drop, backfill, index or constraint
+      change; no ordering, because column additions commute and nothing else
+      does. Written as a question to the next reader rather than a note,
+      because a convention that resembles a framework suppresses the question
+- [x] **Decision: the additive registry plus the version marker is the right
+      amount of machinery** for a single-file embedded store shipping as one
+      binary. A framework buys ordering and down-migrations; ordering is
+      unnecessary while every change commutes, and down-migrations on a live
+      store are a restore-from-backup operation that should not be made to look
+      routine. Recorded in `db.go` next to the mechanism, with the instruction
+      to revisit when the first non-additive change arrives — and to revisit
+      rather than work around it
 
 ## Phase 3 — Disclose what did not carry forward
 
-- [ ] An upgraded installation states that its email postures predate the
-      current assessment and require a rescan, rather than showing an empty
-      view. An empty view is indistinguishable from a clean one, and a CISO
-      reading it concludes there is nothing to fix
-- [ ] Release note for the first release carrying 006 Phase 9, recording that
-      existing installations show no email posture until the first scan after
-      upgrade
+- [x] `EmailPosture.PredatesAssessment` identifies a posture written before the
+      widening, and the view says *assessed before this version of Trawl —
+      rescan to see its posture* instead of *0/7 controls assessed*. The
+      remedy is a rescan, not a change to the domain, and the badge says so —
+      `email-posture.html`, `email-posture.spec.ts` "records that predate the
+      four-state posture"
+- [x] The first predicate written here was wrong and a test caught it: *no
+      control assessed* also describes a domain whose every check failed in a
+      resolver outage, and telling that operator their data predates an upgrade
+      would send them to rescan a domain just scanned. The signature is an
+      unset state, not an unassessed one — the current engine always records
+      one of the four, including that a check could not be completed.
+      `TestAPostureWithAnyConclusionIsNotLegacy`
+- [x] Not added to `app/wailsjs/go/models.ts`: like `assessedControls` before
+      it, the flag is produced by `MarshalJSON` rather than by a struct field,
+      so the generator does not see it. Consistent with 017; noted here because
+      the absence otherwise looks like the drift that file has suffered before
+- [ ] Release note for the first release carrying this, recording that
+      installations upgraded across 006 Phase 9 show *rescan needed* against
+      every domain until their first scan after upgrade
 
 ## Exit Criteria
 

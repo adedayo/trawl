@@ -92,7 +92,48 @@ func trimScheme(dsn string) string {
 	return dsn
 }
 
+// schemaVersion is the shape this build expects, recorded in the database with
+// PRAGMA user_version.
+//
+// Raise it when the schema changes. Version 1 is the first version to be
+// recorded at all: databases written before this existed report 0, which is
+// indistinguishable from a database created moments ago and is why the
+// migration must remain safe to run against a store already at the current
+// shape.
+//
+// What the marker buys is the refusal below. Without it, a store written by a
+// newer build and opened by an older one is accepted silently — every
+// individual query still succeeds, because the columns the old build knows
+// about are all still there — and the damage is discovered later, if at all.
+const schemaVersion = 1
+
+// ErrNewerSchema reports a database written by a build newer than this one.
+//
+// This is a distinct type because the caller has to be able to tell it apart
+// from an ordinary open failure: a store that will not open is the first thing
+// a user sees, and "database is locked" and "this store was written by a newer
+// version of Trawl" call for entirely different actions.
+type ErrNewerSchema struct {
+	Found    int
+	Expected int
+}
+
+func (e *ErrNewerSchema) Error() string {
+	return fmt.Sprintf(
+		"this database was written by a newer version of Trawl (store format %d; this build understands %d). "+
+			"Upgrade Trawl to open it. Continuing with this build would write rows the newer format cannot interpret",
+		e.Found, e.Expected)
+}
+
 func (s *SQLiteStore) migrate(ctx context.Context) error {
+	found, err := s.userVersion(ctx)
+	if err != nil {
+		return err
+	}
+	if found > schemaVersion {
+		return &ErrNewerSchema{Found: found, Expected: schemaVersion}
+	}
+
 	schema := `
 	CREATE TABLE IF NOT EXISTS assets (
 		id TEXT PRIMARY KEY,
@@ -312,11 +353,38 @@ func (s *SQLiteStore) migrate(ctx context.Context) error {
 
 	`
 
-	if _, err := s.db.ExecContext(ctx, schema); err != nil {
+	// The shape and the version it claims are set together, so a migration
+	// that fails partway cannot leave the database asserting a shape it does
+	// not have. SQLite's DDL is transactional, which is what makes this
+	// possible; on an engine where it is not, the version would have to be
+	// written before the change and repaired afterwards.
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
 		return err
 	}
+	defer tx.Rollback()
 
-	return s.addColumns(ctx)
+	if _, err := tx.ExecContext(ctx, schema); err != nil {
+		return err
+	}
+	if err := addColumns(ctx, tx); err != nil {
+		return err
+	}
+	// PRAGMA user_version takes no bound parameter, so the value is
+	// interpolated. It is a constant in this file, not input.
+	if _, err := tx.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", schemaVersion)); err != nil {
+		return fmt.Errorf("recording schema version: %w", err)
+	}
+
+	return tx.Commit()
+}
+
+func (s *SQLiteStore) userVersion(ctx context.Context) (int, error) {
+	var version int
+	if err := s.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
+		return 0, fmt.Errorf("reading schema version: %w", err)
+	}
+	return version, nil
 }
 
 // addedColumns are columns introduced after their table first shipped.
@@ -343,14 +411,34 @@ var addedColumns = map[string]map[string]string{
 
 // addColumns brings an existing database up to the current shape.
 //
-// It is idempotent and additive only: nothing is dropped or retyped, so a
-// database opened by an older build still works. SQLite has no
-// ADD COLUMN IF NOT EXISTS, so the current columns are read first — an error
-// from the ALTER cannot be distinguished from a real failure by its text
-// without matching on a message SQLite is free to reword.
-func (s *SQLiteStore) addColumns(ctx context.Context) error {
+// # What this mechanism does, and what it does not
+//
+// It adds columns. That is the whole of it. It cannot retype, rename or drop a
+// column; it cannot backfill one; it cannot add or drop an index or change a
+// constraint; and it cannot migrate data between tables. It has no ordering,
+// because column additions commute and nothing else does.
+//
+// If your change is not a column addition, this will not carry it, and the
+// failure will not be here — it will be on a user's existing database, at run
+// time, long after the change looked finished. A convention that resembles a
+// framework is worse than no framework, because it suppresses the question.
+// Consider this the question.
+//
+// The recorded decision (Change 018) is that this, plus the version marker
+// above, is the right amount of machinery for a single-file embedded store
+// that ships as one binary. A full migration framework buys ordering and
+// down-migrations; ordering is unnecessary while every change commutes, and
+// down-migrations on a live store are a restore-from-backup operation that
+// should not be made to look routine. Revisit when the first non-additive
+// change arrives, and revisit it then rather than working around this.
+//
+// It is idempotent: SQLite has no ADD COLUMN IF NOT EXISTS, so the current
+// columns are read first. An error from the ALTER cannot be distinguished from
+// a real failure by its text without matching on a message SQLite is free to
+// reword.
+func addColumns(ctx context.Context, tx *sql.Tx) error {
 	for table, columns := range addedColumns {
-		existing, err := s.columnsOf(ctx, table)
+		existing, err := columnsOf(ctx, tx, table)
 		if err != nil {
 			return err
 		}
@@ -359,7 +447,7 @@ func (s *SQLiteStore) addColumns(ctx context.Context) error {
 				continue
 			}
 			stmt := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, name, decl)
-			if _, err := s.db.ExecContext(ctx, stmt); err != nil {
+			if _, err := tx.ExecContext(ctx, stmt); err != nil {
 				return fmt.Errorf("adding column %s.%s: %w", table, name, err)
 			}
 		}
@@ -367,8 +455,8 @@ func (s *SQLiteStore) addColumns(ctx context.Context) error {
 	return nil
 }
 
-func (s *SQLiteStore) columnsOf(ctx context.Context, table string) (map[string]bool, error) {
-	rows, err := s.db.QueryContext(ctx, fmt.Sprintf("PRAGMA table_info(%s)", table))
+func columnsOf(ctx context.Context, tx *sql.Tx, table string) (map[string]bool, error) {
+	rows, err := tx.QueryContext(ctx, fmt.Sprintf("PRAGMA table_info(%s)", table))
 	if err != nil {
 		return nil, fmt.Errorf("reading columns of %s: %w", table, err)
 	}

@@ -126,6 +126,27 @@ export interface EmailPostureUI {
    */
   assessedControls?: number;
   totalControls?: number;
+
+  /**
+   * True when this record was written before the posture became four-state,
+   * and therefore carries no control states at all.
+   *
+   * Change 006 Phase 9 widened the record and deliberately did not promote the
+   * old booleans, because reconstructing four states from two would have
+   * preserved exactly the collapse the widening removed. So an installation
+   * upgraded across that boundary holds domains that read as wholly unassessed
+   * until they are next scanned.
+   *
+   * That is true, and it is still misleading: seven unassessed controls look
+   * identical to a domain nobody has reached, and both look — to a hurried
+   * reader — like a clean result. The flag is what lets the view say which it
+   * is, and the remedy is a rescan rather than anything the operator must fix
+   * on the domain.
+   *
+   * Computed in Go by `EmailPosture.PredatesAssessment` and omitted entirely
+   * when false, so its presence is the signal.
+   */
+  predatesAssessment?: boolean;
 }
 
 /** The seven controls a posture carries, in the order an operator reasons about them. */
