@@ -29,7 +29,7 @@
         <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded-full bg-rose-950 text-rose-300 text-xs font-mono' : 'px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-xs font-mono'">{{ exposedServices().length }}</span>
       </div>
     </div>
-    <div [class]="theme() === 'dark' ? 'divide-y divide-slate-800/80' : 'divide-y divide-slate-100'">
+    <div [class]="theme() === 'dark' ? 'divide-y divide-slate-800/80 max-h-72 overflow-y-auto' : 'divide-y divide-slate-100 max-h-72 overflow-y-auto'">
       @for (exposure of exposedServices(); track exposure.assetId + exposure.service) {
         <div class="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
           <div>
@@ -45,21 +45,68 @@
   </div>
 
   <div [class]="theme() === 'dark' ? 'bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden shadow-xl' : 'bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm'">
-    <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800">
-      <h2 class="text-sm font-bold uppercase tracking-wider">Latest Service Evidence</h2>
-      <p class="text-xs text-slate-500 mt-1">The protocol evidence behind discovered exposures</p>
+    <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div>
+        <h2 class="text-sm font-bold uppercase tracking-wider">Latest Service Evidence</h2>
+        <p class="text-xs text-slate-500 mt-1">The protocol evidence behind discovered exposures</p>
+      </div>
+      <input type="search" [value]="serviceFilter()" (input)="serviceFilter.set($any($event.target).value)" placeholder="Filter host, service, port, issue…" aria-label="Filter service evidence" class="w-full md:w-72 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent text-xs font-mono outline-none focus:ring-2 focus:ring-cyan-500" />
     </div>
-    <div class="divide-y divide-slate-100 dark:divide-slate-800">
+    <div [class]="theme() === 'dark' ? 'max-h-[38rem] overflow-y-auto divide-y divide-slate-800' : 'max-h-[38rem] overflow-y-auto divide-y divide-slate-100'">
       @for (observation of recentServiceEvidence(); track observation.assetId + observation.host + observation.port + observation.observedAt) {
-        <div class="p-4 flex flex-col gap-1">
-          <div class="flex items-center justify-between gap-3">
-            <span class="text-sm font-semibold">{{ observation.service || observation.protocol }} · {{ observation.host }}:{{ observation.port }}</span>
-            <span class="text-xs font-mono text-emerald-600">{{ observation.layer }}</span>
+        <details class="group">
+          <summary class="list-none cursor-pointer p-5 hover:bg-slate-50 dark:hover:bg-slate-800/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500">
+            <div class="flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-sm font-semibold">{{ observation.service || observation.protocol }} · {{ observation.host }}:{{ observation.port }}</span>
+                  <span class="text-xs font-mono text-emerald-600">{{ observation.layer }}</span>
+                </div>
+                <div class="mt-2 flex items-center gap-2 flex-wrap text-[11px] font-mono">
+                  @if (evidenceHeadline(observation).issueCount > 0) {
+                    <span class="text-rose-600 dark:text-rose-300">{{ evidenceHeadline(observation).issueCount }} issue{{ evidenceHeadline(observation).issueCount === 1 ? '' : 's' }}</span>
+                  } @else {
+                    <span class="text-emerald-600 dark:text-emerald-400">No issues</span>
+                  }
+                  <span class="text-slate-400">·</span>
+                  <span class="text-emerald-600 dark:text-emerald-400">{{ evidenceHeadline(observation).goodCount }} fact{{ evidenceHeadline(observation).goodCount === 1 ? '' : 's' }}</span>
+                  <span class="text-slate-400">·</span>
+                  <span class="text-cyan-600 dark:text-cyan-300 font-semibold">View details</span>
+                </div>
+              </div>
+              <span class="flex-shrink-0 text-slate-400 group-open:rotate-90 transition-transform" aria-hidden="true">›</span>
+            </div>
+            <div class="mt-2 text-xs text-slate-600 dark:text-slate-300">{{ evidenceHeadline(observation).headline }}</div>
+          </summary>
+          <div class="px-5 pb-5 grid gap-4 md:grid-cols-3 text-xs">
+            <div>
+              <div class="mb-2 font-semibold uppercase tracking-wider text-slate-500">Facts</div>
+              <ul class="space-y-1 text-slate-600 dark:text-slate-300">
+                @for (fact of evidenceSummary(observation).facts; track fact) {
+                  <li class="flex gap-2"><span class="text-emerald-500">●</span><span>{{ fact }}</span></li>
+                }
+              </ul>
+            </div>
+            <div>
+              <div class="mb-2 font-semibold uppercase tracking-wider text-slate-500">Issues</div>
+              @if (evidenceSummary(observation).issues.length > 0) {
+                <ul class="space-y-1 text-rose-600 dark:text-rose-300">
+                  @for (issue of evidenceSummary(observation).issues; track issue) {
+                    <li class="flex gap-2"><span class="text-rose-500">!</span><span>{{ issue }}</span></li>
+                  }
+                </ul>
+              } @else {
+                <span class="text-emerald-600 dark:text-emerald-400">No immediate protocol issue detected.</span>
+              }
+            </div>
+            <div>
+              <div class="mb-2 font-semibold uppercase tracking-wider text-slate-500">Recommended action</div>
+              <p class="text-slate-600 dark:text-slate-300">{{ evidenceSummary(observation).recommendation }}</p>
+            </div>
           </div>
-          <div class="text-xs font-mono text-slate-500 break-all">{{ observation.evidence || 'No bounded evidence recorded' }}</div>
-        </div>
+        </details>
       } @empty {
-        <div class="p-6 text-sm text-slate-500">No responding service evidence recorded.</div>
+        <div class="p-6 text-sm text-slate-500">No matching service evidence recorded.</div>
       }
     </div>
   </div>
