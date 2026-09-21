@@ -93,6 +93,49 @@ jobs:
       - name: Specification ledger check
         run: go run ./cmd/specledger --check
 
+  vulnerabilities:
+    name: Dependency Vulnerability Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Both toolchains, in one job, because the question is about the whole
+    # dependency set and the answer differs by ecosystem: govulncheck asks what
+    # this program calls, npm asks what ends up in the bundle a user runs. Split
+    # across two jobs, neither can give the verdict.
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Install dependencies
+        run: npm ci && npm --prefix app ci
+
+      # Blocks only on vulnerabilities that reach shipped code — a called Go
+      # symbol or a package in the production bundle. Build-toolchain advisories
+      # and reachable-but-unfixable ones are printed and do not fail the job,
+      # for the reason the previous report-only step existed: a pipeline that
+      # goes red over something nobody can act on is one people stop reading.
+      #
+      # The same script backs the pre-push hook, so a contributor who never
+      # installed hooks gets the identical verdict here rather than a different
+      # one, and a developer is not told two different things about one tree.
+      - name: Vulnerability gate
+        run: ./scripts/check-vulns.sh
+
   validate:
     name: Build, Typecheck & Test
     runs-on: ubuntu-latest

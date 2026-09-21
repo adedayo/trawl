@@ -75,6 +75,13 @@ step "Full test suite"
 step "Packaging manifest validation"
 ./scripts/validate-packaging.sh
 
+# Stricter here than anywhere else. A build-toolchain advisory does not reach a
+# user through a released artefact, so it does not block a push — but a release
+# is the one moment the whole dependency set is being certified, and a tag is
+# the one thing in this process that cannot be taken back.
+step "Vulnerability gate (strict)"
+./scripts/check-vulns.sh --strict
+
 # ─── Version bump ───────────────────────────────────────────────────────────
 #
 # The stripped form is what package metadata wants: npm and Wails both reject

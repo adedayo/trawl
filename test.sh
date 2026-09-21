@@ -79,6 +79,12 @@ npm test
 step "Dependency gate — classifier tests"
 npm run test:classifier
 
+# The same check the pre-push hook runs. Having it here too means a dependency
+# that becomes vulnerable is reported by the ordinary development loop rather
+# than discovered at the moment of pushing, when the intent is to be finished.
+step "Dependencies — vulnerability gate"
+./scripts/check-vulns.sh
+
 # ─── Specifications ───────────────────────────────────────────────────────────
 
 # The ledger is this project's central argument, and it has twice been broken
