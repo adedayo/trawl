@@ -129,7 +129,7 @@ first, and both are now implemented in the vantage working tree:
 ## Phase 10 — Close-out
 
 - [ ] Demonstrate the exit criteria below **in a single run** against an authorised domain, from one compiled artefact, and record the evidence. Each clause is individually covered by a test today; the combined demonstration is what the criteria actually ask for, and a set of separately passing guarantees is not the same claim as one run in which all of them held together
-- [ ] Push the local commits. Vantage `main` and `v1.5.0` are published; Trawl's side of the integration exists on one machine, which is the same defect the no-local-`replace` rule exists to prevent — one repository away
+- [x] Push the local commits. Vantage `main` and `v1.5.0` are published; Trawl's side of the integration exists on one machine, which is the same defect the no-local-`replace` rule exists to prevent — one repository away. **Landed.** `go.mod` depends on `github.com/adedayo/vantage v1.6.1` by version with no `replace` directive, `origin/main` and `main` name the same commit, and `v0.2.0` and `v0.2.1` are both on the remote. The integration is now reproducible from a clone rather than from this machine
 
 ## Exit Criteria
 
