@@ -37,6 +37,7 @@ their reasoning rather than left to accumulate as phantom backlog.
 | Change | Open | Done | What is left |
 |---|---:|---:|---|
 | `022-spec-lifecycle-automation` | 8 | 15 | Phase 1 landed: `cmd/specledger` generates these counts and reports the structural failures this tree has actually suffered. What remains is promoting accepted requirements into `openspec/specs/`, so that what is in force can be read without reconstructing it from the changelog, and a requirement-shape check for the scenario rule `config.yaml` states and nothing enforces. |
+| `023-spartan-ui-adoption` | 14 | 6 | **Settles the oldest open decision in the project.** Adopted, not declined — the deciding factor is that focus management, `aria-*` wiring and focus trapping are what nobody hand-writes correctly, and 012's workbench will need overlays and data tables. Dependencies are installed and the suite is unchanged by them; no surface has been migrated yet. Sequence with 014's accessibility work or every surface's assertions get written twice. |
 | `006-vantage-integration` | 2 | 69 | Phases 0–9 complete. What remains is close-out: demonstrating the exit criteria in a single run rather than as separately passing tests, and publishing the commits. Phase 9's gap analysis inverted the phase — the superseded code was not working code but a placeholder that reported its own failures as answers. **Rendering the four-state email posture was Change 017, which has landed and is archived**; the engine distinguishes a gap from an outage, and the view now shows the difference. |
 | `016-deployment-parity` | 6 | 44 | Transport-parity assertion, the read-API authorisation model, cross-distribution documentation. Two items — a networked store and a cross-instance bus — are honestly labelled as what horizontal scaling would require, not as work in progress. |
 | `013-distribution-and-release` | 3 | 33 | Three verification steps, all needing a **clean machine and a real workflow run**. Nothing here can be verified from a development machine, which is why it is still open. |
@@ -84,7 +85,11 @@ accessibility coverage including colour contrast.
 `changes/`, so *proposed* versus *in force* depends on knowing which change
 shipped. The CI guard handles either layout, but the accepted requirements
 should eventually be promoted into a live spec tree, so that reading the
-requirements does not mean reading the changelog.
+requirements does not mean reading the changelog. **Now Change 022 Phase 2**,
+so this is a scheduled task rather than an open question.
+
+The spartan/ui question that stood here since 001 has been decided: **adopt**,
+under Change 023, with the reasoning and the accepted cost recorded there.
 
 ## Housekeeping note
 
