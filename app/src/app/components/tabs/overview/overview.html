@@ -17,6 +17,53 @@
     </div>
   }
 
+  <div [class]="theme() === 'dark' ? 'bg-slate-900/80 border border-rose-900/70 rounded-xl overflow-hidden shadow-xl' : 'bg-white border border-rose-200 rounded-xl overflow-hidden shadow-sm'">
+    <div [class]="theme() === 'dark' ? 'px-6 py-4 border-b border-rose-900/70 flex items-center justify-between bg-slate-900' : 'px-6 py-4 border-b border-rose-200 flex items-center justify-between bg-rose-50'">
+      <div>
+        <h2 [class]="theme() === 'dark' ? 'text-sm font-bold text-rose-200 uppercase tracking-wider' : 'text-sm font-bold text-rose-900 uppercase tracking-wider'">Currently Exposed Services</h2>
+        <p [class]="theme() === 'dark' ? 'text-xs text-slate-400 mt-1' : 'text-xs text-slate-600 mt-1'">Reachability evidence from the latest authorised probes</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="button" (click)="probeServices('most-common')" [disabled]="probing()" [class]="theme() === 'dark' ? 'px-3 py-1.5 rounded-lg bg-cyan-700 hover:bg-cyan-600 disabled:opacity-50 text-white text-xs font-semibold' : 'px-3 py-1.5 rounded-lg bg-cyan-700 hover:bg-cyan-800 disabled:opacity-50 text-white text-xs font-semibold'">Quick sweep</button>
+        <button type="button" (click)="probeServices('extended')" [disabled]="probing()" [class]="theme() === 'dark' ? 'px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800 disabled:opacity-50 text-slate-200 text-xs font-semibold' : 'px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100 disabled:opacity-50 text-slate-700 text-xs font-semibold'">Extended</button>
+        <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded-full bg-rose-950 text-rose-300 text-xs font-mono' : 'px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-xs font-mono'">{{ exposedServices().length }}</span>
+      </div>
+    </div>
+    <div [class]="theme() === 'dark' ? 'divide-y divide-slate-800/80' : 'divide-y divide-slate-100'">
+      @for (exposure of exposedServices(); track exposure.assetId + exposure.service) {
+        <div class="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+          <div>
+            <div [class]="theme() === 'dark' ? 'text-sm font-semibold text-white' : 'text-sm font-semibold text-slate-900'">{{ exposure.service }}</div>
+            <div [class]="theme() === 'dark' ? 'text-xs text-slate-400 font-mono' : 'text-xs text-slate-600 font-mono'">{{ exposure.assetId }}</div>
+          </div>
+          <div class="text-xs font-mono text-rose-500">Exposed · inferred {{ exposure.inferredDurationSeconds }}s</div>
+        </div>
+      } @empty {
+        <div [class]="theme() === 'dark' ? 'p-6 text-sm text-slate-400' : 'p-6 text-sm text-slate-600'">No currently exposed services recorded.</div>
+      }
+    </div>
+  </div>
+
+  <div [class]="theme() === 'dark' ? 'bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden shadow-xl' : 'bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm'">
+    <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+      <h2 class="text-sm font-bold uppercase tracking-wider">Latest Service Evidence</h2>
+      <p class="text-xs text-slate-500 mt-1">The protocol evidence behind discovered exposures</p>
+    </div>
+    <div class="divide-y divide-slate-100 dark:divide-slate-800">
+      @for (observation of recentServiceEvidence(); track observation.assetId + observation.host + observation.port + observation.observedAt) {
+        <div class="p-4 flex flex-col gap-1">
+          <div class="flex items-center justify-between gap-3">
+            <span class="text-sm font-semibold">{{ observation.service || observation.protocol }} · {{ observation.host }}:{{ observation.port }}</span>
+            <span class="text-xs font-mono text-emerald-600">{{ observation.layer }}</span>
+          </div>
+          <div class="text-xs font-mono text-slate-500 break-all">{{ observation.evidence || 'No bounded evidence recorded' }}</div>
+        </div>
+      } @empty {
+        <div class="p-6 text-sm text-slate-500">No responding service evidence recorded.</div>
+      }
+    </div>
+  </div>
+
   <!-- Top Vulnerabilities Section -->
   <div [class]="theme() === 'dark' ? 'bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden shadow-xl' : 'bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm'">
     <div [class]="theme() === 'dark' ? 'px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900' : 'px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50'">
@@ -32,7 +79,7 @@
         <div [class]="theme() === 'dark' ? 'p-6 hover:bg-slate-800/40 transition flex flex-col md:flex-row md:items-center justify-between gap-4' : 'p-6 hover:bg-slate-50 transition flex flex-col md:flex-row md:items-center justify-between gap-4'">
           <div class="space-y-2 flex-1">
             <div class="flex items-center space-x-3 flex-wrap gap-y-2">
-              
+
               <!-- Severity Badge -->
               @if (finding.severity === 'critical') {
                 <span class="px-2.5 py-0.5 rounded-md bg-rose-600 text-white text-xs font-mono font-bold uppercase">CRITICAL</span>
@@ -48,6 +95,7 @@
                   <span>CISA KEV EXPLOITED</span>
                 </span>
               }
+              <span class="text-[10px] font-mono text-slate-500">KEV checked: {{ catalogueDate(finding, 'cisa-kev') }}</span>
 
               <!-- CVE Tag -->
               <span [class]="theme() === 'dark' ? 'text-xs font-mono font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-2 py-0.5 rounded' : 'text-xs font-mono font-bold text-cyan-800 bg-cyan-50 border border-cyan-200 px-2 py-0.5 rounded'">{{ finding.cveId }}</span>
@@ -80,6 +128,7 @@
             <div>
               <div [class]="theme() === 'dark' ? 'text-[10px] text-slate-400 uppercase font-mono' : 'text-[10px] text-slate-500 uppercase font-mono'">EPSS Score</div>
               <div [class]="theme() === 'dark' ? 'text-sm font-extrabold text-cyan-400 font-mono' : 'text-sm font-extrabold text-cyan-700 font-mono'">{{ (finding.epssScore * 100).toFixed(1) }}%</div>
+              <div class="text-[10px] text-slate-500 font-mono">EPSS checked: {{ catalogueDate(finding, 'epss') }}</div>
             </div>
           </div>
         </div>

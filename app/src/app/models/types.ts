@@ -26,6 +26,18 @@ export interface FindingUI {
     remediation: string;
   };
   detectedAt: string;
+  enrichments?: FindingEnrichmentUI[];
+}
+
+export interface FindingEnrichmentUI {
+  feed: 'cisa-kev' | 'epss' | 'nvd' | string;
+  state: 'ok' | 'not_found' | 'not_checked' | 'check_failed' | string;
+  snapshotId?: string;
+  snapshot?: {
+    id: string;
+    retrievedAt: string;
+    sourceUrl: string;
+  };
 }
 
 /**
@@ -291,6 +303,35 @@ export interface AttributionProvenance {
   fetchedAt: string;
 }
 
+export interface ServiceExposure {
+  assetId: string;
+  service: string;
+  firstObserved: string;
+  lastObserved: string;
+  stillExposed: boolean;
+  leftCensored: boolean;
+  observedDurationSeconds: number;
+  inferredDurationSeconds: number;
+  blindDurationSeconds: number;
+  expectedBlindSeconds: number;
+  worstBlindSeconds: number;
+}
+
+export interface ServiceObservation {
+  assetId: string;
+  host: string;
+  port: number;
+  service: string;
+  transport: string;
+  protocol: string;
+  layer: string;
+  state: string;
+  coverage: CoverageState;
+  evidence?: string;
+  profile: string;
+  observedAt: string;
+}
+
 export interface DomainAssessment {
   assetId: string;
   domain: string;
@@ -303,6 +344,8 @@ export interface DomainAssessment {
   unmapped: SignalView[];
   attribution: AssetAttribution[];
   attributionProvenance: AttributionProvenance[];
+  serviceExposures?: ServiceExposure[];
+  serviceObservations?: ServiceObservation[];
   registryVersion: string;
   libraryVersion: string;
   assessedAt?: string;

@@ -46,6 +46,10 @@ export function GetVersion() {
   return window['go']['main']['App']['GetVersion']();
 }
 
+export function ProbeDiscoveredServices(arg1) {
+  return window['go']['main']['App']['ProbeDiscoveredServices'](arg1);
+}
+
 export function RemoveAsset(arg1) {
   return window['go']['main']['App']['RemoveAsset'](arg1);
 }

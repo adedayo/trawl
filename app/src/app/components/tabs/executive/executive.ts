@@ -91,7 +91,13 @@ export class ExecutiveComponent {
 
   readonly activeAssets = computed(() => this.assets().filter(a => a.status === 'active').length);
 
-  readonly kevCount = computed(() => this.ranked().filter(r => r.kev).length);
+  readonly kevCount = computed(() => this.findings().filter(finding =>
+    finding.enrichments?.some((item: any) => item.feed === 'cisa-kev' && item.state === 'ok' && item.kevListed === true)
+  ).length);
+
+  readonly kevSnapshot = computed(() => this.findings()
+    .flatMap(finding => finding.enrichments ?? [])
+    .find((item: any) => item.feed === 'cisa-kev' && item.snapshot)?.snapshot ?? null);
 
   readonly verifiedSecrets = computed(() => this.secretFindings().filter(s => s.verified).length);
 

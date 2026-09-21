@@ -3,16 +3,35 @@ package service_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
 
+	vobs "github.com/adedayo/vantage/pkg/observation"
+	vprobe "github.com/adedayo/vantage/pkg/probe"
+
 	"github.com/adedayo/trawl/config/signals"
 	"github.com/adedayo/trawl/pkg/event"
+	vadapter "github.com/adedayo/trawl/pkg/scanner/vantage"
 	"github.com/adedayo/trawl/pkg/service"
 	"github.com/adedayo/trawl/pkg/store"
 	"github.com/adedayo/trawl/pkg/store/sqlite"
 )
+
+type serviceProberStub struct {
+	observations []vobs.ServiceObservation
+}
+
+func (s serviceProberStub) Probe(context.Context, vprobe.Request) vobs.ServiceObservation {
+	return vobs.ServiceObservation{State: vobs.ServiceUnknown}
+}
+
+func (s serviceProberStub) ProbeMany(context.Context, []vprobe.Request) []vobs.ServiceObservation {
+	return s.observations
+}
+
+var _ vprobe.Prober = serviceProberStub{}
 
 // newAssessmentService wires the service against a real store rather than a
 // stub. The behaviour under test is a join across four tables, and a stub that
@@ -52,6 +71,98 @@ func seedAsset(t *testing.T, s store.Store, ctx context.Context, id, domain stri
 		LastSeen:        time.Now(),
 	}); err != nil {
 		t.Fatalf("Failed to seed asset %s: %v", id, err)
+	}
+}
+
+func TestProbeServicesPersistsVantageObservation(t *testing.T) {
+	svc, s, ctx := newAssessmentService(t)
+	seedAsset(t, s, ctx, "asset-1", "example.com")
+
+	when := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
+	_, err := svc.ProbeServices(ctx, serviceProberStub{observations: []vobs.ServiceObservation{{
+		Host: "example.com", Port: 443, Service: "https", Transport: "tcp",
+		Protocol: "https", Layer: vobs.ServiceLayerHTTP, State: vobs.ServiceResponding,
+		ProbeProfile: "custom", ObservedAt: when,
+	}}}, vadapter.ServiceRequest{
+		AssetID: "asset-1", Host: "example.com", Profile: vprobe.DiscoveryCustom,
+		Custom: []vprobe.Request{{Target: vprobe.Target{Host: "example.com", Port: 443, Service: "https", Protocol: "https"}, Layer: vobs.ServiceLayerHTTP}},
+	})
+	if err != nil {
+		t.Fatalf("ProbeServices: %v", err)
+	}
+
+	observations, err := s.GetServiceObservations(ctx, "asset-1")
+	if err != nil || len(observations) != 1 {
+		t.Fatalf("stored observations = %+v, err = %v", observations, err)
+	}
+	if observations[0].Service != "https" || observations[0].Coverage != store.CoverageOK || !observations[0].ObservedAt.Equal(when) {
+		t.Fatalf("stored observation = %+v", observations[0])
+	}
+}
+
+func TestServiceExposureHistoryKeepsUnknownIntervalsOpen(t *testing.T) {
+	svc, s, ctx := newAssessmentService(t)
+	seedAsset(t, s, ctx, "asset-1", "example.com")
+	start := time.Date(2026, 9, 21, 8, 0, 0, 0, time.UTC)
+	for i, observation := range []store.ServiceObservation{
+		{State: "responding", Coverage: store.CoverageOK},
+		{State: "unknown", Coverage: store.CoverageCheckFailed},
+		{State: "not_responding", Coverage: store.CoverageOK},
+	} {
+		observation.ID = fmt.Sprintf("service-%d", i)
+		observation.AssetID = "asset-1"
+		observation.Host = "example.com"
+		observation.Port = 443
+		observation.Service = "https"
+		observation.Layer = "http"
+		observation.ObservedAt = start.Add(time.Duration(i) * 24 * time.Hour)
+		if err := s.SaveServiceObservation(ctx, &observation); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := svc.UpdateServiceExposureHistory(ctx, "asset-1", start.Add(2*24*time.Hour), 24*time.Hour); err != nil {
+		t.Fatal(err)
+	}
+	history, err := s.GetExposureHistory(ctx, "asset-1")
+	if err != nil || len(history) != 1 {
+		t.Fatalf("history = %+v, err = %v", history, err)
+	}
+	if history[0].StillExposed || history[0].InferredDurationSeconds != 172800 {
+		t.Fatalf("unknown interval was mishandled: %+v", history[0])
+	}
+}
+
+func TestServiceFindingResolvesAfterServiceCloses(t *testing.T) {
+	svc, s, ctx := newAssessmentService(t)
+	seedAsset(t, s, ctx, "asset-1", "example.com")
+	when := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
+	openObservation := vobs.ServiceObservation{
+		Host: "example.com", Port: 443, Service: "https", Protocol: "https",
+		Layer: vobs.ServiceLayerHTTP, State: vobs.ServiceResponding,
+		ProbeProfile: "custom", ObservedAt: when,
+	}
+	if _, err := svc.ProbeServices(ctx, serviceProberStub{observations: []vobs.ServiceObservation{openObservation}}, vadapter.ServiceRequest{
+		AssetID: "asset-1", Host: "example.com", Profile: vprobe.DiscoveryCustom,
+		Custom: []vprobe.Request{{Target: vprobe.Target{Host: "example.com", Port: 443, Service: "https", Protocol: "https"}, Layer: vobs.ServiceLayerHTTP}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	closedObservation := openObservation
+	closedObservation.State = vobs.ServiceNotResponding
+	if _, err := svc.ProbeServices(ctx, serviceProberStub{observations: []vobs.ServiceObservation{closedObservation}}, vadapter.ServiceRequest{
+		AssetID: "asset-1", Host: "example.com", Profile: vprobe.DiscoveryCustom,
+		Custom: []vprobe.Request{{Target: vprobe.Target{Host: "example.com", Port: 443, Service: "https", Protocol: "https"}, Layer: vobs.ServiceLayerHTTP}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	findings, err := s.GetFindings(ctx, "asset-1")
+	if err != nil || len(findings) == 0 {
+		t.Fatalf("findings = %+v, err = %v", findings, err)
+	}
+	for _, finding := range findings {
+		if finding.Category == "service-exposure" && finding.Status != store.FindingResolved {
+			t.Fatalf("service finding status = %q, want resolved", finding.Status)
+		}
 	}
 }
 

@@ -26,6 +26,8 @@ export function GetSetting(arg1:string):Promise<string>;
 
 export function GetVersion():Promise<version.Info>;
 
+export function ProbeDiscoveredServices(arg1:string):Promise<void>;
+
 export function RemoveAsset(arg1:string):Promise<void>;
 
 export function SaveSetting(arg1:string,arg2:string):Promise<void>;

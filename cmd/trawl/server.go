@@ -19,6 +19,7 @@ import (
 	"github.com/adedayo/trawl/pkg/service"
 	"github.com/adedayo/trawl/pkg/store"
 	"github.com/adedayo/trawl/pkg/version"
+	vprobe "github.com/adedayo/vantage/pkg/probe"
 )
 
 // maxBodyBytes bounds ingest payloads. Scan output is large but not unbounded.
@@ -163,6 +164,7 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/assessments", s.handleGetAssessments)
 	mux.HandleFunc("GET /api/v1/assessments/{domain}", s.handleGetAssessment)
 	mux.HandleFunc("POST /api/v1/assessments/{domain}", s.authed(s.handleAssessDomain))
+	mux.HandleFunc("POST /api/v1/service-probes", s.authed(s.handleProbeDiscoveredServices))
 
 	// Scope, settings and scan control. These mutate, so they are authed even
 	// though the read API is not: an unauthenticated caller must not be able
@@ -340,6 +342,25 @@ func (s *server) handleAssessDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, view)
+}
+
+func (s *server) handleProbeDiscoveredServices(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Profile string `json:"profile"`
+	}
+	if err := decodeJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	profile := vprobe.DiscoveryProfile(request.Profile)
+	if profile == "" {
+		profile = vprobe.DiscoveryMostCommon
+	}
+	if err := s.core.ProbeDiscoveredServices(r.Context(), profile); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"profile": string(profile), "status": "completed"})
 }
 
 // ─── Scope, settings and scan control ────────────────────────────────────────

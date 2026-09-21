@@ -20,9 +20,12 @@ import (
 	"sync"
 
 	"github.com/adedayo/trawl/pkg/event"
+	"github.com/adedayo/trawl/pkg/feed"
 	"github.com/adedayo/trawl/pkg/scanner"
+	vadapter "github.com/adedayo/trawl/pkg/scanner/vantage"
 	"github.com/adedayo/trawl/pkg/service"
 	"github.com/adedayo/trawl/pkg/store"
+	vprobe "github.com/adedayo/vantage/pkg/probe"
 )
 
 // ScopeSettingsKey is the settings key under which the authorisation record is
@@ -83,6 +86,7 @@ type Core struct {
 	secretScanner  *scanner.SecretScanner
 	emailScanner   *service.EmailScannerService
 	assessment     *service.AssessmentService
+	feedIngest     *service.FeedIngestService
 }
 
 // New builds the application layer.
@@ -101,6 +105,7 @@ func New(s store.Store, bus event.Bus, registryJSON []byte) (*Core, error) {
 		secretScanner:  scanner.NewSecretScanner(s, bus),
 		emailScanner:   service.NewEmailScannerService(s),
 		assessment:     assessment,
+		feedIngest:     service.NewFeedIngestService(s),
 	}, nil
 }
 
@@ -132,6 +137,17 @@ func (c *Core) SecretFindings(ctx context.Context, repoURL string) ([]store.Secr
 
 func (c *Core) Regressions(ctx context.Context) ([]store.Regression, error) {
 	return c.store.GetRegressions(ctx)
+}
+
+// ApplyFeedSnapshot applies a complete catalogue without starting an asset
+// scan. The caller supplies the threshold because it is deployment policy,
+// not a probability-affecting constant embedded in the engine.
+func (c *Core) ApplyFeedSnapshot(ctx context.Context, snapshot *feed.Snapshot, epssThreshold float64) ([]store.Regression, error) {
+	return c.feedIngest.ApplySnapshot(ctx, snapshot, epssThreshold)
+}
+
+func (c *Core) LatestFeedSnapshot(ctx context.Context, feedName string) (*store.FeedSnapshot, error) {
+	return c.store.GetLatestFeedSnapshot(ctx, feedName)
 }
 
 // RemoveAsset deletes an asset and everything recorded against it.
@@ -258,12 +274,117 @@ func (c *Core) AssessDomain(ctx context.Context, domain string) (service.DomainA
 	return c.assessment.Assess(ctx, domain, scope.SeedDomainsList, scope.ConsentedEndpoints)
 }
 
+// ProbeDiscoveredServices runs a bounded ranked service pass against the
+// currently tracked in-scope domain and subdomain assets. It is separate from
+// DNS assessment because reachability is exposure evidence, not a control
+// finding or attacker-contact signal.
+func (c *Core) ProbeDiscoveredServices(ctx context.Context, profile vprobe.DiscoveryProfile) error {
+	scope := c.Scope(ctx)
+	if !scope.Authorised() {
+		return fmt.Errorf("service probe: no signed authorisation is on record")
+	}
+	assets, err := c.store.GetAssets(ctx, store.AssetStatusActive)
+	if err != nil {
+		return fmt.Errorf("service probe: listing assets: %w", err)
+	}
+	if profile == "" {
+		profile = vprobe.DiscoveryMostCommon
+	}
+	guard := vadapter.NewScope(scope.SeedDomainsList, scope.ConsentedEndpoints)
+	prober := &vprobe.ServiceProber{Profile: vprobe.Profile{
+		Name: "declared-services", MaxConcurrency: 8, MaxProbes: 100,
+		Allow: func(target vprobe.Target) error {
+			if guard.PermitsTarget(target.Host) {
+				return nil
+			}
+			return fmt.Errorf("%q is outside the authorised scope", target.Host)
+		},
+	}}
+	sem := make(chan struct{}, 4)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var failures []error
+	targets := make([]store.Asset, 0, len(assets))
+	for _, asset := range assets {
+		if asset.Type != store.AssetTypeDomain && asset.Type != store.AssetTypeSubdomain {
+			continue
+		}
+		if !guard.PermitsTarget(asset.Value) {
+			continue
+		}
+		targets = append(targets, asset)
+	}
+	total := len(targets)
+	c.bus.Publish(ctx, event.Event{Type: event.EventScanProgress, Payload: ServiceProbeProgress{
+		Phase: "service-probe-started", Profile: string(profile), Total: total,
+	}})
+	completed := 0
+	for _, asset := range targets {
+		asset := asset
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-ctx.Done():
+				return
+			}
+			observations, err := c.assessment.ProbeServices(ctx, prober, vadapter.ServiceRequest{
+				AssetID: asset.ID, Host: asset.Value, Profile: profile,
+			})
+			exposed := 0
+			for _, observation := range observations {
+				if observation.State == "responding" {
+					exposed++
+				}
+			}
+			mu.Lock()
+			completed++
+			progress := ServiceProbeProgress{
+				Phase: "service-probe-progress", Profile: string(profile),
+				AssetID: asset.ID, Host: asset.Value, Completed: completed,
+				Total: total, Observations: len(observations), Exposed: exposed,
+			}
+			if err != nil {
+				failures = append(failures, fmt.Errorf("%s: %w", asset.Value, err))
+				progress.Error = err.Error()
+			}
+			mu.Unlock()
+			c.bus.Publish(ctx, event.Event{Type: event.EventScanProgress, Payload: progress})
+		}()
+	}
+	wg.Wait()
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if len(failures) > 0 {
+		return fmt.Errorf("service probe: %d assets failed (first: %w)", len(failures), failures[0])
+	}
+	return nil
+}
+
 // ─── Orchestration ───────────────────────────────────────────────────────────
 
 // ScanRequest is one run across the capabilities the operator asked for.
 type ScanRequest struct {
 	Domain  string `json:"domain"`
 	RepoURL string `json:"repoUrl"`
+}
+
+// ServiceProbeProgress is emitted as each asset completes its parallel
+// service-probe pass, so transports can show progress before the full sweep
+// has finished.
+type ServiceProbeProgress struct {
+	Phase        string `json:"phase"`
+	Profile      string `json:"profile"`
+	AssetID      string `json:"assetId"`
+	Host         string `json:"host"`
+	Completed    int    `json:"completed"`
+	Total        int    `json:"total"`
+	Observations int    `json:"observations"`
+	Exposed      int    `json:"exposed"`
+	Error        string `json:"error,omitempty"`
 }
 
 // RunScan performs discovery, assessment and secret scanning concurrently and
@@ -295,6 +416,9 @@ func (c *Core) RunScan(ctx context.Context, req ScanRequest) error {
 			defer wg.Done()
 			if err := c.networkScanner.DiscoverSubdomains(ctx, req.Domain); err != nil {
 				record(fmt.Errorf("discovery: %w", err))
+			}
+			if err := c.ProbeDiscoveredServices(ctx, vprobe.DiscoveryMostCommon); err != nil {
+				record(fmt.Errorf("service exposure: %w", err))
 			}
 		}()
 

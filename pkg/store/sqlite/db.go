@@ -105,7 +105,7 @@ func trimScheme(dsn string) string {
 // newer build and opened by an older one is accepted silently — every
 // individual query still succeeds, because the columns the old build knows
 // about are all still there — and the damage is discovered later, if at all.
-const schemaVersion = 1
+const schemaVersion = 5
 
 // ErrNewerSchema reports a database written by a build newer than this one.
 //
@@ -157,6 +157,7 @@ func (s *SQLiteStore) migrate(ctx context.Context) error {
 		cve TEXT,
 		epss REAL,
 		kev_listed INTEGER DEFAULT 0,
+		status TEXT NOT NULL DEFAULT 'open',
 		category TEXT NOT NULL,
 		proof TEXT,
 		ai_annotation TEXT,
@@ -164,6 +165,38 @@ func (s *SQLiteStore) migrate(ctx context.Context) error {
 		last_seen DATETIME NOT NULL,
 		FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE
 	);
+
+	CREATE TABLE IF NOT EXISTS feed_snapshots (
+		id TEXT PRIMARY KEY,
+		feed TEXT NOT NULL,
+		source_url TEXT NOT NULL,
+		retrieved_at DATETIME NOT NULL,
+		content_digest TEXT NOT NULL,
+		record_count INTEGER NOT NULL
+	);
+
+	CREATE TABLE IF NOT EXISTS finding_enrichments (
+		finding_id TEXT NOT NULL,
+		feed TEXT NOT NULL,
+		cve TEXT NOT NULL,
+		state TEXT NOT NULL,
+		snapshot_id TEXT,
+		epss REAL,
+		kev_listed INTEGER,
+		checked_at DATETIME,
+		PRIMARY KEY(finding_id, feed),
+		FOREIGN KEY(finding_id) REFERENCES findings(id) ON DELETE CASCADE,
+		FOREIGN KEY(snapshot_id) REFERENCES feed_snapshots(id)
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_finding_enrichments_cve ON finding_enrichments(cve);
+
+	INSERT OR IGNORE INTO finding_enrichments (finding_id, feed, cve, state)
+	SELECT id, 'cisa-kev', COALESCE(cve, ''), 'not_checked' FROM findings;
+	INSERT OR IGNORE INTO finding_enrichments (finding_id, feed, cve, state)
+	SELECT id, 'epss', COALESCE(cve, ''), 'not_checked' FROM findings;
+	INSERT OR IGNORE INTO finding_enrichments (finding_id, feed, cve, state)
+	SELECT id, 'nvd', COALESCE(cve, ''), 'not_checked' FROM findings;
 
 	CREATE TABLE IF NOT EXISTS secret_findings (
 		id TEXT PRIMARY KEY,
@@ -188,6 +221,24 @@ func (s *SQLiteStore) migrate(ctx context.Context) error {
 		observed_at DATETIME NOT NULL,
 		FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE
 	);
+
+	CREATE TABLE IF NOT EXISTS asset_exposure_history (
+		asset_id TEXT NOT NULL,
+		service TEXT NOT NULL,
+		first_observed DATETIME NOT NULL,
+		last_observed DATETIME NOT NULL,
+		still_exposed INTEGER NOT NULL,
+		left_censored INTEGER NOT NULL,
+		observed_duration_seconds INTEGER NOT NULL,
+		inferred_duration_seconds INTEGER NOT NULL,
+		blind_duration_seconds INTEGER NOT NULL,
+		expected_blind_seconds INTEGER NOT NULL,
+		worst_blind_seconds INTEGER NOT NULL,
+		PRIMARY KEY(asset_id, service),
+		FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_exposure_history_service ON asset_exposure_history(service);
 
 	CREATE TABLE IF NOT EXISTS regressions (
 		id TEXT PRIMARY KEY,
@@ -267,6 +318,24 @@ func (s *SQLiteStore) migrate(ctx context.Context) error {
 		UNIQUE(asset_id, signal_id),
 		FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE
 	);
+	CREATE TABLE IF NOT EXISTS findings (
+		id TEXT PRIMARY KEY,
+		asset_id TEXT NOT NULL,
+		title TEXT NOT NULL,
+		description TEXT,
+		severity TEXT NOT NULL,
+		priority TEXT NOT NULL,
+		cve TEXT,
+		epss REAL,
+		kev_listed INTEGER DEFAULT 0,
+		status TEXT NOT NULL DEFAULT 'open',
+		category TEXT NOT NULL,
+		proof TEXT,
+		ai_annotation TEXT,
+		first_seen DATETIME NOT NULL,
+		last_seen DATETIME NOT NULL,
+		FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE
+	);
 
 	CREATE INDEX IF NOT EXISTS idx_signal_obs_asset ON signal_observations(asset_id, state);
 
@@ -326,6 +395,27 @@ func (s *SQLiteStore) migrate(ctx context.Context) error {
 	);
 
 	CREATE INDEX IF NOT EXISTS idx_attribution_provider ON asset_attribution(provider);
+
+	CREATE TABLE IF NOT EXISTS service_observations (
+		id TEXT PRIMARY KEY,
+		asset_id TEXT NOT NULL,
+		host TEXT NOT NULL,
+		port INTEGER NOT NULL,
+		service TEXT NOT NULL,
+		transport TEXT NOT NULL,
+		protocol TEXT NOT NULL,
+		layer TEXT NOT NULL,
+		state TEXT NOT NULL,
+		coverage TEXT NOT NULL,
+		evidence TEXT,
+		profile TEXT NOT NULL,
+		observed_at DATETIME NOT NULL,
+		first_seen DATETIME NOT NULL,
+		last_seen DATETIME NOT NULL,
+		FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_service_observations_asset ON service_observations(asset_id, observed_at);
 
 	-- Where each provider's ranges were obtained and when. Kept separate from
 	-- the attributions because it answers a different question: not "where is
@@ -406,6 +496,9 @@ var addedColumns = map[string]map[string]string{
 	// with it rather than recomputed from a catalogue that does not know it.
 	"signal_observations": {
 		"detail": "TEXT",
+	},
+	"findings": {
+		"status": "TEXT NOT NULL DEFAULT 'open'",
 	},
 }
 
@@ -501,6 +594,7 @@ func columnsOf(ctx context.Context, tx *sql.Tx, table string) (map[string]bool, 
 var erasedTables = []string{
 	"findings",
 	"secret_findings",
+	"asset_exposure_history",
 	"posture_snapshots",
 	"regressions",
 	"signal_observations",

@@ -119,6 +119,7 @@ export interface TrawlTransport {
   getAssessments(): Promise<DomainAssessment[]>;
   getAssessment(domain: string): Promise<DomainAssessment | null>;
   assessDomain(domain: string): Promise<DomainAssessment | null>;
+  probeDiscoveredServices(profile: 'most-common' | 'extended'): Promise<void>;
 
   getScope(): Promise<Scope | null>;
   saveScope(scope: Scope): Promise<void>;

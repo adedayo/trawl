@@ -3,26 +3,26 @@
 **May proceed in parallel with 006/007. Pack *content* for contact and email domains depends on both.**
 
 ## Phase 0 — Preconditions
-- [ ] Decide the signing mechanism and key distribution for shipped packs
+- [x] Decide the signing mechanism and key distribution for shipped packs. Ed25519 detached signatures are verified by the loader; public-key distribution remains a deployment and release concern rather than a model input
 - [ ] Source review and transcription plan: which published sources supply which sections
 
 ## Phase 1 — Format and loader
-- [ ] Pack JSON schema (sections, leaf-object provenance shape)
-- [ ] Two-layer resolution: base then override, with layer attribution on every resolved value
-- [ ] Signature verification; refuse to load on absence or mismatch
+- [x] Pack JSON schema (sections, leaf-object provenance shape)
+- [x] Two-layer resolution: base then override, with layer attribution on every resolved value
+- [x] Signature verification; refuse to load on absence or mismatch
 - [ ] Pack version recorded on every estimate written by any consumer
 
 ## Phase 2 — Validation
-- [ ] Leaf-object validation: no bare values
-- [ ] Measured-state signal completeness (variance share, dedup group, decay constant, cap)
-- [ ] Variance share requires heterogeneity argument; zero where the source conditioned on the signal
+- [x] Leaf-object validation: no bare values
+- [x] Measured-state signal completeness (variance share, dedup group, decay constant, cap)
+- [x] Variance share requires heterogeneity argument; zero where the source conditioned on the signal
 - [ ] Scenario shares sum to 1.0; residuals carry rationale and exception marker
 - [ ] Judgment parameters carry sweep points and owner
 
 ## Phase 3 — Precision-gain primitives
-- [ ] `precisionGain(signals, observedAt, now, pack) -> g` — dedup by group (max, not sum), cap, decay
-- [ ] `conditionedESS(essClass, g) -> ess` 
-- [ ] Unit tests: dedup, cap, decay to zero, no accumulation from repeated observation, unassessed yields no gain
+- [x] `precisionGain(signals, observedAt, now, pack) -> g` — dedup by group (max, not sum), cap, decay
+- [x] `conditionedESS(essClass, g) -> ess`
+- [x] Unit tests: dedup, cap, decay to zero, no accumulation from repeated observation, unassessed yields no gain
 
 ## Phase 4 — Section content
 - [ ] `attemptBands` — migrate Change 002's EPSS/KEV band table into pack form

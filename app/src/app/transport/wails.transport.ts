@@ -88,6 +88,10 @@ export class WailsTransport implements TrawlTransport {
     return this.call<DomainAssessment | null>('AssessDomain', null, domain);
   }
 
+  async probeDiscoveredServices(profile: 'most-common' | 'extended'): Promise<void> {
+    await this.callOrThrow('ProbeDiscoveredServices', profile);
+  }
+
   async getScope(): Promise<Scope | null> {
     const raw = await this.call<string>('GetSetting', '', 'scope_settings');
     if (!raw) {

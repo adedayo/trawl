@@ -10,7 +10,9 @@ import (
 
 	vpkg "github.com/adedayo/vantage/pkg"
 	vaudit "github.com/adedayo/vantage/pkg/audit"
+	vprobe "github.com/adedayo/vantage/pkg/probe"
 
+	"github.com/adedayo/trawl/pkg/contact"
 	"github.com/adedayo/trawl/pkg/event"
 	vadapter "github.com/adedayo/trawl/pkg/scanner/vantage"
 	"github.com/adedayo/trawl/pkg/store"
@@ -121,85 +123,142 @@ func (svc *AssessmentService) SyncRegistry(ctx context.Context) error {
 	return svc.store.ReplaceSignalRegistry(ctx, svc.registry.Entries())
 }
 
-// --- View model ---------------------------------------------------------
-//
-// Every timestamp is carried as an RFC 3339 string. Wails cannot generate a
-// binding for time.Time, and a silently zeroed date in the UI is worse than a
-// string the frontend must parse.
+// ProbeServices runs Vantage's bounded service discovery for an already
+// discovered and authorised host, then appends the raw observations. It does
+// not infer attacker contact or derive exposure history; those are separate
+// consumers of the timestamped evidence.
+func (svc *AssessmentService) ProbeServices(ctx context.Context, prober vprobe.Prober, request vadapter.ServiceRequest) ([]store.ServiceObservation, error) {
+	observations, err := vadapter.ProbeServices(ctx, prober, request)
+	if err != nil {
+		return nil, fmt.Errorf("service probe: %w", err)
+	}
+	for i := range observations {
+		if err := svc.store.SaveServiceObservation(ctx, &observations[i]); err != nil {
+			return nil, fmt.Errorf("service probe: saving %s:%d: %w", observations[i].Host, observations[i].Port, err)
+		}
+	}
+	if err := vadapter.ServiceAdvisories(ctx, func(finding *store.Finding) error {
+		return svc.store.SaveFinding(ctx, finding)
+	}, observations, time.Now().UTC()); err != nil {
+		return nil, fmt.Errorf("service probe: saving advisories: %w", err)
+	}
+	if err := svc.resolveServiceFindings(ctx, request.AssetID, vadapter.ActiveServiceFindingIDs(observations, time.Now().UTC())); err != nil {
+		return nil, err
+	}
+	if err := svc.UpdateServiceExposureHistory(ctx, request.AssetID, time.Now().UTC(), 24*time.Hour); err != nil {
+		return nil, err
+	}
+	return observations, nil
+}
+
+func (svc *AssessmentService) resolveServiceFindings(ctx context.Context, assetID string, active map[string]bool) error {
+	findings, err := svc.store.GetFindings(ctx, assetID)
+	if err != nil {
+		return fmt.Errorf("service probe: reading findings: %w", err)
+	}
+	for i := range findings {
+		if !strings.HasPrefix(findings[i].ID, "service:") || findings[i].Status == store.FindingResolved {
+			continue
+		}
+		if !active[findings[i].ID] {
+			findings[i].Status = store.FindingResolved
+			if err := svc.store.SaveFinding(ctx, &findings[i]); err != nil {
+				return fmt.Errorf("service probe: resolving finding %s: %w", findings[i].ID, err)
+			}
+		}
+	}
+	return nil
+}
+
+// UpdateServiceExposureHistory derives per-service exposure windows from all
+// raw observations for an asset. Unknown and failed observations never close
+// an open exposure; only a successful not-responding result does.
+func (svc *AssessmentService) UpdateServiceExposureHistory(ctx context.Context, assetID string, now time.Time, cadence time.Duration) error {
+	observations, err := svc.store.GetServiceObservations(ctx, assetID)
+	if err != nil {
+		return fmt.Errorf("service exposure: reading observations: %w", err)
+	}
+	byService := map[string][]contact.Observation{}
+	for _, observation := range observations {
+		state := contact.Unknown
+		successful := observation.Coverage.Assessed()
+		if observation.State == "responding" && successful {
+			state = contact.Exposed
+		} else if observation.State == "not_responding" && successful {
+			state = contact.Clear
+		}
+		key := serviceObservationKey(observation)
+		byService[key] = append(byService[key], contact.Observation{
+			At: observation.ObservedAt, State: state, Successful: successful,
+		})
+	}
+	for service, historyObservations := range byService {
+		history, err := contact.ComputeHistory(historyObservations, now, cadence)
+		if err != nil {
+			return fmt.Errorf("service exposure: computing %s: %w", service, err)
+		}
+		row := store.AssetExposureHistory{
+			AssetID: assetID, Service: service,
+			FirstObserved: history.FirstObserved.Format(time.RFC3339),
+			LastObserved:  history.LastObserved.Format(time.RFC3339),
+			StillExposed:  history.StillExposed, LeftCensored: history.LeftCensored,
+			ObservedDurationSeconds: int64(history.ObservedDuration / time.Second),
+			InferredDurationSeconds: int64(history.InferredDuration / time.Second),
+			BlindDurationSeconds:    int64(history.BlindDuration / time.Second),
+			ExpectedBlindSeconds:    int64(history.ExpectedBlindTime / time.Second),
+			WorstBlindSeconds:       int64(history.WorstBlindTime / time.Second),
+		}
+		if err := svc.store.SaveExposureHistory(ctx, &row); err != nil {
+			return fmt.Errorf("service exposure: saving %s: %w", service, err)
+		}
+	}
+	return nil
+}
+
+func serviceObservationKey(observation store.ServiceObservation) string {
+	service := observation.Service
+	if service == "" {
+		service = observation.Protocol
+	}
+	return fmt.Sprintf("%s@%s:%d/%s", service, observation.Host, observation.Port, observation.Layer)
+}
 
 // SignalView is one observation, joined to what the registry says it means.
 type SignalView struct {
-	SignalID string `json:"signalId"`
-	CheckID  string `json:"checkId"`
-
-	// Condition is the registry's description of what was observed. It is
-	// empty for an unmapped signal, where Evidence is the only account.
-	Condition     string `json:"condition"`
-	WeaknessClass string `json:"weaknessClass"`
-	Scenario      string `json:"scenario"`
-	Stage         string `json:"stage"`
-	Control       string `json:"control"`
-	Direction     string `json:"direction"`
-
-	State    store.CoverageState   `json:"state"`
-	Severity store.FindingSeverity `json:"severity"`
-	Evidence string                `json:"evidence"`
-	Mapped   bool                  `json:"mapped"`
-
-	// Description, Remediation and References come from vantage's finding
-	// catalogue rather than from the stored observation. They are static
-	// library text, identical for every occurrence of an identifier, so
-	// copying them into each stored row would duplicate prose that a library
-	// upgrade should be free to correct. Reading them at view-build time
-	// means the explanation always matches the library actually installed.
-	//
-	// Without these, the UI can only show the title and the raw evidence
-	// keys, which states what was observed but never why it matters — and a
-	// finding an operator cannot interpret is a finding they cannot act on.
-	Description string   `json:"description,omitempty"`
-	Remediation string   `json:"remediation,omitempty"`
-	References  []string `json:"references,omitempty"`
-
-	// Detail is the opposite case, and comes from the observation: the part of
-	// the explanation that names what was found here — which include term is
-	// broken, which exchanger does not resolve. The catalogue cannot supply it
-	// because the catalogue has never seen this domain.
-	//
-	// It is presented separately from Evidence so that the item at fault is
-	// read as prose rather than recovered from a list of key=value pairs. The
-	// finding that prompted this printed an entire SPF record and appended the
-	// offending term after it, which identified a problem without pointing at
-	// it.
-	Detail string `json:"detail,omitempty"`
-
-	RegistryVersion string `json:"registryVersion"`
-	LibraryVersion  string `json:"libraryVersion"`
-	ObservedAt      string `json:"observedAt"`
-	FirstSeen       string `json:"firstSeen"`
+	SignalID        string                `json:"signalId"`
+	CheckID         string                `json:"checkId"`
+	Condition       string                `json:"condition"`
+	WeaknessClass   string                `json:"weaknessClass"`
+	Scenario        string                `json:"scenario"`
+	Stage           string                `json:"stage"`
+	Control         string                `json:"control"`
+	Direction       string                `json:"direction"`
+	State           store.CoverageState   `json:"state"`
+	Severity        store.FindingSeverity `json:"severity"`
+	Evidence        string                `json:"evidence"`
+	Mapped          bool                  `json:"mapped"`
+	Description     string                `json:"description,omitempty"`
+	Remediation     string                `json:"remediation,omitempty"`
+	References      []string              `json:"references,omitempty"`
+	Detail          string                `json:"detail,omitempty"`
+	RegistryVersion string                `json:"registryVersion"`
+	LibraryVersion  string                `json:"libraryVersion"`
+	ObservedAt      string                `json:"observedAt"`
+	FirstSeen       string                `json:"firstSeen"`
 }
 
-// CheckView is the coverage record for one check, so the UI can say why a
-// control is unknown rather than merely that it is.
 type CheckView struct {
 	CheckID string              `json:"checkId"`
 	State   store.CoverageState `json:"state"`
 	Reason  string              `json:"reason,omitempty"`
 }
 
-// ControlView is one defensive mechanism — SPF, DMARC, DNSSEC — with its
-// derived posture, the coverage behind that posture, and the advisories raised
-// against it.
 type ControlView struct {
-	Control string               `json:"control"`
-	Posture store.ControlPosture `json:"posture"`
-
-	// Coverage counts the checks feeding this control by state. It accompanies
-	// the posture always: "compliant" and "we never looked" must never be
-	// distinguishable only by reading the signal list.
+	Control  string                `json:"control"`
+	Posture  store.ControlPosture  `json:"posture"`
 	Coverage store.CoverageSummary `json:"coverage"`
-
-	Checks  []CheckView  `json:"checks"`
-	Signals []SignalView `json:"signals"`
+	Checks   []CheckView           `json:"checks"`
+	Signals  []SignalView          `json:"signals"`
 }
 
 // ScenarioView is one attack scenario with how much assessment supports it.
@@ -245,6 +304,10 @@ type DomainAssessment struct {
 	// without its basis invites the reader to treat it as current when it may
 	// have been fetched from a cache days ago.
 	AttributionProvenance []store.AttributionProvenance `json:"attributionProvenance"`
+	// ServiceExposures are derived from timestamped reachability observations.
+	// Observed and inferred durations remain separate for operator honesty.
+	ServiceExposures    []store.AssetExposureHistory `json:"serviceExposures"`
+	ServiceObservations []store.ServiceObservation   `json:"serviceObservations"`
 
 	RegistryVersion string `json:"registryVersion"`
 	LibraryVersion  string `json:"libraryVersion"`
@@ -545,12 +608,20 @@ func (svc *AssessmentService) viewWithDomain(ctx context.Context, assetID, domai
 	if err != nil {
 		return DomainAssessment{}, fmt.Errorf("assessment: reading attribution provenance: %w", err)
 	}
+	exposures, err := svc.store.GetExposureHistory(ctx, assetID)
+	if err != nil {
+		return DomainAssessment{}, fmt.Errorf("assessment: reading service exposure history: %w", err)
+	}
+	serviceObservations, err := svc.store.GetServiceObservations(ctx, assetID)
+	if err != nil {
+		return DomainAssessment{}, fmt.Errorf("assessment: reading service observations: %w", err)
+	}
 
 	if domain == "" {
 		domain = svc.domainOfAsset(ctx)[assetID]
 	}
 	return svc.assemble(assetID, domain, registry, coverage, observations, run,
-		attributionBundle{rows: attribution, provenance: provenance}), nil
+		attributionBundle{rows: attribution, provenance: provenance}, exposures, serviceObservations), nil
 }
 
 // attributionBundle keeps an asset's attribution together with the basis it
@@ -614,6 +685,14 @@ func (svc *AssessmentService) Views(ctx context.Context) ([]DomainAssessment, er
 	if err != nil {
 		return nil, fmt.Errorf("assessment: reading attribution provenance: %w", err)
 	}
+	exposures, err := svc.store.GetExposureHistory(ctx, "")
+	if err != nil {
+		return nil, fmt.Errorf("assessment: reading service exposure history: %w", err)
+	}
+	serviceObservations, err := svc.store.GetServiceObservations(ctx, "")
+	if err != nil {
+		return nil, fmt.Errorf("assessment: reading service observations: %w", err)
+	}
 
 	observationsOf := map[string][]store.SignalObservation{}
 	for _, o := range observations {
@@ -637,6 +716,14 @@ func (svc *AssessmentService) Views(ctx context.Context) ([]DomainAssessment, er
 		b := attributionOf[p.AssetID]
 		b.provenance = append(b.provenance, p)
 		attributionOf[p.AssetID] = b
+	}
+	exposuresOf := map[string][]store.AssetExposureHistory{}
+	for _, exposure := range exposures {
+		exposuresOf[exposure.AssetID] = append(exposuresOf[exposure.AssetID], exposure)
+	}
+	serviceObservationsOf := map[string][]store.ServiceObservation{}
+	for _, observation := range serviceObservations {
+		serviceObservationsOf[observation.AssetID] = append(serviceObservationsOf[observation.AssetID], observation)
 	}
 
 	// An asset with coverage but no observations is a clean assessment, and it
@@ -673,7 +760,7 @@ func (svc *AssessmentService) Views(ctx context.Context) ([]DomainAssessment, er
 	out := make([]DomainAssessment, 0, len(ids))
 	for _, id := range ids {
 		out = append(out, svc.assemble(
-			id, domains[id], registry, coverageOf[id], observationsOf[id], runOf[id], attributionOf[id],
+			id, domains[id], registry, coverageOf[id], observationsOf[id], runOf[id], attributionOf[id], exposuresOf[id], serviceObservationsOf[id],
 		))
 	}
 	return out, nil
@@ -690,6 +777,8 @@ func (svc *AssessmentService) assemble(
 	observations []store.SignalObservation,
 	run store.AssessmentRun,
 	attribution attributionBundle,
+	exposures []store.AssetExposureHistory,
+	serviceObservations []store.ServiceObservation,
 ) DomainAssessment {
 	entryOf := make(map[string]store.SignalRegistryEntry, len(registry))
 	for _, e := range registry {
@@ -975,6 +1064,8 @@ func (svc *AssessmentService) assemble(
 		Unmapped:              unmapped,
 		Attribution:           rows,
 		AttributionProvenance: provenance,
+		ServiceExposures:      exposures,
+		ServiceObservations:   serviceObservations,
 		RegistryVersion:       registryVersion,
 		LibraryVersion:        libraryVersion,
 		AssessedAt:            formatTime(latest),

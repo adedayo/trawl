@@ -9,6 +9,7 @@ import (
 	"github.com/adedayo/trawl/pkg/service"
 	"github.com/adedayo/trawl/pkg/store"
 	"github.com/adedayo/trawl/pkg/version"
+	vprobe "github.com/adedayo/vantage/pkg/probe"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -106,6 +107,15 @@ func (a *App) GetDomainAssessment(domain string) (service.DomainAssessment, erro
 // AssessDomain runs a scope-bounded assessment and returns the fresh view.
 func (a *App) AssessDomain(domain string) (service.DomainAssessment, error) {
 	return a.core.AssessDomain(a.ctx, domain)
+}
+
+// ProbeDiscoveredServices runs a bounded Vantage service discovery pass over
+// tracked, authorised assets.
+func (a *App) ProbeDiscoveredServices(profile string) error {
+	if profile == "" {
+		profile = string(vprobe.DiscoveryMostCommon)
+	}
+	return a.core.ProbeDiscoveredServices(a.ctx, vprobe.DiscoveryProfile(profile))
 }
 
 func (a *App) GetRegressions() ([]store.Regression, error) {

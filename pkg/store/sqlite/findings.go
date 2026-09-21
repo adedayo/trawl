@@ -10,7 +10,7 @@ import (
 )
 
 func (s *SQLiteStore) GetFindings(ctx context.Context, assetID string) ([]store.Finding, error) {
-	query := `SELECT id, asset_id, title, COALESCE(description,''), severity, priority, COALESCE(cve,''), epss, kev_listed, category, COALESCE(proof,''), COALESCE(ai_annotation,''), first_seen, last_seen FROM findings`
+	query := `SELECT id, asset_id, title, COALESCE(description,''), severity, priority, COALESCE(cve,''), epss, kev_listed, COALESCE(status,'open'), category, COALESCE(proof,''), COALESCE(ai_annotation,''), first_seen, last_seen FROM findings`
 	var rows *sql.Rows
 	var err error
 
@@ -32,12 +32,16 @@ func (s *SQLiteStore) GetFindings(ctx context.Context, assetID string) ([]store.
 		var f store.Finding
 		var kevInt int
 		var firstSeen, lastSeen string
-		if err := rows.Scan(&f.ID, &f.AssetID, &f.Title, &f.Description, &f.Severity, &f.Priority, &f.CVE, &f.EPSS, &kevInt, &f.Category, &f.Proof, &f.AIAnnotation, &firstSeen, &lastSeen); err != nil {
+		if err := rows.Scan(&f.ID, &f.AssetID, &f.Title, &f.Description, &f.Severity, &f.Priority, &f.CVE, &f.EPSS, &kevInt, &f.Status, &f.Category, &f.Proof, &f.AIAnnotation, &firstSeen, &lastSeen); err != nil {
 			return nil, fmt.Errorf("failed to scan finding: %w", err)
 		}
 		f.KEVListed = kevInt == 1
 		f.FirstSeen, _ = time.Parse(time.RFC3339, firstSeen)
 		f.LastSeen, _ = time.Parse(time.RFC3339, lastSeen)
+		f.Enrichments, err = s.GetFindingEnrichments(ctx, f.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query finding enrichments: %w", err)
+		}
 		findings = append(findings, f)
 	}
 
@@ -46,13 +50,14 @@ func (s *SQLiteStore) GetFindings(ctx context.Context, assetID string) ([]store.
 
 func (s *SQLiteStore) SaveFinding(ctx context.Context, finding *store.Finding) error {
 	query := `
-	INSERT INTO findings (id, asset_id, title, description, severity, priority, cve, epss, kev_listed, category, proof, ai_annotation, first_seen, last_seen)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	INSERT INTO findings (id, asset_id, title, description, severity, priority, cve, epss, kev_listed, status, category, proof, ai_annotation, first_seen, last_seen)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET
 		severity = excluded.severity,
 		priority = excluded.priority,
 		epss = excluded.epss,
 		kev_listed = excluded.kev_listed,
+		status = excluded.status,
 		ai_annotation = excluded.ai_annotation,
 		last_seen = excluded.last_seen
 	`
@@ -65,6 +70,9 @@ func (s *SQLiteStore) SaveFinding(ctx context.Context, finding *store.Finding) e
 	if finding.FirstSeen.IsZero() {
 		finding.FirstSeen = time.Now()
 	}
+	if finding.Status == "" {
+		finding.Status = store.FindingOpen
+	}
 
 	_, err := s.db.ExecContext(ctx, query,
 		finding.ID,
@@ -76,6 +84,7 @@ func (s *SQLiteStore) SaveFinding(ctx context.Context, finding *store.Finding) e
 		finding.CVE,
 		finding.EPSS,
 		kevInt,
+		finding.Status,
 		finding.Category,
 		finding.Proof,
 		finding.AIAnnotation,
@@ -84,6 +93,13 @@ func (s *SQLiteStore) SaveFinding(ctx context.Context, finding *store.Finding) e
 	)
 	if err != nil {
 		return fmt.Errorf("failed to save finding: %w", err)
+	}
+	for _, feed := range []string{store.FeedKEV, store.FeedEPSS, store.FeedNVD} {
+		if _, err := s.db.ExecContext(ctx, `
+			INSERT OR IGNORE INTO finding_enrichments (finding_id, feed, cve, state)
+			VALUES (?, ?, ?, ?)`, finding.ID, feed, finding.CVE, store.EnrichmentNotChecked); err != nil {
+			return fmt.Errorf("failed to initialize finding enrichment: %w", err)
+		}
 	}
 	return nil
 }

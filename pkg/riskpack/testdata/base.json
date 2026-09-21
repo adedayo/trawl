@@ -1,0 +1,85 @@
+{
+  "packVersion": "2026.09-test",
+  "schemaVersion": 1,
+  "sections": {
+    "weaknessClassPriors": {
+      "secret.applicability": {
+        "value": 0.85,
+        "ess": 8,
+        "source": "framework fixture",
+        "retrievedAt": "2026-09-21",
+        "verificationStatus": "needs-verification",
+        "label": "sourced"
+      },
+      "secret.attempt": {
+        "value": 0.55,
+        "ess": 6,
+        "source": "framework fixture",
+        "retrievedAt": "2026-09-21",
+        "verificationStatus": "needs-verification",
+        "label": "sourced"
+      },
+      "secret.success": {
+        "value": 0.85,
+        "ess": 6,
+        "source": "framework fixture",
+        "retrievedAt": "2026-09-21",
+        "verificationStatus": "needs-verification",
+        "label": "sourced"
+      }
+    },
+    "attemptBands": {
+      "epss.low": {
+        "value": -1.0,
+        "source": "framework fixture",
+        "retrievedAt": "2026-09-21",
+        "verificationStatus": "needs-verification",
+        "label": "sourced"
+      },
+      "epss.medium": {
+        "value": 0.0,
+        "source": "framework fixture",
+        "retrievedAt": "2026-09-21",
+        "verificationStatus": "needs-verification",
+        "label": "sourced"
+      },
+      "epss.high": {
+        "value": 1.0,
+        "source": "framework fixture",
+        "retrievedAt": "2026-09-21",
+        "verificationStatus": "needs-verification",
+        "label": "sourced"
+      },
+      "epss.critical-or-kev": {
+        "value": 2.0,
+        "source": "framework fixture",
+        "retrievedAt": "2026-09-21",
+        "verificationStatus": "needs-verification",
+        "label": "sourced"
+      }
+    },
+    "measuredStateSignals": {
+      "SURF-DMARC-001": {
+        "stage": "success",
+        "deltaLogit": {
+          "value": 1.5,
+          "source": "framework fixture",
+          "retrievedAt": "2026-09-21",
+          "verificationStatus": "needs-verification",
+          "label": "sourced"
+        },
+        "varianceShare": {
+          "value": 0.4,
+          "source": "framework fixture",
+          "retrievedAt": "2026-09-21",
+          "verificationStatus": "needs-verification",
+          "label": "sourced"
+        },
+        "heterogeneityArgument": "The source population mixes enforcing and non-enforcing domains.",
+        "dedupGroup": "dmarc-enforcement",
+        "tauDays": 180,
+        "capG": 2
+      }
+    }
+  }
+}

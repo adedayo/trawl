@@ -95,6 +95,9 @@ export class WailsIpcService {
    */
   public assessments = signal<DomainAssessment[]>([]);
 
+  private assessmentRefreshRunning = false;
+  private assessmentRefreshPending = false;
+
   /** Per-check progress from the running assessment, for live feedback. */
   public assessmentProgress = signal<{ domain: string; check: string; done: number; total: number } | null>(null);
 
@@ -172,6 +175,18 @@ export class WailsIpcService {
     });
 
     this.transport.on('scan:progress', (payload: any) => {
+      if (payload?.phase === 'service-probe-started') {
+        this.setScanStatus(`Service sweep started (${payload.profile})…`);
+      }
+      if (payload?.phase === 'service-probe-progress') {
+        const state = payload.error ? 'failed' : `${payload.observations} observations`;
+        this.setScanStatus(`Probed ${payload.host} (${payload.completed} of ${payload.total}) · ${state}`,
+          payload.error ? 'warning' : 'info');
+        void this.refreshAssessments();
+        if (payload.assetId) {
+          void this.refreshFindings(payload.assetId);
+        }
+      }
       if (payload?.check) {
         this.assessmentProgress.set({
           domain: payload.domain,
@@ -379,7 +394,16 @@ export class WailsIpcService {
   }
 
   public async refreshFindings(assetId: string): Promise<void> {
-    this.findings.set((await this.transport.getFindings(assetId)) || []);
+    const findings = (await this.transport.getFindings(assetId)) || [];
+    this.findings.set(findings.map((finding: any) => ({
+      ...finding,
+      assetValue: finding.assetValue || finding.assetId || '',
+      cveId: finding.cveId || finding.cve || '',
+      kev: finding.kev ?? finding.kevListed ?? false,
+      epssScore: finding.epssScore ?? finding.epss ?? 0,
+      status: finding.status || 'open',
+      detectedAt: finding.detectedAt || finding.firstSeen || finding.lastSeen || ''
+    })));
   }
 
   public async triggerScan(domain: string, repoUrl: string): Promise<void> {
@@ -542,8 +566,21 @@ export class WailsIpcService {
 
   /** Loads the stored measured-state assessments for every assessed domain. */
   public async refreshAssessments(): Promise<void> {
-    this.assessments.set((await this.transport.getAssessments()) || []);
-    this.markFresh();
+    if (this.assessmentRefreshRunning) {
+      this.assessmentRefreshPending = true;
+      return;
+    }
+
+    this.assessmentRefreshRunning = true;
+    try {
+      do {
+        this.assessmentRefreshPending = false;
+        this.assessments.set((await this.transport.getAssessments()) || []);
+        this.markFresh();
+      } while (this.assessmentRefreshPending);
+    } finally {
+      this.assessmentRefreshRunning = false;
+    }
   }
 
   /**
@@ -588,6 +625,11 @@ export class WailsIpcService {
     } else {
       this.assessments.set([...current, result]);
     }
+  }
+
+  public async probeDiscoveredServices(profile: 'most-common' | 'extended'): Promise<void> {
+    await this.transport.probeDiscoveredServices(profile);
+    await this.refreshAssessments();
   }
 
   /**
@@ -685,13 +727,12 @@ export class WailsIpcService {
     const results = await Promise.allSettled([
       this.refreshVersion(),
       this.refreshAssets(),
+      this.refreshFindings(''),
       this.refreshSecretFindings(),
       this.refreshEmailPostures(),
       this.refreshAssessments(),
       this.refreshRegressions()
     ]);
-    this.findings.set([]);
-
     const failed = results.filter(r => r.status === 'rejected') as PromiseRejectedResult[];
     if (failed.length === 0) {
       this.loadError.set('');

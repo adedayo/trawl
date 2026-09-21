@@ -112,6 +112,10 @@ export class HttpTransport implements TrawlTransport {
     return result ?? null;
   }
 
+  async probeDiscoveredServices(profile: 'most-common' | 'extended'): Promise<void> {
+    await this.send('POST', '/api/v1/service-probes', { profile });
+  }
+
   getScope(): Promise<Scope | null> {
     return this.get<Scope | null>('/api/v1/scope', null);
   }

@@ -293,14 +293,18 @@
           <span [class]="dark ? 'text-[10px] font-bold uppercase tracking-wider text-slate-400' : 'text-[10px] font-bold uppercase tracking-wider text-slate-500'">
             Exploited in the wild
           </span>
+          @if (kevSnapshot()) {
           <span
             [class]="kevCount() > 0
               ? (dark ? 'block text-3xl font-extrabold text-rose-400 mt-2' : 'block text-3xl font-extrabold text-rose-600 mt-2')
               : (dark ? 'block text-3xl font-extrabold text-slate-50 mt-2' : 'block text-3xl font-extrabold text-slate-900 mt-2')">
             {{ kevCount() }}
           </span>
+          } @else {
+          <span [class]="dark ? 'block text-3xl font-extrabold text-slate-500 mt-2' : 'block text-3xl font-extrabold text-slate-400 mt-2'">-</span>
+          }
           <span [class]="dark ? 'text-[11px] text-slate-500' : 'text-[11px] text-slate-500'">
-            on the CISA KEV catalogue
+            @if (kevSnapshot()) { CISA KEV, retrieved {{ kevSnapshot().retrievedAt }} } @else { no CISA KEV catalogue retrieved }
           </span>
         </button>
 

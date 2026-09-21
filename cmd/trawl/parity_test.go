@@ -24,21 +24,22 @@ import (
 // carry its reason here. There are none today, and that is the point: the
 // empty string is a decision someone has to write down, not a default.
 var wailsMethodRoutes = map[string]string{
-	"GetVersion":           "GET /api/v1/version",
-	"GetAssets":            "GET /api/v1/assets",
-	"RemoveAsset":          "DELETE /api/v1/assets/{id}",
-	"GetFindings":          "GET /api/v1/findings",
-	"GetSecretFindings":    "GET /api/v1/secret-findings",
-	"GetEmailPostures":     "GET /api/v1/email-postures",
-	"ScanEmailPosture":     "POST /api/v1/email-postures/{domain}",
-	"GetDomainAssessment":  "GET /api/v1/assessments/{domain}",
-	"GetDomainAssessments": "GET /api/v1/assessments",
-	"AssessDomain":         "POST /api/v1/assessments/{domain}",
-	"GetRegressions":       "GET /api/v1/regressions",
-	"GetSetting":           "GET /api/v1/settings/{key}",
-	"SaveSetting":          "PUT /api/v1/settings/{key}",
-	"TriggerScan":          "POST /api/v1/scans",
-	"EraseDiscoveredData":  "DELETE /api/v1/discovered-data",
+	"GetVersion":              "GET /api/v1/version",
+	"GetAssets":               "GET /api/v1/assets",
+	"RemoveAsset":             "DELETE /api/v1/assets/{id}",
+	"GetFindings":             "GET /api/v1/findings",
+	"GetSecretFindings":       "GET /api/v1/secret-findings",
+	"GetEmailPostures":        "GET /api/v1/email-postures",
+	"ScanEmailPosture":        "POST /api/v1/email-postures/{domain}",
+	"GetDomainAssessment":     "GET /api/v1/assessments/{domain}",
+	"GetDomainAssessments":    "GET /api/v1/assessments",
+	"AssessDomain":            "POST /api/v1/assessments/{domain}",
+	"ProbeDiscoveredServices": "POST /api/v1/service-probes",
+	"GetRegressions":          "GET /api/v1/regressions",
+	"GetSetting":              "GET /api/v1/settings/{key}",
+	"SaveSetting":             "PUT /api/v1/settings/{key}",
+	"TriggerScan":             "POST /api/v1/scans",
+	"EraseDiscoveredData":     "DELETE /api/v1/discovered-data",
 }
 
 // TestEveryWailsMethodHasAnHTTPRoute enforces the central claim of the

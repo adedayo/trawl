@@ -83,22 +83,72 @@ func (s FindingSeverity) Rank() int {
 // against it", which the posture model alone cannot express.
 func (s FindingSeverity) Significant() bool { return s.Rank() >= SeverityMedium.Rank() }
 
+type FindingStatus string
+
+const (
+	FindingOpen     FindingStatus = "open"
+	FindingResolved FindingStatus = "resolved"
+	FindingReopened FindingStatus = "reopened"
+)
+
 // Finding represents a vulnerability or posture finding.
 type Finding struct {
-	ID           string          `json:"id"`
-	AssetID      string          `json:"assetId"`
-	Title        string          `json:"title"`
-	Description  string          `json:"description"`
-	Severity     FindingSeverity `json:"severity"`
-	Priority     string          `json:"priority"`
-	CVE          string          `json:"cve,omitempty"`
-	EPSS         float64         `json:"epss,omitempty"`
-	KEVListed    bool            `json:"kevListed"`
-	Category     string          `json:"category"`
-	Proof        string          `json:"proof"`
-	AIAnnotation string          `json:"aiAnnotation,omitempty"`
-	FirstSeen    time.Time       `json:"firstSeen"`
-	LastSeen     time.Time       `json:"lastSeen"`
+	ID           string              `json:"id"`
+	AssetID      string              `json:"assetId"`
+	Title        string              `json:"title"`
+	Description  string              `json:"description"`
+	Severity     FindingSeverity     `json:"severity"`
+	Status       FindingStatus       `json:"status"`
+	Priority     string              `json:"priority"`
+	CVE          string              `json:"cve,omitempty"`
+	EPSS         float64             `json:"epss,omitempty"`
+	KEVListed    bool                `json:"kevListed"`
+	Category     string              `json:"category"`
+	Proof        string              `json:"proof"`
+	AIAnnotation string              `json:"aiAnnotation,omitempty"`
+	FirstSeen    time.Time           `json:"firstSeen"`
+	LastSeen     time.Time           `json:"lastSeen"`
+	Enrichments  []FindingEnrichment `json:"enrichments,omitempty"`
+}
+
+// FeedSnapshot identifies one complete, immutable feed payload.
+type FeedSnapshot struct {
+	ID            string    `json:"id"`
+	Feed          string    `json:"feed"`
+	SourceURL     string    `json:"sourceUrl"`
+	RetrievedAt   time.Time `json:"retrievedAt"`
+	ContentDigest string    `json:"contentDigest"`
+	RecordCount   int       `json:"recordCount"`
+}
+
+// EnrichmentState describes what is known about a finding's external feed
+// enrichment. NotChecked is distinct from NotFound: the latter is an answer.
+type EnrichmentState string
+
+const (
+	FeedKEV  = "cisa-kev"
+	FeedEPSS = "epss"
+	FeedNVD  = "nvd"
+)
+
+const (
+	EnrichmentOK          EnrichmentState = "ok"
+	EnrichmentNotFound    EnrichmentState = "not_found"
+	EnrichmentNotChecked  EnrichmentState = "not_checked"
+	EnrichmentCheckFailed EnrichmentState = "check_failed"
+)
+
+// FindingEnrichment records the feed-backed state of one CVE-bearing finding.
+type FindingEnrichment struct {
+	FindingID  string          `json:"findingId"`
+	Feed       string          `json:"feed"`
+	CVE        string          `json:"cve"`
+	State      EnrichmentState `json:"state"`
+	SnapshotID string          `json:"snapshotId,omitempty"`
+	EPSS       *float64        `json:"epss,omitempty"`
+	KEVListed  *bool           `json:"kevListed,omitempty"`
+	CheckedAt  *time.Time      `json:"checkedAt,omitempty"`
+	Snapshot   *FeedSnapshot   `json:"snapshot,omitempty"`
 }
 
 // SecretFinding represents exposed credentials or secrets scanned by CheckMate.
@@ -157,6 +207,9 @@ type Job struct {
 
 // Store defines the interface for Trawl's universal storage engine.
 type Store interface {
+	FeedStore
+	ExposureHistoryStore
+
 	// Assets
 	GetAssets(ctx context.Context, status AssetStatus) ([]Asset, error)
 	GetAssetByID(ctx context.Context, id string) (*Asset, error)
@@ -214,6 +267,11 @@ type Store interface {
 	// assetId means every asset, so a portfolio view fetches once.
 	RecordAssessmentRun(ctx context.Context, run *AssessmentRun) error
 	GetAssessmentRuns(ctx context.Context, assetID string) ([]AssessmentRun, error)
+
+	// Service reachability observations. These are append-only raw evidence;
+	// exposure history is derived from them and stored separately.
+	SaveServiceObservation(ctx context.Context, observation *ServiceObservation) error
+	GetServiceObservations(ctx context.Context, assetID string) ([]ServiceObservation, error)
 
 	// Network attribution.
 	//
