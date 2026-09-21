@@ -25,6 +25,38 @@ describe('Header', () => {
   });
 
   /**
+   * A version badge is a claim about which build produced what is on screen.
+   * A literal in the template goes on making that claim after the build it
+   * named has been superseded, and nothing about the running app contradicts
+   * it — which is why `v0.1.0-OSS` survived several releases unnoticed. These
+   * two tests are what makes a reintroduced literal detectable: one fails if
+   * the badge asserts a version before the engine has reported one, the other
+   * fails if it reports anything other than what the engine said.
+   */
+  describe('the version badge', () => {
+    const badgeText = (): string => fixture.nativeElement.textContent ?? '';
+
+    it('claims no version until the engine reports one', async () => {
+      ipc.engineVersion.set('');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(badgeText()).not.toMatch(/v\d+\.\d+\.\d+/);
+    });
+
+    it('reports the version the engine gave, and no suffix of its own', async () => {
+      // The engine reports the tag verbatim — "v1.4.2", or "dev" when
+      // unstamped — so the badge has no prefix of its own to add.
+      ipc.engineVersion.set('v1.4.2');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(badgeText()).toContain('v1.4.2');
+      expect(badgeText()).not.toContain('-OSS');
+    });
+  });
+
+  /**
    * Fires the completion event the backend publishes for one finished target.
    *
    * Every deployment emits exactly one of these per scan request — the desktop

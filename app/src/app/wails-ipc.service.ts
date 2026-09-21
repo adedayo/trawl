@@ -61,6 +61,22 @@ export class WailsIpcService {
   public regressions = signal<RegressionUI[]>([]);
 
   /**
+   * The build identity of the engine answering, read from it rather than
+   * declared here.
+   *
+   * Empty until the first successful read, and the header shows nothing in
+   * that case. A version badge is a claim about which build produced what is
+   * on screen, and the previous hardcoded `v0.1.0-OSS` went on making that
+   * claim across every release after the one it was typed in. Showing nothing
+   * is worse-looking and more honest; showing a stale number is neither.
+   *
+   * On the HTTP transport this reports the *server's* build, which is the
+   * useful answer — a browser tab may well be older or newer than the engine
+   * it is pointed at.
+   */
+  public engineVersion = signal<string>('');
+
+  /**
    * When the view last received data it trusts.
    *
    * A dashboard that silently stops updating is worse than one that never
@@ -639,9 +655,22 @@ export class WailsIpcService {
     await this.loadSettings();
   }
 
+  /**
+   * Reads the engine's build identity.
+   *
+   * A failure leaves the previous value in place rather than blanking it: the
+   * version does not change while the process runs, so a dropped request is
+   * no reason to stop reporting what was already established.
+   */
+  public async refreshVersion(): Promise<void> {
+    const info = await this.transport.getVersion();
+    if (info?.version) {
+      this.engineVersion.set(info.version);
+    }
+  }
+
   /** Reloads every view from the store. */
-  public async refreshAll(): Promise<void> {
-    if (this.loadState() === 'loading' && !this.lastUpdatedAt()) {
+  public async refreshAll(): Promise<void> {    if (this.loadState() === 'loading' && !this.lastUpdatedAt()) {
       // First load: leave the state as `loading` so views show skeletons
       // rather than an empty estate they have no basis for claiming.
     } else {
@@ -654,6 +683,7 @@ export class WailsIpcService {
     // neutral state. Here each loader keeps whatever it managed to fetch and
     // the failures are reported alongside it.
     const results = await Promise.allSettled([
+      this.refreshVersion(),
       this.refreshAssets(),
       this.refreshSecretFindings(),
       this.refreshEmailPostures(),

@@ -21,6 +21,16 @@ export class HeaderComponent {
   assets = this.wailsIpc.assets;
   findings = this.wailsIpc.findings;
 
+  /**
+   * The engine's version, read from the running binary.
+   *
+   * Empty until the first successful read, and the badge is hidden in that
+   * case. This was `v0.1.0-OSS`, hardcoded in the template, which is a claim
+   * about which build produced what is on screen — and it went on making that
+   * claim, unchanged, across every release after the one it was typed in.
+   */
+  engineVersion = this.wailsIpc.engineVersion;
+
   scanStatusMessage = this.wailsIpc.scanStatusMessage;
   scanStatusTone = this.wailsIpc.scanStatusTone;
 

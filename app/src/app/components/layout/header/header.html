@@ -9,7 +9,15 @@
       <div>
         <div class="flex items-center space-x-2">
           <h1 [class]="theme() === 'dark' ? 'text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent' : 'text-xl font-extrabold tracking-tight text-slate-900'">TRAWL</h1>
-          <span [class]="theme() === 'dark' ? 'text-xs px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-400 font-mono font-medium' : 'text-xs px-2 py-0.5 rounded-full bg-cyan-50 border border-cyan-200 text-cyan-700 font-mono font-medium'">v0.1.0-OSS</span>
+          <!--
+            The engine's own version, not a constant in this template. Hidden
+            until it has been read: the badge is a claim about which build
+            produced what is on screen, and showing nothing is better than
+            showing something stale. It read v0.1.0-OSS for several releases.
+          -->
+          @if (engineVersion()) {
+            <span [class]="theme() === 'dark' ? 'text-xs px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-400 font-mono font-medium' : 'text-xs px-2 py-0.5 rounded-full bg-cyan-50 border border-cyan-200 text-cyan-700 font-mono font-medium'">{{ engineVersion() }}</span>
+          }
         </div>
         <p [class]="theme() === 'dark' ? 'text-[11px] text-slate-400 font-medium' : 'text-[11px] text-slate-500 font-medium'">External Attack Surface & Posture Validation Engine</p>
       </div>

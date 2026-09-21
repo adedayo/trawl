@@ -1,5 +1,5 @@
 import { DomainAssessment, EmailPostureUI } from '../models/types';
-import { DiscoveryOptions, DiscoveryResult, Scope, TrawlTransport } from './trawl-transport';
+import { BuildInfo, DiscoveryOptions, DiscoveryResult, Scope, TrawlTransport } from './trawl-transport';
 
 /**
  * HttpTransport speaks to the headless Trawl server over its REST API and
@@ -67,6 +67,10 @@ export class HttpTransport implements TrawlTransport {
       console.error(`Trawl: ${method} ${path} failed:`, e);
       return fallback;
     }
+  }
+
+  getVersion(): Promise<BuildInfo | null> {
+    return this.get<BuildInfo | null>('/api/v1/version', null);
   }
 
   getAssets(status = ''): Promise<any[]> {

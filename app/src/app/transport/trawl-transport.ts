@@ -60,6 +60,23 @@ export interface DiscoveryOptions {
 }
 
 /**
+ * BuildInfo is the identity of the running engine.
+ *
+ * Mirrors `pkg/version.Info`. The version shown in the interface has to come
+ * from the binary rather than from a constant in the frontend: a hardcoded
+ * badge is correct exactly once, at the moment someone types it, and
+ * thereafter reports whatever the last person to edit it believed. It has
+ * already been wrong — the header read `v0.1.0-OSS` across several releases.
+ */
+export interface BuildInfo {
+  version: string;
+  commit?: string;
+  buildDate?: string;
+  goVersion?: string;
+  platform?: string;
+}
+
+/**
  * TrawlTransport is every operation the UI performs, expressed independently
  * of how it reaches the backend.
  *
@@ -74,6 +91,16 @@ export interface DiscoveryOptions {
 export interface TrawlTransport {
   /** Names the transport, for diagnostics and for the UI to disclose it. */
   readonly kind: 'wails' | 'http';
+
+  /**
+   * The build identity of the engine actually answering.
+   *
+   * Both transports read it from `pkg/version`, so the desktop app and a
+   * browser pointed at a server report the same thing for the same build —
+   * and a browser pointed at an older server reports that server, which is
+   * the useful answer.
+   */
+  getVersion(): Promise<BuildInfo | null>;
 
   getAssets(status?: string): Promise<any[]>;
 

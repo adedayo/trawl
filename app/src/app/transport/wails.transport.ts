@@ -1,5 +1,5 @@
 import { DomainAssessment, EmailPostureUI } from '../models/types';
-import { DiscoveryOptions, DiscoveryResult, Scope, TrawlTransport } from './trawl-transport';
+import { BuildInfo, DiscoveryOptions, DiscoveryResult, Scope, TrawlTransport } from './trawl-transport';
 
 declare const window: any;
 
@@ -50,6 +50,10 @@ export class WailsTransport implements TrawlTransport {
       );
     }
     return await fn(...args);
+  }
+
+  getVersion(): Promise<BuildInfo | null> {
+    return this.call<BuildInfo | null>('GetVersion', null);
   }
 
   getAssets(status = ''): Promise<any[]> {
