@@ -1,6 +1,6 @@
 <header style="--wails-draggable:drag" [class]="theme() === 'dark' ? 'border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-50' : 'border-b border-slate-200 bg-white/90 backdrop-blur sticky top-0 z-50 shadow-sm'">
   <div class="max-w-7xl mx-auto px-4 pl-20 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-    
+
     <!-- Brand Logo -->
     <div class="flex items-center space-x-3">
       <div class="w-11 h-11 flex items-center justify-center shrink-0">
@@ -25,9 +25,9 @@
 
     <!-- Engine Status & Controls -->
     <div class="flex items-center space-x-3">
-      
+
       <!-- Light / Dark Theme Switcher Button -->
-      <button (click)="toggleTheme()" 
+      <button (click)="toggleTheme()"
         [class]="theme() === 'dark' ? 'p-2 rounded-lg bg-slate-800 border border-slate-700 text-amber-300 hover:bg-slate-700 transition' : 'p-2 rounded-lg bg-slate-100 border border-slate-300 text-slate-700 hover:bg-slate-200 transition'"
         [title]="themeButtonTitle()"
         [attr.aria-label]="themeButtonTitle()">
@@ -98,18 +98,18 @@
         class="py-3 px-1 border-b-2 text-xs uppercase tracking-wider transition">
         Executive
       </button>
-      <button (click)="wailsIpc.activeTab.set('overview')" 
+      <button (click)="wailsIpc.activeTab.set('overview')"
         [class]="activeTab() === 'overview' ? (theme() === 'dark' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-cyan-600 text-cyan-700 font-semibold') : (theme() === 'dark' ? 'border-transparent text-slate-400 hover:text-slate-200' : 'border-transparent text-slate-600 hover:text-slate-900')"
         class="py-3 px-1 border-b-2 text-xs uppercase tracking-wider transition">
         Overview
       </button>
-      <button (click)="wailsIpc.activeTab.set('assets')" 
+      <button (click)="wailsIpc.activeTab.set('assets')"
         [class]="activeTab() === 'assets' ? (theme() === 'dark' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-cyan-600 text-cyan-700 font-semibold') : (theme() === 'dark' ? 'border-transparent text-slate-400 hover:text-slate-200' : 'border-transparent text-slate-600 hover:text-slate-900')"
         class="py-3 px-1 border-b-2 text-xs uppercase tracking-wider transition flex items-center space-x-1.5">
         <span>Assets</span>
         <span [class]="theme() === 'dark' ? 'px-1.5 py-0.5 rounded-full bg-slate-800 text-[10px] text-slate-300' : 'px-1.5 py-0.5 rounded-full bg-slate-200 text-[10px] text-slate-700'">{{ activeAssetCount() }}</span>
       </button>
-      <button (click)="wailsIpc.activeTab.set('findings')" 
+      <button (click)="wailsIpc.activeTab.set('findings')"
         [class]="activeTab() === 'findings' ? (theme() === 'dark' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-cyan-600 text-cyan-700 font-semibold') : (theme() === 'dark' ? 'border-transparent text-slate-400 hover:text-slate-200' : 'border-transparent text-slate-600 hover:text-slate-900')"
         class="py-3 px-1 border-b-2 text-xs uppercase tracking-wider transition flex items-center space-x-1.5">
         <span>Vulnerabilities</span>
@@ -117,17 +117,17 @@
           <span [class]="theme() === 'dark' ? 'px-1.5 py-0.5 rounded-full bg-rose-950 border border-rose-800 text-rose-400 text-[10px] font-bold' : 'px-1.5 py-0.5 rounded-full bg-rose-100 border border-rose-300 text-rose-700 text-[10px] font-bold'">{{ kevCount() }} KEV</span>
         }
       </button>
-      <button (click)="wailsIpc.activeTab.set('email')" 
+      <button (click)="wailsIpc.activeTab.set('email')"
         [class]="activeTab() === 'email' ? (theme() === 'dark' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-cyan-600 text-cyan-700 font-semibold') : (theme() === 'dark' ? 'border-transparent text-slate-400 hover:text-slate-200' : 'border-transparent text-slate-600 hover:text-slate-900')"
         class="py-3 px-1 border-b-2 text-xs uppercase tracking-wider transition">
         Email Posture
       </button>
-      <button (click)="wailsIpc.activeTab.set('secrets')" 
+      <button (click)="wailsIpc.activeTab.set('secrets')"
         [class]="activeTab() === 'secrets' ? (theme() === 'dark' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-cyan-600 text-cyan-700 font-semibold') : (theme() === 'dark' ? 'border-transparent text-slate-400 hover:text-slate-200' : 'border-transparent text-slate-600 hover:text-slate-900')"
         class="py-3 px-1 border-b-2 text-xs uppercase tracking-wider transition">
         Secret Scanning
       </button>
-      <button (click)="wailsIpc.activeTab.set('scope')" 
+      <button (click)="wailsIpc.activeTab.set('scope')"
         [class]="activeTab() === 'scope' ? (theme() === 'dark' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-cyan-600 text-cyan-700 font-semibold') : (theme() === 'dark' ? 'border-transparent text-slate-400 hover:text-slate-200' : 'border-transparent text-slate-600 hover:text-slate-900')"
         class="py-3 px-1 border-b-2 text-xs uppercase tracking-wider transition flex items-center space-x-1">
         <span>Scope Authorization</span>
