@@ -110,6 +110,8 @@ func classMeaning(c EgressClass) string {
 		return "Queries sent straight to your domain's authoritative nameservers, which is visible to them in a way an ordinary query is not."
 	case ClassTargetHTTPS:
 		return "HTTPS requests to your own infrastructure, such as retrieving an MTA-STS policy file."
+	case ClassTargetAddresses:
+		return "Direct TCP and TLS connections to addresses obtained by resolving your domain's names."
 	case ClassThirdParty:
 		return "Contact with a service that is neither yours nor the target's. Requires per-service consent as well."
 	case ClassIntrusive:

@@ -18,6 +18,7 @@ run and then get reported, and it does not run quietly.
 | `intrusive` | Contact beyond an ordinary query, such as requesting a zone transfer. Never destructive, but worth agreeing to. | no |
 | `offline` | No network contact at all. | yes |
 | `resolver` | Ordinary DNS queries through a recursive resolver. | yes |
+| `target-addresses` | Direct TCP and TLS connections to addresses obtained by resolving your domain's names. | no |
 | `target-https` | HTTPS requests to your own infrastructure, such as retrieving an MTA-STS policy file. | yes |
 | `target-nameservers` | Queries sent straight to your domain's authoritative nameservers, which is visible to them in a way an ordinary query is not. | no |
 | `third-party` | Contact with a service that is neither yours nor the target's. Requires per-service consent as well. | no |
@@ -36,6 +37,7 @@ names to someone, and it waits for a decision.
 | `crtsh` | `crt.sh` | no |
 | `fastly-ip-ranges` | `api.fastly.com` | no |
 | `gcp-ip-ranges` | `www.gstatic.com` | no |
+| `hackertarget` | `api.hackertarget.com` | no |
 
 ## Checks that run
 
@@ -62,6 +64,7 @@ reason given, so a coverage figure never counts them as assessed.
 |---|---|
 | `axfr` | check "axfr" requires egress class "target-nameservers", which this deployment has not permitted |
 | `ct` | check "ct" requires egress class "third-party", which this deployment has not permitted |
+| `dangle` | check "dangle" requires egress class "target-addresses", which this deployment has not permitted |
 | `net` | check "net" requires egress class "third-party", which this deployment has not permitted |
 | `ns` | check "ns" requires egress class "target-nameservers", which this deployment has not permitted |
 | `tko` | check "tko" requires egress class "target-nameservers", which this deployment has not permitted |

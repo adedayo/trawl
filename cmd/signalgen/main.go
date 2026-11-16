@@ -75,9 +75,10 @@ var byCheck = map[string]classification{
 	"ptr":    {"delegation-integrity", "attribution-confusion", "reconnaissance", "ptr"},
 	"wild":   {"dns-hygiene", "subdomain-takeover", "reconnaissance", "wildcard"},
 
-	"tko": {"subdomain-takeover", "subdomain-takeover", "exploitation", "alias-hygiene"},
-	"ct":  {"attack-surface-exposure", "forgotten-asset", "reconnaissance", "certificate-transparency"},
-	"net": {"infrastructure-attribution", "jurisdiction-exposure", "reconnaissance", "hosting"},
+	"tko":    {"subdomain-takeover", "subdomain-takeover", "exploitation", "alias-hygiene"},
+	"dangle": {"subdomain-takeover", "subdomain-takeover", "exploitation", "address-hygiene"},
+	"ct":     {"attack-surface-exposure", "forgotten-asset", "reconnaissance", "certificate-transparency"},
+	"net":    {"infrastructure-attribution", "jurisdiction-exposure", "reconnaissance", "hosting"},
 }
 
 // bySignal corrects individual findings whose check-level default is wrong.
@@ -147,6 +148,14 @@ var bySignal = map[string]classification{
 	// A public name resolving into RFC 1918 space leaks internal addressing.
 	// It says nothing about which jurisdiction anything sits in.
 	"SURF-NET-002": {"attack-surface-exposure", "information-disclosure", "reconnaissance", "hosting"},
+
+	// SURF-DANGLE-001 and 002 report a dedicated cloud address presenting an
+	// unrelated identity, which belongs under subdomain-takeover alongside tko.
+	// SURF-DANGLE-004 (address record pinned to a rotating load balancer) and
+	// SURF-DANGLE-005 (dedicated cloud address refusing HTTP and TLS) are DNS
+	// hygiene and forgotten-asset observations respectively, per vantage 017 R8.
+	"SURF-DANGLE-004": {"dns-hygiene", "dns-availability", "reconnaissance", "address-hygiene"},
+	"SURF-DANGLE-005": {"attack-surface-exposure", "forgotten-asset", "reconnaissance", "address-hygiene"},
 }
 
 func main() {

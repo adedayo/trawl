@@ -1,5 +1,5 @@
 {
-  "registryVersion": "v4",
+  "registryVersion": "v5",
   "libraryMajor": "1",
   "entries": [
     {
@@ -140,6 +140,46 @@
       "stage": "reconnaissance",
       "dedupGroup": "ct:attack-surface-exposure",
       "control": "certificate-transparency",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DANGLE-001",
+      "condition": "Cloud address presents a trusted certificate for unrelated names",
+      "weaknessClass": "subdomain-takeover",
+      "scenario": "subdomain-takeover",
+      "stage": "exploitation",
+      "dedupGroup": "dangle:subdomain-takeover",
+      "control": "address-hygiene",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DANGLE-002",
+      "condition": "Cloud address presents an untrusted unrelated identity",
+      "weaknessClass": "subdomain-takeover",
+      "scenario": "subdomain-takeover",
+      "stage": "exploitation",
+      "dedupGroup": "dangle:subdomain-takeover",
+      "control": "address-hygiene",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DANGLE-004",
+      "condition": "Address record points to an observed rotating load-balancer address",
+      "weaknessClass": "dns-hygiene",
+      "scenario": "dns-availability",
+      "stage": "reconnaissance",
+      "dedupGroup": "dangle:dns-hygiene",
+      "control": "address-hygiene",
+      "direction": "aggravating"
+    },
+    {
+      "signalId": "SURF-DANGLE-005",
+      "condition": "Dedicated cloud address refuses HTTP and TLS connections",
+      "weaknessClass": "attack-surface-exposure",
+      "scenario": "forgotten-asset",
+      "stage": "reconnaissance",
+      "dedupGroup": "dangle:attack-surface-exposure",
+      "control": "address-hygiene",
       "direction": "aggravating"
     },
     {

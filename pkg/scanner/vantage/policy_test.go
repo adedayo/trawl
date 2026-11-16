@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -52,6 +53,50 @@ func TestEgressConformance(t *testing.T) {
 			if len(s.Endpoints()) == 0 {
 				t.Errorf("third-party service %q names no endpoints, so consent to it "+
 					"cannot be enforced at the transport", s)
+			}
+		}
+	}
+
+	// Also walk every exported field of vaudit.EgressProfile directly. Checking
+	// only vaudit.Descriptions() misses a new field when the upstream check
+	// that introduced it also declares Resolver: ClassesOf returns ["resolver"]
+	// and silently drops the unmapped field.
+	rt := reflect.TypeOf(vaudit.EgressProfile{})
+	for i := 0; i < rt.NumField(); i++ {
+		f := rt.Field(i)
+		if !f.IsExported() {
+			continue
+		}
+		var prof vaudit.EgressProfile
+		rv := reflect.ValueOf(&prof).Elem().Field(i)
+		wantCount := 1
+		switch {
+		case f.Name == "Intrusive":
+			// Intrusive qualifies an underlying contact mechanism rather than
+			// declaring egress on its own.
+			prof.Resolver = true
+			prof.Intrusive = true
+			wantCount = 2
+		case f.Type.Kind() == reflect.Bool:
+			rv.SetBool(true)
+		case f.Type.Kind() == reflect.Slice:
+			services := vaudit.ThirdPartyServices()
+			if len(services) == 0 {
+				t.Fatalf("field %s requires a ThirdPartyService sample, and none exist", f.Name)
+			}
+			rv.Set(reflect.ValueOf([]vaudit.ThirdPartyService{services[0]}))
+		default:
+			t.Fatalf("vaudit.EgressProfile grew field %s (%s) with an unhandled kind; "+
+				"map it in ClassesOf and update this conformance check", f.Name, f.Type)
+		}
+		got := ClassesOf(prof)
+		if len(got) != wantCount {
+			t.Errorf("vaudit.EgressProfile.%s produced %v (len %d, want %d); "+
+				"ClassesOf is dropping an upstream egress dimension", f.Name, got, len(got), wantCount)
+		}
+		for _, c := range got {
+			if !c.Known() {
+				t.Errorf("vaudit.EgressProfile.%s maps to unknown class %q", f.Name, c)
 			}
 		}
 	}
@@ -109,6 +154,10 @@ func TestDefaultPolicyWithholdsIntrusiveAndThirdPartyChecks(t *testing.T) {
 			t.Errorf("check %q addresses target nameservers directly but was selected "+
 				"under the default policy", name)
 		}
+		if e.TargetAddresses {
+			t.Errorf("check %q connects directly to target addresses but was selected "+
+				"under the default policy", name)
+		}
 	}
 
 	if len(sel.Services) != 0 {
@@ -119,6 +168,9 @@ func TestDefaultPolicyWithholdsIntrusiveAndThirdPartyChecks(t *testing.T) {
 	}
 	if sel.TargetNameservers {
 		t.Error("selection claims it needs direct nameserver contact under the default policy")
+	}
+	if sel.TargetAddresses {
+		t.Error("selection claims it needs direct target-address contact under the default policy")
 	}
 }
 
@@ -429,6 +481,48 @@ func TestAdapterRejectsAnUnenforceablePolicy(t *testing.T) {
 	}))
 	if err == nil {
 		t.Fatal("an adapter was built over a policy it cannot enforce")
+	}
+}
+
+// TestPermissivePolicyWithNoNetworkWithholdsOptInNetworkChecks ensures a
+// DNS-only assessment still runs when the deployment policy permits opt-in
+// network checks such as dangle. Vantage rejects an explicit opt-in network
+// check paired with NoNetwork; because policy selection populates Only, the
+// adapter must withhold those checks as not_checked for that run rather than
+// failing the whole assessment.
+func TestPermissivePolicyWithNoNetworkWithholdsOptInNetworkChecks(t *testing.T) {
+	realAssessor, err := vaudit.NewAssessor(&countingResolver{})
+	if err != nil {
+		t.Fatalf("NewAssessor: %v", err)
+	}
+	policy := EgressPolicy{
+		AllowedClasses:    EgressClasses(),
+		ConsentedServices: vaudit.ThirdPartyServices(),
+	}
+	a, err := New(realAssessor, WithEgressPolicy(policy), WithLibraryVersion("v1.8.0"))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	res, err := a.Assess(context.Background(), Request{
+		AssetID:   "asset-1",
+		Domain:    "example.com",
+		NoNetwork: true,
+	})
+	if err != nil {
+		t.Fatalf("Assess with NoNetwork under permissive policy failed: %v", err)
+	}
+	var sawDangle bool
+	for _, c := range res.Coverage {
+		if c.CheckID == "dangle" {
+			sawDangle = true
+			if c.State != store.CoverageNotChecked {
+				t.Errorf("dangle coverage state = %q, want %q", c.State, store.CoverageNotChecked)
+			}
+		}
+	}
+	if !sawDangle {
+		t.Error("dangle missing from coverage when withheld for NoNetwork")
 	}
 }
 

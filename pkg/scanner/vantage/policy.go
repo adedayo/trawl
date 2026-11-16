@@ -34,6 +34,9 @@ const (
 	// ClassTargetHTTPS is an HTTPS request to the target's own infrastructure,
 	// such as MTA-STS policy retrieval.
 	ClassTargetHTTPS EgressClass = "target-https"
+	// ClassTargetAddresses is a direct TCP or TLS connection to addresses
+	// obtained by resolving in-scope target names.
+	ClassTargetAddresses EgressClass = "target-addresses"
 	// ClassThirdParty is contact with a service that is neither the
 	// operator's nor the target's. Permitting the class is necessary but not
 	// sufficient: each service must also be consented to by name.
@@ -62,6 +65,7 @@ func EgressClasses() []EgressClass {
 		ClassIntrusive,
 		ClassOffline,
 		ClassResolver,
+		ClassTargetAddresses,
 		ClassTargetHTTPS,
 		ClassTargetNameservers,
 		ClassThirdParty,
@@ -169,6 +173,9 @@ func ClassesOf(e vaudit.EgressProfile) []EgressClass {
 	if e.TargetHTTPS {
 		out = append(out, ClassTargetHTTPS)
 	}
+	if e.TargetAddresses {
+		out = append(out, ClassTargetAddresses)
+	}
 	if len(e.ThirdParty) > 0 {
 		out = append(out, ClassThirdParty)
 	}
@@ -242,6 +249,11 @@ type Selection struct {
 	// TargetHTTPS reports whether any selected check makes HTTPS requests to
 	// target infrastructure.
 	TargetHTTPS bool `json:"targetHttps"`
+	// TargetAddresses reports whether any selected check connects directly to
+	// addresses obtained by resolving in-scope target names.
+	TargetAddresses bool `json:"targetAddresses"`
+
+	optInNetwork map[string]bool
 }
 
 // SelectChecks filters a capability manifest through a policy.
@@ -254,7 +266,7 @@ func SelectChecks(caps vaudit.Capabilities, p EgressPolicy) (Selection, error) {
 		return Selection{}, err
 	}
 
-	var sel Selection
+	sel := Selection{optInNetwork: map[string]bool{}}
 	services := map[vaudit.ThirdPartyService]bool{}
 
 	for _, c := range caps.Checks {
@@ -264,11 +276,17 @@ func SelectChecks(caps vaudit.Capabilities, p EgressPolicy) (Selection, error) {
 			continue
 		}
 		sel.Checks = append(sel.Checks, c.Name)
+		if c.OptIn && c.Egress.RequiresNetwork() {
+			sel.optInNetwork[c.Name] = true
+		}
 		if c.Egress.TargetNameservers {
 			sel.TargetNameservers = true
 		}
 		if c.Egress.TargetHTTPS {
 			sel.TargetHTTPS = true
+		}
+		if c.Egress.TargetAddresses {
+			sel.TargetAddresses = true
 		}
 		for _, s := range c.Egress.ThirdParty {
 			services[s] = true
@@ -283,6 +301,31 @@ func SelectChecks(caps vaudit.Capabilities, p EgressPolicy) (Selection, error) {
 	sort.Slice(sel.Excluded, func(i, j int) bool { return sel.Excluded[i].CheckID < sel.Excluded[j].CheckID })
 	sort.Slice(sel.Services, func(i, j int) bool { return sel.Services[i] < sel.Services[j] })
 	return sel, nil
+}
+
+// withoutOptInNetwork withholds opt-in checks that require network access when
+// an individual request restricts assessment to DNS. Vantage treats naming an
+// opt-in network check alongside NoNetwork as a caller error; under policy
+// selection the check was admitted by policy rather than named for this run,
+// so withholding it as not_checked preserves the run.
+func (s Selection) withoutOptInNetwork() ([]string, []Exclusion) {
+	if len(s.optInNetwork) == 0 {
+		return s.Checks, s.Excluded
+	}
+	checks := make([]string, 0, len(s.Checks))
+	excluded := append([]Exclusion(nil), s.Excluded...)
+	for _, name := range s.Checks {
+		if s.optInNetwork[name] {
+			excluded = append(excluded, Exclusion{
+				CheckID: name,
+				Reason:  fmt.Sprintf("check %q requires network access and the request restricted assessment to DNS", name),
+			})
+			continue
+		}
+		checks = append(checks, name)
+	}
+	sort.Slice(excluded, func(i, j int) bool { return excluded[i].CheckID < excluded[j].CheckID })
+	return checks, excluded
 }
 
 // EndpointAllowlist returns the hostnames the transport should permit besides

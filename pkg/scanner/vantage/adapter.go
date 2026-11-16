@@ -238,14 +238,17 @@ func (a *Adapter) Assess(ctx context.Context, req Request) (Result, error) {
 		selection.Only = sel.Checks
 		selection.Profile = vaudit.Profile("")
 		excluded = sel.Excluded
+		if req.NoNetwork {
+			selection.Only, excluded = sel.withoutOptInNetwork()
+		}
 
 		// Every check refused: there is nothing to ask, and pretending
 		// otherwise would let an empty run present as a clean one.
-		if len(sel.Checks) == 0 {
+		if len(selection.Only) == 0 {
 			now := a.now()
 			return Result{
 				Outcome:        OutcomeRefused,
-				Coverage:       sel.ExclusionCoverage(req.AssetID, a.version, now),
+				Coverage:       Selection{Excluded: excluded}.ExclusionCoverage(req.AssetID, a.version, now),
 				LibraryVersion: a.version,
 				Err:            errEveryCheckExcluded,
 			}, errEveryCheckExcluded
