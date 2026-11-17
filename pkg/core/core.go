@@ -16,9 +16,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/adedayo/trawl/pkg/contact"
 	"github.com/adedayo/trawl/pkg/event"
 	"github.com/adedayo/trawl/pkg/feed"
 	"github.com/adedayo/trawl/pkg/scanner"
@@ -26,6 +29,7 @@ import (
 	"github.com/adedayo/trawl/pkg/service"
 	"github.com/adedayo/trawl/pkg/store"
 	vprobe "github.com/adedayo/vantage/pkg/probe"
+	"github.com/google/uuid"
 )
 
 // ScopeSettingsKey is the settings key under which the authorisation record is
@@ -137,6 +141,83 @@ func (c *Core) SecretFindings(ctx context.Context, repoURL string) ([]store.Secr
 
 func (c *Core) Regressions(ctx context.Context) ([]store.Regression, error) {
 	return c.store.GetRegressions(ctx)
+}
+
+func (c *Core) CalibrationReport(ctx context.Context, experimentID string, confidence float64) ([]contact.CalibrationReportRow, error) {
+	if experimentID == "" {
+		return nil, fmt.Errorf("calibration experiment is required")
+	}
+	observations, err := c.store.GetCalibrationObservations(ctx, experimentID)
+	if err != nil {
+		return nil, err
+	}
+	intervals, err := c.store.GetCalibrationReachability(ctx, experimentID)
+	if err != nil {
+		return nil, err
+	}
+	contactObservations := make([]contact.CalibrationObservation, 0, len(observations))
+	for _, observation := range observations {
+		contactObservations = append(contactObservations, contact.CalibrationObservation{
+			ID: observation.ID, ExperimentID: observation.ExperimentID, EndpointID: observation.EndpointID,
+			ServiceClass: contact.ServiceClass(observation.ServiceClass), Transport: observation.Transport,
+			Port: observation.Port, ObservedAt: observation.ObservedAt,
+			EventType: contact.CalibrationEventType(observation.EventType), SourceKey: contact.SourceKey(observation.SourceKey),
+			Accepted: observation.Accepted, ProtocolIdentified: observation.ProtocolIdentified,
+		})
+	}
+	contactIntervals := make([]contact.ReachabilityInterval, 0, len(intervals))
+	for _, interval := range intervals {
+		contactIntervals = append(contactIntervals, contact.ReachabilityInterval{
+			ExperimentID: interval.ExperimentID, EndpointID: interval.EndpointID,
+			ServiceClass: contact.ServiceClass(interval.ServiceClass), StartedAt: interval.StartedAt, EndedAt: interval.EndedAt,
+		})
+	}
+	buckets, err := contact.AggregateCalibration(contactObservations, contactIntervals)
+	if err != nil {
+		return nil, err
+	}
+	rows := make([]contact.CalibrationReportRow, 0, len(buckets))
+	for key, bucket := range buckets {
+		rate, err := bucket.Rate()
+		if err != nil {
+			return nil, err
+		}
+		low, high, err := contact.PoissonRateInterval(bucket.EventCount, bucket.ReachableServiceDays, confidence)
+		if err != nil {
+			return nil, err
+		}
+		rows = append(rows, contact.CalibrationReportRow{
+			ExperimentID: experimentID, ServiceClass: string(key.ServiceClass), EventType: string(key.EventType),
+			EventCount: bucket.EventCount, ReachableServiceDays: bucket.ReachableServiceDays, EndpointCount: bucket.EndpointCount,
+			UniqueSourceCount: bucket.UniqueSourceCount, RatePerServiceDay: rate, RateLowPerServiceDay: low, RateHighPerServiceDay: high,
+			IntervalMethod: "garwood-poisson", Confidence: confidence,
+			ObservationStart: bucket.ObservationStart.UTC().Format(time.RFC3339), ObservationEnd: bucket.ObservationEnd.UTC().Format(time.RFC3339),
+			DeduplicationRule: "event count is not deduplicated; uniqueSourceCount uses keyed sourceKey",
+		})
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].ServiceClass == rows[j].ServiceClass {
+			return rows[i].EventType < rows[j].EventType
+		}
+		return rows[i].ServiceClass < rows[j].ServiceClass
+	})
+	return rows, nil
+}
+
+func (c *Core) CalibrationExperiments(ctx context.Context) ([]store.CalibrationExperiment, error) {
+	return c.store.GetCalibrationExperiments(ctx)
+}
+
+func (c *Core) CreateCalibrationExperiment(ctx context.Context, label string) (*store.CalibrationExperiment, error) {
+	label = strings.TrimSpace(label)
+	if label == "" {
+		return nil, fmt.Errorf("calibration experiment label is required")
+	}
+	experiment := &store.CalibrationExperiment{ID: "cal-" + uuid.NewString(), Label: label, CreatedAt: time.Now().UTC()}
+	if err := c.store.CreateCalibrationExperiment(ctx, experiment); err != nil {
+		return nil, err
+	}
+	return experiment, nil
 }
 
 // ApplyFeedSnapshot applies a complete catalogue without starting an asset

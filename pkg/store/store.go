@@ -209,6 +209,7 @@ type Job struct {
 type Store interface {
 	FeedStore
 	ExposureHistoryStore
+	CalibrationStore
 
 	// Assets
 	GetAssets(ctx context.Context, status AssetStatus) ([]Asset, error)

@@ -126,6 +126,38 @@ export class ExecutiveComponent {
   /** Whether anything at all has been discovered yet. */
   readonly hasEstate = computed(() => this.assets().length > 0);
 
+  readonly calibrationExperimentId = signal('');
+  readonly calibrationExperimentLabel = signal('');
+
+  constructor() {
+    void this.wailsIpc.loadCalibrationExperiments();
+  }
+
+  loadCalibrationReport(): void {
+    const experimentId = this.calibrationExperimentId().trim();
+    if (!experimentId) {
+      this.wailsIpc.calibrationReportError.set('Enter an experiment identifier first.');
+      return;
+    }
+    void this.wailsIpc.loadCalibrationReport(experimentId);
+  }
+
+  async createCalibrationExperiment(): Promise<void> {
+    const label = this.calibrationExperimentLabel().trim();
+    if (!label) {
+      this.wailsIpc.calibrationReportError.set('Enter a label for the new experiment.');
+      return;
+    }
+    try {
+      const experiment = await this.wailsIpc.createCalibrationExperiment(label);
+      this.calibrationExperimentId.set(experiment.id);
+      this.calibrationExperimentLabel.set('');
+      await this.wailsIpc.loadCalibrationReport(experiment.id);
+    } catch (error) {
+      this.wailsIpc.calibrationReportError.set(error instanceof Error ? error.message : 'Experiment could not be created.');
+    }
+  }
+
   showAllRanked(): void {
     this.rankedLimit.set(Number.MAX_SAFE_INTEGER);
   }

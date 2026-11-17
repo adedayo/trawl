@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 
+	"github.com/adedayo/trawl/pkg/contact"
 	"github.com/adedayo/trawl/pkg/core"
 	"github.com/adedayo/trawl/pkg/event"
 	"github.com/adedayo/trawl/pkg/service"
@@ -120,6 +121,18 @@ func (a *App) ProbeDiscoveredServices(profile string) error {
 
 func (a *App) GetRegressions() ([]store.Regression, error) {
 	return a.core.Regressions(a.ctx)
+}
+
+func (a *App) GetCalibrationReport(experimentID string, confidence float64) ([]contact.CalibrationReportRow, error) {
+	return a.core.CalibrationReport(a.ctx, experimentID, confidence)
+}
+
+func (a *App) GetCalibrationExperiments() ([]store.CalibrationExperiment, error) {
+	return a.core.CalibrationExperiments(a.ctx)
+}
+
+func (a *App) CreateCalibrationExperiment(label string) (*store.CalibrationExperiment, error) {
+	return a.core.CreateCalibrationExperiment(a.ctx, label)
 }
 
 func (a *App) GetSetting(key string) (string, error) {

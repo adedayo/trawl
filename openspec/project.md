@@ -35,6 +35,7 @@ These are enforced in code, not just documented as policy.
 5. **"We did not look" must never render as "it is fine".** Assessment coverage is four-state (`ok` / `not_found` / `not_checked` / `check_failed`) and travels with every aggregate. A check that never ran must never contribute the reassurance of a check that passed.
 6. **No unlabelled number.** Every emitted probability or monetary figure carries an uncertainty interval, a calibration label and the coverage of its inputs. Rendering types are constructed so that a bare point estimate does not compile.
 7. **Exposure is a prior, not an observation of attackers.** No scan-derived path may write a contact posterior. A scan tells you the door is unlocked; it does not tell you anyone tried the handle.
+8. **The estimate is never blocked on instrumentation.** No surface withholds a figure for want of telemetry: with nothing to update on, an estimate stays at the generally observed, class-level patterns, labelled `sourced`, and that is a complete answer, not a placeholder. Telemetry is a continuum, not a switch. As an organisation's observations accumulate the distribution moves continuously: its central value shifts towards that organisation's actual attempt rate and its spread moves with it; counted arrivals over an observation window give a conjugate posterior, so each window updates location and spread with no discontinuity. `sourced` and `calibrated` record provenance for audit, in the form guardrail 6 already requires; the distribution carries the epistemic state, and no surface may present them as a binary quality gate on the number. The figure is consumed as a distribution, feeding simulation that produces a range of overall risk exposure, not a point estimate. So an absence of telemetry is a labelled state, never a missing feature, and by guardrail 5 it must not read as reassurance. A tool that goes quiet until it is instrumented is useless to precisely the organisation that most needs the estimate.
 
 ## Repository Layout
 
@@ -86,7 +87,7 @@ Per-change counts and the outstanding-ledger notes live in
 | 004 | Wails desktop packaging | **Complete — archived.** The three scanner runners were withdrawn, not deferred. |
 | 005 | Cloud continuous EASM | In progress; partly gated on 006 Phase 9 |
 | 006 | Vantage integration — measured-state signals, coverage model | Phases 1–7 landed; 8–9 outstanding |
-| 007 | Contact probability — the keystone; supplies P(contact) | Proposed |
+| 007 | Contact probability — the keystone; supplies P(contact) | In progress. Phase 1 exposure history and the Phase 4a calibration evidence path have landed; Phases 2 to 4 are the critical path and have not started. Phase 4a was resequenced behind them on 2026-09-23. |
 | 008 | Risk model packs — versioned, signed, source-cited parameters | Proposed |
 | 009 | Exploit probability engine — three layers, three evidence classes | Proposed; absorbs the archived 002 |
 | 010 | Scenario loss model — frequency, magnitude, FAIR overlay | Proposed |
@@ -96,7 +97,15 @@ Per-change counts and the outstanding-ledger notes live in
 | 014 | Operator dashboard with an executive area — observed exposure, not priced risk | Implemented; four items outstanding |
 | 015 | Spec datastore hygiene | **Complete — archived** |
 | 016 | Deployment parity — one engine, three transports | Substantially delivered. Renumbered from 007, which was ambiguous. |
+| 017 | Email posture surface | **Complete (archived).** Coverage is computed once, in Go, at the serialisation boundary. Not retrospective: observations stored before it carry no `detail` until their domain is re-scanned. |
+| 018 | Schema migration durability | Phases 1 to 3 landed. The store records its shape in `PRAGMA user_version` and refuses a database written by a newer build. The release note is what remains. |
+| 019 | Vulnerability feed ingestion (KEV, NVD, EPSS) | Proposed. **Build next**: the feeds are consumed but never fetched. Its precursor, 018, has landed. |
+| 020 | Alerting and delivery | Specified, **deliberately unscheduled**. It earns its keep approaching production use; written early because dedup identity and coverage-in-the-alert are expensive to retrofit. |
+| 021 | AI annotation and triage | **Not scheduled**; the product is complete without it. Phase 0 is worth doing early regardless, since 014's annotation boundary currently passes because there is no annotation. |
+| 022 | Spec lifecycle automation | Phase 1 landed: `cmd/specledger` generates the STATUS.md counts and reports structural failures. Promoting accepted requirements into `openspec/specs/` remains. |
+| 023 | spartan/ui adoption | **Decided: adopt.** Settles the oldest open decision in the project. Dependencies installed and the suite is unchanged by them; no surface migrated yet. Sequence with 014's accessibility work. |
+| 024 | Vantage service reachability | Proposed. Consumes Vantage Change 016 when released, then wires explicit responding observations into the exposure history and 007's contact prior. |
 
-Suggested build order: **006 Phase 1** (the vantage embedding API, upstream work and the long pole) and **008 precision primitives** in parallel, then **007**, then 009 → 010 → 011 → 012.
+Suggested build order: **006 has landed and drops out of the queue.** **019** (the KEV, NVD and EPSS fetch) is recorded in `STATUS.md` as build next, and **008 precision primitives** continue in parallel as they always have. **007 Phases 2 to 4** (factor computation, the contact estimate, instance aggregation) are the critical path for the risk arc and run on sourced class priors, with Phase 4a's calibration evidence path deferred behind them (2026-09-23) and a stub ambient table carrying Phase 2 until 008 lands. Then 009 → 010 → 011 → 012.
 
-**014 runs alongside rather than in that queue.** It presents what the engine already establishes — coverage, regressions, ordering — and is gated only on 005 and 006, both of which have landed. It is deliberately confined to observed exposure: no currency, no calibrated probability, no composite risk score. Those arrive with 012, which extends 014's executive area rather than replacing it. The boundary is enforced by a CI check rather than by review, because an executive surface with nothing to say about value is exactly where an uncalibrated "risk score" tends to grow.
+**014 runs alongside rather than in that queue.** It presents what the engine already establishes — coverage, regressions, ordering — and is gated only on 005 and 006; 006 has landed and 005 is substantially delivered. It is deliberately confined to observed exposure: no currency, no calibrated probability, no composite risk score. Those arrive with 012, which extends 014's executive area rather than replacing it. The boundary is enforced by a CI check rather than by review, because an executive surface with nothing to say about value is exactly where an uncalibrated "risk score" tends to grow.

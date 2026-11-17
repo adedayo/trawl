@@ -59,6 +59,30 @@ export interface DiscoveryOptions {
   maxSans: number;
 }
 
+export interface CalibrationReportRow {
+  experimentId: string;
+  serviceClass: string;
+  eventType: string;
+  eventCount: number;
+  reachableServiceDays: number;
+  endpointCount: number;
+  uniqueSourceCount: number;
+  ratePerServiceDay: number;
+  rateLowPerServiceDay: number;
+  rateHighPerServiceDay: number;
+  intervalMethod: string;
+  confidence: number;
+  observationStart: string;
+  observationEnd: string;
+  deduplicationRule: string;
+}
+
+export interface CalibrationExperiment {
+  id: string;
+  label: string;
+  createdAt: string;
+}
+
 /**
  * BuildInfo is the identity of the running engine.
  *
@@ -115,6 +139,9 @@ export interface TrawlTransport {
   getSecretFindings(repoUrl?: string): Promise<any[]>;
   getEmailPostures(): Promise<EmailPostureUI[]>;
   getRegressions(): Promise<any[]>;
+  getCalibrationReport(experimentId: string, confidence?: number): Promise<CalibrationReportRow[]>;
+  getCalibrationExperiments(): Promise<CalibrationExperiment[]>;
+  createCalibrationExperiment(label: string): Promise<CalibrationExperiment>;
 
   getAssessments(): Promise<DomainAssessment[]>;
   getAssessment(domain: string): Promise<DomainAssessment | null>;

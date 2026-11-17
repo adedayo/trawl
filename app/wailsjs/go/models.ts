@@ -1,3 +1,48 @@
+export namespace contact {
+	
+	export class CalibrationReportRow {
+	    ExperimentID: string;
+	    ServiceClass: string;
+	    EventType: string;
+	    EventCount: number;
+	    ReachableServiceDays: number;
+	    EndpointCount: number;
+	    UniqueSourceCount: number;
+	    RatePerServiceDay: number;
+	    RateLowPerServiceDay: number;
+	    RateHighPerServiceDay: number;
+	    IntervalMethod: string;
+	    Confidence: number;
+	    ObservationStart: string;
+	    ObservationEnd: string;
+	    DeduplicationRule: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CalibrationReportRow(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ExperimentID = source["ExperimentID"];
+	        this.ServiceClass = source["ServiceClass"];
+	        this.EventType = source["EventType"];
+	        this.EventCount = source["EventCount"];
+	        this.ReachableServiceDays = source["ReachableServiceDays"];
+	        this.EndpointCount = source["EndpointCount"];
+	        this.UniqueSourceCount = source["UniqueSourceCount"];
+	        this.RatePerServiceDay = source["RatePerServiceDay"];
+	        this.RateLowPerServiceDay = source["RateLowPerServiceDay"];
+	        this.RateHighPerServiceDay = source["RateHighPerServiceDay"];
+	        this.IntervalMethod = source["IntervalMethod"];
+	        this.Confidence = source["Confidence"];
+	        this.ObservationStart = source["ObservationStart"];
+	        this.ObservationEnd = source["ObservationEnd"];
+	        this.DeduplicationRule = source["DeduplicationRule"];
+	    }
+	}
+
+}
+
 export namespace service {
 	
 	export class CheckView {
@@ -356,6 +401,41 @@ export namespace store {
 	        this.provider = source["provider"];
 	        this.url = source["url"];
 	        this.fetchedAt = this.convertValues(source["fetchedAt"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class CalibrationExperiment {
+	    id: string;
+	    label: string;
+	    // Go type: time
+	    createdAt: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new CalibrationExperiment(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.label = source["label"];
+	        this.createdAt = this.convertValues(source["createdAt"], null);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

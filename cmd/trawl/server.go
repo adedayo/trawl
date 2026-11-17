@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -158,6 +159,9 @@ func (s *server) routes(mux *http.ServeMux) {
 	// defect this capability was written to prevent.
 	mux.HandleFunc("POST /api/v1/email-postures/{domain}", s.authed(s.handleScanEmailPosture))
 	mux.HandleFunc("GET /api/v1/regressions", s.handleGetRegressions)
+	mux.HandleFunc("GET /api/v1/calibration/report", s.handleGetCalibrationReport)
+	mux.HandleFunc("GET /api/v1/calibration/experiments", s.handleGetCalibrationExperiments)
+	mux.HandleFunc("POST /api/v1/calibration/experiments", s.authed(s.handleCreateCalibrationExperiment))
 	mux.HandleFunc("GET /api/v1/jobs", s.handleGetJobs)
 
 	// Measured-state assessment.
@@ -297,6 +301,50 @@ func (s *server) handleGetRegressions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, regressions)
+}
+
+func (s *server) handleGetCalibrationReport(w http.ResponseWriter, r *http.Request) {
+	experimentID := r.URL.Query().Get("experiment")
+	confidence := 0.95
+	if raw := r.URL.Query().Get("confidence"); raw != "" {
+		parsed, err := strconv.ParseFloat(raw, 64)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		confidence = parsed
+	}
+	report, err := s.core.CalibrationReport(r.Context(), experimentID, confidence)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, report)
+}
+
+func (s *server) handleGetCalibrationExperiments(w http.ResponseWriter, r *http.Request) {
+	experiments, err := s.core.CalibrationExperiments(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, experiments)
+}
+
+func (s *server) handleCreateCalibrationExperiment(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Label string `json:"label"`
+	}
+	if err := decodeJSON(r, &input); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	experiment, err := s.core.CreateCalibrationExperiment(r.Context(), input.Label)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, experiment)
 }
 
 func (s *server) handleGetJobs(w http.ResponseWriter, r *http.Request) {

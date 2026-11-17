@@ -5,12 +5,12 @@
 ## Phase 0 — Preconditions
 - [ ] Change 006 signal registry populated (stage declarations present on every mapped signal)
 - [ ] Posture history retention confirmed sufficient to derive first-seen/last-seen per asset-service
-- [ ] Source review: published mass-scan, internet-background-radiation and honeypot contact-rate research, per service class
+- [ ] Source review: published mass-scan, internet-background-radiation and honeypot contact-rate research, per service class (gates Phase 2's ambient attention lookup: the critical path for sourced ambient rates runs through this item)
 
 ## Phase 1 — Exposure history
-- [ ] `assetExposureHistory`: first-observed-exposed, last-observed-exposed, still-exposed flag, per asset-service
-- [ ] Left-censoring detection and flagging
-- [ ] Detection-latency derivation from assessment cadence
+- [x] `assetExposureHistory`: first-observed-exposed, last-observed-exposed, still-exposed flag, per asset-service (`pkg/store/contact.go`, `pkg/store/sqlite/contact.go`, `pkg/store/sqlite/contact_test.go`)
+- [x] Left-censoring detection and flagging (`ComputeHistory` in `pkg/contact/history.go`, `TestFirstExposureIsLeftCensoredAndBlindTimeIsEstimated`)
+- [x] Detection-latency derivation from assessment cadence (`BlindDuration` in `pkg/contact/history.go`, `TestFirstExposureIsLeftCensoredAndBlindTimeIsEstimated`)
 - [ ] Live time-at-risk computation (grows with wall clock, not frozen at last scan)
 - [x] Split accrual: `observedDuration` over intervals bounded by successful assessments, `inferredDuration` over gaps; the two are stored separately and never summed into a single "measured" figure
 - [x] Window closure requires a check that ran and returned clean; `not_checked` and `check_failed` extend the inferred component and record no remediation
@@ -39,6 +39,24 @@
 - [ ] Heterogeneous aggregation `1 − Π(1 − P_i)`, reducing to `1 − (1 − P)^N` when homogeneous
 - [ ] Remediation coverage from confirmed-absent re-observation
 - [ ] Residual estimate over uncovered instances
+
+## Phase 4a — Calibration evidence infrastructure
+
+These items establish the evidence path; they do not select an ambient rate or
+replace the required source review. Sequenced behind Phases 2 to 4 on
+2026-09-23: the calibration path is an upgrade, not a precondition, and the
+change is serviceable on sourced class priors alone without it. The two open
+items below are deliberately deferred behind the critical path, not
+unscheduled.
+
+- [x] Initial service taxonomy with explicit `other-tcp` fallback in `pkg/contact/service_class.go`
+- [x] Compare the taxonomy against stored `ServiceObservation` labels and report the percentage mapped to a named class versus `other-tcp` via `cmd/service-class-report`
+- [x] Typed calibration observations with keyed source redaction and event validation
+- [x] Append-only SQLite storage for observations and reachable-service intervals
+- [x] Standalone stdin collector command with `--dry-run`
+- [x] Read-only experiment report with per-class/event rates, Garwood-Poisson intervals, observation windows and source-count disclosure
+- [ ] Run the isolated sensor experiment and retain its raw-count provenance
+- [ ] Review experiment bias, retention and reuse terms before parameter promotion
 
 ## Phase 5 — Guardrails as required checks
 - [ ] **Required CI check**: single-stage signal consumption

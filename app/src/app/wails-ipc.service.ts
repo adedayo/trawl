@@ -2,7 +2,7 @@ import { inject, Injectable, signal } from '@angular/core';
 import { DomainAssessment, EmailPostureUI } from './models/types';
 import { RegressionUI } from './dashboard/estate';
 import { ThemeService } from './theme.service';
-import { createTransport, DiscoveryOptions, DiscoveryResult, ProposedDomain, Scope, TrawlTransport } from './transport';
+import { CalibrationExperiment, CalibrationReportRow, createTransport, DiscoveryOptions, DiscoveryResult, ProposedDomain, Scope, TrawlTransport } from './transport';
 
 /**
  * WailsIpcService is the application's single point of contact with the
@@ -59,6 +59,33 @@ export class WailsIpcService {
    * be fine.
    */
   public regressions = signal<RegressionUI[]>([]);
+  public calibrationReport = signal<CalibrationReportRow[]>([]);
+  public calibrationReportLoading = signal(false);
+  public calibrationReportError = signal('');
+  public calibrationExperiments = signal<CalibrationExperiment[]>([]);
+
+  async loadCalibrationReport(experimentId: string): Promise<void> {
+    this.calibrationReportLoading.set(true);
+    this.calibrationReportError.set('');
+    try {
+      this.calibrationReport.set(await this.transport.getCalibrationReport(experimentId));
+    } catch (error) {
+      this.calibrationReportError.set(error instanceof Error ? error.message : 'Calibration report could not be loaded.');
+      this.calibrationReport.set([]);
+    } finally {
+      this.calibrationReportLoading.set(false);
+    }
+  }
+
+  async loadCalibrationExperiments(): Promise<void> {
+    this.calibrationExperiments.set(await this.transport.getCalibrationExperiments());
+  }
+
+  async createCalibrationExperiment(label: string): Promise<CalibrationExperiment> {
+    const experiment = await this.transport.createCalibrationExperiment(label);
+    this.calibrationExperiments.update(items => [experiment, ...items]);
+    return experiment;
+  }
 
   /**
    * The build identity of the engine answering, read from it rather than

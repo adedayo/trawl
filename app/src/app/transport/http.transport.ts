@@ -1,5 +1,5 @@
 import { DomainAssessment, EmailPostureUI } from '../models/types';
-import { BuildInfo, DiscoveryOptions, DiscoveryResult, Scope, TrawlTransport } from './trawl-transport';
+import { BuildInfo, CalibrationExperiment, CalibrationReportRow, DiscoveryOptions, DiscoveryResult, Scope, TrawlTransport } from './trawl-transport';
 
 /**
  * HttpTransport speaks to the headless Trawl server over its REST API and
@@ -94,6 +94,22 @@ export class HttpTransport implements TrawlTransport {
 
   getRegressions(): Promise<any[]> {
     return this.get<any[]>('/api/v1/regressions', []);
+  }
+
+  getCalibrationReport(experimentId: string, confidence = 0.95): Promise<CalibrationReportRow[]> {
+    return this.get<CalibrationReportRow[]>(`/api/v1/calibration/report?experiment=${encodeURIComponent(experimentId)}&confidence=${confidence}`, []);
+  }
+
+  getCalibrationExperiments(): Promise<CalibrationExperiment[]> {
+    return this.get<CalibrationExperiment[]>('/api/v1/calibration/experiments', []);
+  }
+
+  async createCalibrationExperiment(label: string): Promise<CalibrationExperiment> {
+    const response = await fetch(this.url('/api/v1/calibration/experiments'), {
+      method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json' }, body: JSON.stringify({ label })
+    });
+    if (!response.ok) throw new Error(`Trawl: creating calibration experiment failed with ${response.status}`);
+    return (await response.json()) as CalibrationExperiment;
   }
 
   getAssessments(): Promise<DomainAssessment[]> {

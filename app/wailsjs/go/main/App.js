@@ -6,12 +6,24 @@ export function AssessDomain(arg1) {
   return window['go']['main']['App']['AssessDomain'](arg1);
 }
 
+export function CreateCalibrationExperiment(arg1) {
+  return window['go']['main']['App']['CreateCalibrationExperiment'](arg1);
+}
+
 export function EraseDiscoveredData() {
   return window['go']['main']['App']['EraseDiscoveredData']();
 }
 
 export function GetAssets(arg1) {
   return window['go']['main']['App']['GetAssets'](arg1);
+}
+
+export function GetCalibrationExperiments() {
+  return window['go']['main']['App']['GetCalibrationExperiments']();
+}
+
+export function GetCalibrationReport(arg1, arg2) {
+  return window['go']['main']['App']['GetCalibrationReport'](arg1, arg2);
 }
 
 export function GetDomainAssessment(arg1) {

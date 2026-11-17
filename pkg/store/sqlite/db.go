@@ -105,7 +105,7 @@ func trimScheme(dsn string) string {
 // newer build and opened by an older one is accepted silently — every
 // individual query still succeeds, because the columns the old build knows
 // about are all still there — and the damage is discovered later, if at all.
-const schemaVersion = 5
+const schemaVersion = 7
 
 // ErrNewerSchema reports a database written by a build newer than this one.
 //
@@ -416,6 +416,44 @@ func (s *SQLiteStore) migrate(ctx context.Context) error {
 	);
 
 	CREATE INDEX IF NOT EXISTS idx_service_observations_asset ON service_observations(asset_id, observed_at);
+
+	-- Calibration evidence belongs to an isolated experiment, not to an estate
+	-- asset. Both tables are append-only so a later analysis can be reproduced
+	-- from the observations and the reachability denominator that was used.
+	CREATE TABLE IF NOT EXISTS calibration_observations (
+		id TEXT PRIMARY KEY,
+		experiment_id TEXT NOT NULL,
+		endpoint_id TEXT NOT NULL,
+		service_class TEXT NOT NULL,
+		transport TEXT NOT NULL,
+		port INTEGER NOT NULL,
+		observed_at DATETIME NOT NULL,
+		event_type TEXT NOT NULL,
+		source_key TEXT NOT NULL,
+		accepted INTEGER NOT NULL,
+		protocol_identified INTEGER NOT NULL
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_calibration_observations_experiment ON calibration_observations(experiment_id, observed_at);
+
+	CREATE TABLE IF NOT EXISTS calibration_reachability (
+		id TEXT PRIMARY KEY,
+		experiment_id TEXT NOT NULL,
+		endpoint_id TEXT NOT NULL,
+		service_class TEXT NOT NULL,
+		started_at DATETIME NOT NULL,
+		ended_at DATETIME NOT NULL
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_calibration_reachability_experiment ON calibration_reachability(experiment_id, started_at);
+
+	CREATE TABLE IF NOT EXISTS calibration_experiments (
+		id TEXT PRIMARY KEY,
+		label TEXT NOT NULL,
+		created_at DATETIME NOT NULL
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_calibration_experiments_created ON calibration_experiments(created_at DESC);
 
 	-- Where each provider's ranges were obtained and when. Kept separate from
 	-- the attributions because it answers a different question: not "where is
