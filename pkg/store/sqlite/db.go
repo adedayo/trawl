@@ -105,7 +105,7 @@ func trimScheme(dsn string) string {
 // newer build and opened by an older one is accepted silently — every
 // individual query still succeeds, because the columns the old build knows
 // about are all still there — and the damage is discovered later, if at all.
-const schemaVersion = 7
+const schemaVersion = 8
 
 // ErrNewerSchema reports a database written by a build newer than this one.
 //
@@ -173,6 +173,12 @@ func (s *SQLiteStore) migrate(ctx context.Context) error {
 		retrieved_at DATETIME NOT NULL,
 		content_digest TEXT NOT NULL,
 		record_count INTEGER NOT NULL
+	);
+
+	CREATE TABLE IF NOT EXISTS feed_failures (
+		feed TEXT PRIMARY KEY,
+		failed_at DATETIME NOT NULL,
+		error TEXT NOT NULL
 	);
 
 	CREATE TABLE IF NOT EXISTS finding_enrichments (

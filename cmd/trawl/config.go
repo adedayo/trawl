@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -58,6 +59,12 @@ type runtimeConfig struct {
 
 	// shutdownGrace bounds how long shutdown waits for work in flight.
 	shutdownGrace time.Duration
+
+	// feedRefreshInterval triggers background KEV/EPSS/NVD refreshes when > 0
+	// on long-lived servers. Managed scale-to-zero platforms leave it at 0 and
+	// refresh via scheduled POST /api/v1/feeds/refresh instead.
+	feedRefreshInterval time.Duration
+	epssThreshold       float64
 }
 
 // loadRuntimeConfig reads the environment and derives safe defaults.
@@ -105,6 +112,16 @@ func loadRuntimeConfig() runtimeConfig {
 			cfg.scanMode = scanInline
 		} else {
 			cfg.scanMode = scanBackground
+		}
+	}
+	if raw := strings.TrimSpace(os.Getenv("TRAWL_FEED_REFRESH_INTERVAL")); raw != "" {
+		if d, err := time.ParseDuration(raw); err == nil && d > 0 {
+			cfg.feedRefreshInterval = d
+		}
+	}
+	if raw := strings.TrimSpace(os.Getenv("TRAWL_EPSS_THRESHOLD")); raw != "" {
+		if v, err := strconv.ParseFloat(raw, 64); err == nil && v >= 0 {
+			cfg.epssThreshold = v
 		}
 	}
 

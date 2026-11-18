@@ -1,4 +1,4 @@
-import { CoverageSummary, DomainAssessment, FindingUI } from '../models/types';
+import { CoverageSummary, DomainAssessment, FeedStatusUI, FindingUI } from '../models/types';
 
 /**
  * Estate-level derivation for the executive area.
@@ -249,4 +249,117 @@ export function coverageLabel(c: CoverageFigure): string {
     return 'nothing assessed';
   }
   return `${Math.round(c.fraction * 100)}% assessed (${c.concluded}/${c.applicable} checks)`;
+}
+
+/**Default staleness window for external vulnerability catalogues (48 hours). */
+export const DEFAULT_FEED_STALENESS_MS = 48 * 60 * 60 * 1000;
+
+export interface KevAggregate {
+  /** Whether any CISA KEV snapshot has been retrieved. */
+  hasCatalogue: boolean;
+  /** Open CVE findings confirmed listed in the active KEV snapshot. */
+  exploited: number;
+  /** Open CVE findings confirmed absent from the active KEV snapshot. */
+  knownNotListed: number;
+  /** Open CVE findings never checked against KEV — never folded into knownNotListed. */
+  notChecked: number;
+  /** Open CVE findings whose KEV lookup failed. */
+  checkFailed: number;
+  /** Total open CVE-bearing findings subject to catalogue enrichment. */
+  totalCveFindings: number;
+  /** Retrieved timestamp of the active KEV snapshot, if any. */
+  retrievedAt: string | null;
+  /** True when the active snapshot exceeds the staleness threshold. */
+  stale: boolean;
+  /** Latest recorded fetch error when a refresh failed while leaving the prior snapshot in force. */
+  lastError: string | null;
+}
+
+export function isSnapshotStale(
+  retrievedAt: string | null | undefined,
+  nowMs: number = Date.now(),
+  thresholdMs: number = DEFAULT_FEED_STALENESS_MS
+): boolean {
+  if (!retrievedAt) {
+    return false;
+  }
+  const parsed = new Date(retrievedAt).getTime();
+  if (Number.isNaN(parsed)) {
+    return false;
+  }
+  return nowMs - parsed > thresholdMs;
+}
+
+/**
+ * Computes the four-state KEV enrichment aggregate over open CVE findings.
+ *
+ * Unchecked findings (`not_checked`) and failed lookups (`check_failed`) are
+ * carried explicitly and never contribute to `knownNotListed` or permit a
+ * zero `exploited` count to masquerade as full coverage.
+ */
+export function kevEnrichmentSummary(
+  findings: FindingUI[],
+  feedStatuses: FeedStatusUI[] = [],
+  nowMs: number = Date.now(),
+  thresholdMs: number = DEFAULT_FEED_STALENESS_MS
+): KevAggregate {
+  const kevStatus = feedStatuses.find(s => s.feed === 'cisa-kev');
+  let snapshotRetrievedAt: string | null = kevStatus?.snapshot?.retrievedAt ?? null;
+
+  let exploited = 0;
+  let knownNotListed = 0;
+  let notChecked = 0;
+  let checkFailed = 0;
+  let totalCveFindings = 0;
+
+  for (const finding of findings) {
+    if (finding.status === 'resolved') {
+      continue;
+    }
+    if (!finding.cveId) {
+      continue;
+    }
+    totalCveFindings++;
+    const kevEnrichment = finding.enrichments?.find(e => e.feed === 'cisa-kev');
+    if (kevEnrichment?.snapshot?.retrievedAt && !snapshotRetrievedAt) {
+      snapshotRetrievedAt = kevEnrichment.snapshot.retrievedAt;
+    }
+    const state = kevEnrichment?.state ?? 'not_checked';
+    if (state === 'ok') {
+      if (kevEnrichment?.kevListed) {
+        exploited++;
+      } else {
+        knownNotListed++;
+      }
+    } else if (state === 'not_found') {
+      knownNotListed++;
+    } else if (state === 'check_failed') {
+      checkFailed++;
+    } else {
+      notChecked++;
+    }
+  }
+
+  if (!snapshotRetrievedAt) {
+    for (const finding of findings) {
+      const snap = finding.enrichments?.find(e => e.feed === 'cisa-kev' && e.snapshot?.retrievedAt)?.snapshot;
+      if (snap?.retrievedAt) {
+        snapshotRetrievedAt = snap.retrievedAt;
+        break;
+      }
+    }
+  }
+
+  const stale = kevStatus?.stale ?? isSnapshotStale(snapshotRetrievedAt, nowMs, thresholdMs);
+  return {
+    hasCatalogue: snapshotRetrievedAt !== null,
+    exploited,
+    knownNotListed,
+    notChecked,
+    checkFailed,
+    totalCveFindings,
+    retrievedAt: snapshotRetrievedAt,
+    stale,
+    lastError: kevStatus?.lastError || null
+  };
 }

@@ -29,6 +29,8 @@ var wailsMethodRoutes = map[string]string{
 	"GetCalibrationReport":        "GET /api/v1/calibration/report",
 	"GetCalibrationExperiments":   "GET /api/v1/calibration/experiments",
 	"CreateCalibrationExperiment": "POST /api/v1/calibration/experiments",
+	"GetFeedStatuses":             "GET /api/v1/feeds",
+	"RefreshFeeds":                "POST /api/v1/feeds/refresh",
 	"RemoveAsset":                 "DELETE /api/v1/assets/{id}",
 	"GetFindings":                 "GET /api/v1/findings",
 	"GetSecretFindings":           "GET /api/v1/secret-findings",

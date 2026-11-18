@@ -1,5 +1,5 @@
 import { inject, Injectable, signal } from '@angular/core';
-import { DomainAssessment, EmailPostureUI } from './models/types';
+import { DomainAssessment, EmailPostureUI, FeedStatusUI } from './models/types';
 import { RegressionUI } from './dashboard/estate';
 import { ThemeService } from './theme.service';
 import { CalibrationExperiment, CalibrationReportRow, createTransport, DiscoveryOptions, DiscoveryResult, ProposedDomain, Scope, TrawlTransport } from './transport';
@@ -63,6 +63,8 @@ export class WailsIpcService {
   public calibrationReportLoading = signal(false);
   public calibrationReportError = signal('');
   public calibrationExperiments = signal<CalibrationExperiment[]>([]);
+  public feedStatuses = signal<FeedStatusUI[]>([]);
+  public isRefreshingFeeds = signal(false);
 
   async loadCalibrationReport(experimentId: string): Promise<void> {
     this.calibrationReportLoading.set(true);
@@ -85,6 +87,21 @@ export class WailsIpcService {
     const experiment = await this.transport.createCalibrationExperiment(label);
     this.calibrationExperiments.update(items => [experiment, ...items]);
     return experiment;
+  }
+
+  public async refreshFeedStatuses(): Promise<void> {
+    this.feedStatuses.set((await this.transport.getFeedStatuses()) || []);
+  }
+
+  public async refreshFeeds(epssThreshold = 0): Promise<void> {
+    this.isRefreshingFeeds.set(true);
+    try {
+      const statuses = await this.transport.refreshFeeds(epssThreshold);
+      this.feedStatuses.set(statuses || []);
+      await Promise.all([this.refreshFindings(''), this.refreshRegressions()]);
+    } finally {
+      this.isRefreshingFeeds.set(false);
+    }
   }
 
   /**
@@ -739,7 +756,8 @@ export class WailsIpcService {
   }
 
   /** Reloads every view from the store. */
-  public async refreshAll(): Promise<void> {    if (this.loadState() === 'loading' && !this.lastUpdatedAt()) {
+  public async refreshAll(): Promise<void> {
+    if (this.loadState() === 'loading' && !this.lastUpdatedAt()) {
       // First load: leave the state as `loading` so views show skeletons
       // rather than an empty estate they have no basis for claiming.
     } else {
@@ -755,6 +773,7 @@ export class WailsIpcService {
       this.refreshVersion(),
       this.refreshAssets(),
       this.refreshFindings(''),
+      this.refreshFeedStatuses(),
       this.refreshSecretFindings(),
       this.refreshEmailPostures(),
       this.refreshAssessments(),

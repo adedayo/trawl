@@ -135,6 +135,14 @@ func (a *App) CreateCalibrationExperiment(label string) (*store.CalibrationExper
 	return a.core.CreateCalibrationExperiment(a.ctx, label)
 }
 
+func (a *App) GetFeedStatuses() ([]store.FeedStatus, error) {
+	return a.core.FeedStatuses(a.ctx)
+}
+
+func (a *App) RefreshFeeds(epssThreshold float64) ([]store.FeedStatus, error) {
+	return a.core.RefreshFeeds(a.ctx, nil, epssThreshold)
+}
+
 func (a *App) GetSetting(key string) (string, error) {
 	return a.core.Setting(a.ctx, key)
 }

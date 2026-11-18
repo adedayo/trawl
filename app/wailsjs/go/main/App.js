@@ -38,6 +38,10 @@ export function GetEmailPostures() {
   return window['go']['main']['App']['GetEmailPostures']();
 }
 
+export function GetFeedStatuses() {
+  return window['go']['main']['App']['GetFeedStatuses']();
+}
+
 export function GetFindings(arg1) {
   return window['go']['main']['App']['GetFindings'](arg1);
 }
@@ -60,6 +64,10 @@ export function GetVersion() {
 
 export function ProbeDiscoveredServices(arg1) {
   return window['go']['main']['App']['ProbeDiscoveredServices'](arg1);
+}
+
+export function RefreshFeeds(arg1) {
+  return window['go']['main']['App']['RefreshFeeds'](arg1);
 }
 
 export function RemoveAsset(arg1) {

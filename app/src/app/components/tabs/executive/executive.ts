@@ -6,6 +6,8 @@ import {
   DEFAULT_COVERAGE_FLOOR,
   estateCoverage,
   headlinePosture,
+  isSnapshotStale,
+  kevEnrichmentSummary,
   rankFindings,
   unresolvedAssessments,
   withheldChecks
@@ -91,13 +93,9 @@ export class ExecutiveComponent {
 
   readonly activeAssets = computed(() => this.assets().filter(a => a.status === 'active').length);
 
-  readonly kevCount = computed(() => this.findings().filter(finding =>
-    finding.enrichments?.some((item: any) => item.feed === 'cisa-kev' && item.state === 'ok' && item.kevListed === true)
-  ).length);
-
-  readonly kevSnapshot = computed(() => this.findings()
-    .flatMap(finding => finding.enrichments ?? [])
-    .find((item: any) => item.feed === 'cisa-kev' && item.snapshot)?.snapshot ?? null);
+  readonly kevSummary = computed(() =>
+    kevEnrichmentSummary(this.findings(), this.wailsIpc.feedStatuses())
+  );
 
   readonly verifiedSecrets = computed(() => this.secretFindings().filter(s => s.verified).length);
 
@@ -221,5 +219,27 @@ export class ExecutiveComponent {
 
   epssPercent(epss: number): string {
     return `${(epss * 100).toFixed(1)}%`;
+  }
+
+  enrichmentAgeLabel(finding: any, feed: string): { text: string; stale: boolean } {
+    const enrichment = finding.enrichments?.find((e: any) => e.feed === feed);
+    const retrievedAt =
+      enrichment?.snapshot?.retrievedAt ??
+      this.wailsIpc.feedStatuses().find(s => s.feed === feed)?.snapshot?.retrievedAt ??
+      null;
+    if (!retrievedAt) {
+      if (enrichment?.state === 'check_failed') {
+        return { text: 'check failed', stale: false };
+      }
+      return { text: 'not checked', stale: false };
+    }
+    return {
+      text: `retrieved ${this.relativeTime(retrievedAt)}`,
+      stale: isSnapshotStale(retrievedAt)
+    };
+  }
+
+  refreshFeeds(): void {
+    void this.wailsIpc.refreshFeeds();
   }
 }

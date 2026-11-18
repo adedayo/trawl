@@ -33,11 +33,32 @@ export interface FindingEnrichmentUI {
   feed: 'cisa-kev' | 'epss' | 'nvd' | string;
   state: 'ok' | 'not_found' | 'not_checked' | 'check_failed' | string;
   snapshotId?: string;
+  kevListed?: boolean;
+  epss?: number;
+  checkedAt?: string;
   snapshot?: {
     id: string;
+    feed?: string;
     retrievedAt: string;
     sourceUrl: string;
+    contentDigest?: string;
+    recordCount?: number;
   };
+}
+
+export interface FeedStatusUI {
+  feed: 'cisa-kev' | 'epss' | 'nvd' | string;
+  snapshot?: {
+    id: string;
+    feed: string;
+    sourceUrl: string;
+    retrievedAt: string;
+    contentDigest: string;
+    recordCount: number;
+  };
+  lastFailureAt?: string;
+  lastError?: string;
+  stale: boolean;
 }
 
 /**

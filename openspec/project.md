@@ -99,7 +99,7 @@ Per-change counts and the outstanding-ledger notes live in
 | 016 | Deployment parity — one engine, three transports | Substantially delivered. Renumbered from 007, which was ambiguous. |
 | 017 | Email posture surface | **Complete (archived).** Coverage is computed once, in Go, at the serialisation boundary. Not retrospective: observations stored before it carry no `detail` until their domain is re-scanned. |
 | 018 | Schema migration durability | Phases 1 to 3 landed. The store records its shape in `PRAGMA user_version` and refuses a database written by a newer build. The release note is what remains. |
-| 019 | Vulnerability feed ingestion (KEV, NVD, EPSS) | Proposed. **Build next**: the feeds are consumed but never fetched. Its precursor, 018, has landed. |
+| 019 | Vulnerability feed ingestion (KEV, NVD, EPSS) | **Complete — archived.** Content-addressed snapshots, targeted NVD lookups, preserved prior snapshots on failure, pure priority recomputation, four-state staleness disclosure and `jobs/feed-ingest`. |
 | 020 | Alerting and delivery | Specified, **deliberately unscheduled**. It earns its keep approaching production use; written early because dedup identity and coverage-in-the-alert are expensive to retrofit. |
 | 021 | AI annotation and triage | **Not scheduled**; the product is complete without it. Phase 0 is worth doing early regardless, since 014's annotation boundary currently passes because there is no annotation. |
 | 022 | Spec lifecycle automation | Phase 1 landed: `cmd/specledger` generates the STATUS.md counts and reports structural failures. Promoting accepted requirements into `openspec/specs/` remains. |

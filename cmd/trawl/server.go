@@ -95,9 +95,16 @@ func runServer() {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
+	feedCtx, stopFeeds := context.WithCancel(context.Background())
+	defer stopFeeds()
+	if cfg.feedRefreshInterval > 0 && !cfg.managed {
+		srv.startFeedScheduler(feedCtx, cfg.feedRefreshInterval, cfg.epssThreshold)
+	}
+
 	go func() {
 		<-shutdown
 		log.Println("Shutdown signalled; draining connections and work in flight.")
+		stopFeeds()
 
 		ctx, cancel := context.WithTimeout(context.Background(), cfg.shutdownGrace)
 		defer cancel()
@@ -136,6 +143,25 @@ func (s *server) waitForInflight(grace time.Duration) {
 	}
 }
 
+func (s *server) startFeedScheduler(ctx context.Context, interval time.Duration, epssThreshold float64) {
+	s.inflight.Add(1)
+	go func() {
+		defer s.inflight.Done()
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if _, err := s.core.RefreshFeeds(ctx, nil, epssThreshold); err != nil {
+					log.Printf("scheduled feed refresh completed with errors: %v", err)
+				}
+			}
+		}
+	}()
+}
+
 func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /healthz", s.handleHealth)
 
@@ -162,6 +188,9 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/calibration/report", s.handleGetCalibrationReport)
 	mux.HandleFunc("GET /api/v1/calibration/experiments", s.handleGetCalibrationExperiments)
 	mux.HandleFunc("POST /api/v1/calibration/experiments", s.authed(s.handleCreateCalibrationExperiment))
+	mux.HandleFunc("GET /api/v1/feeds", s.handleGetFeedStatuses)
+	mux.HandleFunc("POST /api/v1/feeds/refresh", s.authed(s.handleRefreshFeeds))
+	mux.HandleFunc("POST /api/v1/feeds/snapshot", s.authed(s.handleIngestFeedSnapshot))
 	mux.HandleFunc("GET /api/v1/jobs", s.handleGetJobs)
 
 	// Measured-state assessment.
@@ -345,6 +374,70 @@ func (s *server) handleCreateCalibrationExperiment(w http.ResponseWriter, r *htt
 		return
 	}
 	writeJSON(w, http.StatusCreated, experiment)
+}
+
+func (s *server) handleGetFeedStatuses(w http.ResponseWriter, r *http.Request) {
+	statuses, err := s.core.FeedStatuses(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, statuses)
+}
+
+func (s *server) handleRefreshFeeds(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		EPSSThreshold float64           `json:"epssThreshold"`
+		Endpoints     map[string]string `json:"endpoints"`
+	}
+	if r.ContentLength > 0 {
+		if err := decodeJSON(r, &input); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+	}
+	statuses, err := s.core.RefreshFeeds(r.Context(), input.Endpoints, input.EPSSThreshold)
+	if err != nil && statuses == nil {
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	status := http.StatusOK
+	if err != nil {
+		status = http.StatusMultiStatus
+	}
+	writeJSON(w, status, map[string]any{
+		"feeds": statuses,
+		"error": errorText(err),
+	})
+}
+
+func (s *server) handleIngestFeedSnapshot(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Feed          string  `json:"feed"`
+		SourceURL     string  `json:"sourceUrl"`
+		Body          string  `json:"body"`
+		EPSSThreshold float64 `json:"epssThreshold"`
+	}
+	if err := decodeJSON(r, &input); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	snapshot, regressions, err := s.core.ApplyFeedSnapshotBody(r.Context(), input.Feed, input.SourceURL, []byte(input.Body), input.EPSSThreshold)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"snapshot":    snapshot,
+		"regressions": regressions,
+	})
+}
+
+func errorText(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }
 
 func (s *server) handleGetJobs(w http.ResponseWriter, r *http.Request) {

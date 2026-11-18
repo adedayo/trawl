@@ -1,4 +1,4 @@
-import { DomainAssessment, EmailPostureUI } from '../models/types';
+import { DomainAssessment, EmailPostureUI, FeedStatusUI } from '../models/types';
 import { BuildInfo, CalibrationExperiment, CalibrationReportRow, DiscoveryOptions, DiscoveryResult, Scope, TrawlTransport } from './trawl-transport';
 
 declare const window: any;
@@ -86,6 +86,14 @@ export class WailsTransport implements TrawlTransport {
 
   async createCalibrationExperiment(label: string): Promise<CalibrationExperiment> {
     return this.callOrThrow<CalibrationExperiment>('CreateCalibrationExperiment', label);
+  }
+
+  getFeedStatuses(): Promise<FeedStatusUI[]> {
+    return this.call<FeedStatusUI[]>('GetFeedStatuses', []);
+  }
+
+  async refreshFeeds(epssThreshold = 0): Promise<FeedStatusUI[]> {
+    return this.callOrThrow<FeedStatusUI[]>('RefreshFeeds', epssThreshold);
   }
 
   getAssessments(): Promise<DomainAssessment[]> {

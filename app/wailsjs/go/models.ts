@@ -606,6 +606,45 @@ export namespace store {
 		    return a;
 		}
 	}
+	export class FeedStatus {
+	    feed: string;
+	    snapshot?: FeedSnapshot;
+	    // Go type: time
+	    lastFailureAt?: any;
+	    lastError?: string;
+	    stale: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new FeedStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.feed = source["feed"];
+	        this.snapshot = this.convertValues(source["snapshot"], FeedSnapshot);
+	        this.lastFailureAt = this.convertValues(source["lastFailureAt"], null);
+	        this.lastError = source["lastError"];
+	        this.stale = source["stale"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class FindingEnrichment {
 	    findingId: string;
 	    feed: string;

@@ -16,6 +16,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"sort"
 	"strings"
 	"sync"
@@ -224,11 +225,75 @@ func (c *Core) CreateCalibrationExperiment(ctx context.Context, label string) (*
 // scan. The caller supplies the threshold because it is deployment policy,
 // not a probability-affecting constant embedded in the engine.
 func (c *Core) ApplyFeedSnapshot(ctx context.Context, snapshot *feed.Snapshot, epssThreshold float64) ([]store.Regression, error) {
-	return c.feedIngest.ApplySnapshot(ctx, snapshot, epssThreshold)
+	regs, err := c.feedIngest.ApplySnapshot(ctx, snapshot, epssThreshold)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range regs {
+		c.bus.Publish(ctx, event.Event{Type: event.EventRegressionNew, Timestamp: r.ConfirmedAt, Payload: r})
+	}
+	return regs, nil
 }
 
 func (c *Core) LatestFeedSnapshot(ctx context.Context, feedName string) (*store.FeedSnapshot, error) {
 	return c.store.GetLatestFeedSnapshot(ctx, feedName)
+}
+
+func (c *Core) FeedStatuses(ctx context.Context) ([]store.FeedStatus, error) {
+	return c.feedIngest.FeedStatuses(ctx, time.Now().UTC(), service.DefaultFeedStalenessThreshold)
+}
+
+// ApplyFeedSnapshotBody parses and applies a raw catalogue document supplied
+// over an API or file boundary without starting an asset scan.
+func (c *Core) ApplyFeedSnapshotBody(ctx context.Context, feedName, sourceURL string, body []byte, epssThreshold float64) (*feed.Snapshot, []store.Regression, error) {
+	snapshot, err := feed.Parse(feed.Name(feedName), sourceURL, time.Now().UTC(), body)
+	if err != nil {
+		return nil, nil, err
+	}
+	regs, err := c.ApplyFeedSnapshot(ctx, snapshot, epssThreshold)
+	if err != nil {
+		return nil, nil, err
+	}
+	return snapshot, regs, nil
+}
+
+// RefreshFeeds pulls KEV, EPSS and NVD (referenced CVEs only) from the
+// configured or default public authorities and applies each snapshot that
+// succeeds. Failures on one feed are recorded against that feed without
+// blocking the others.
+func (c *Core) RefreshFeeds(ctx context.Context, rawEndpoints map[string]string, epssThreshold float64) ([]store.FeedStatus, error) {
+	var endpoints map[feed.Name]string
+	if len(rawEndpoints) > 0 {
+		endpoints = make(map[feed.Name]string, len(rawEndpoints))
+		for k, v := range rawEndpoints {
+			endpoints[feed.Name(k)] = v
+		}
+	}
+	if len(endpoints) == 0 {
+		endpoints = feed.DefaultEndpoints()
+	}
+	client, err := feed.NewClient(&http.Client{Timeout: 45 * time.Second}, endpoints)
+	if err != nil {
+		return nil, err
+	}
+	var firstErr error
+	for _, name := range []feed.Name{feed.KEV, feed.EPSS, feed.NVD} {
+		if _, ok := endpoints[name]; !ok {
+			continue
+		}
+		regs, applyErr := c.feedIngest.FetchAndApply(ctx, client, name, epssThreshold)
+		if applyErr != nil && firstErr == nil {
+			firstErr = applyErr
+		}
+		for _, r := range regs {
+			c.bus.Publish(ctx, event.Event{Type: event.EventRegressionNew, Timestamp: r.ConfirmedAt, Payload: r})
+		}
+	}
+	statuses, statusErr := c.FeedStatuses(ctx)
+	if statusErr != nil {
+		return nil, statusErr
+	}
+	return statuses, firstErr
 }
 
 // RemoveAsset deletes an asset and everything recorded against it.

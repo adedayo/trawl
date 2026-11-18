@@ -55,11 +55,65 @@ func (s *SQLiteStore) GetLatestFeedSnapshot(ctx context.Context, feed string) (*
 	return &snapshot, nil
 }
 
+func (s *SQLiteStore) RecordFeedFailure(ctx context.Context, feed string, failedAt time.Time, reason string) error {
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO feed_failures (feed, failed_at, error)
+		VALUES (?, ?, ?)
+		ON CONFLICT(feed) DO UPDATE SET failed_at = excluded.failed_at, error = excluded.error`,
+		feed, failedAt.UTC().Format(time.RFC3339), reason)
+	if err != nil {
+		return fmt.Errorf("failed to record feed failure: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLiteStore) ClearFeedFailure(ctx context.Context, feed string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM feed_failures WHERE feed = ?`, feed)
+	if err != nil {
+		return fmt.Errorf("failed to clear feed failure: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLiteStore) GetFeedStatuses(ctx context.Context) ([]store.FeedStatus, error) {
+	feeds := []string{store.FeedKEV, store.FeedEPSS, store.FeedNVD}
+	statuses := make([]store.FeedStatus, 0, len(feeds))
+	for _, feedName := range feeds {
+		snapshot, err := s.GetLatestFeedSnapshot(ctx, feedName)
+		if err != nil {
+			return nil, err
+		}
+		status := store.FeedStatus{
+			Feed:     feedName,
+			Snapshot: snapshot,
+		}
+		var failedAt string
+		var reason string
+		err = s.db.QueryRowContext(ctx, `SELECT failed_at, error FROM feed_failures WHERE feed = ?`, feedName).
+			Scan(&failedAt, &reason)
+		if err != nil && err != sql.ErrNoRows {
+			return nil, fmt.Errorf("failed to get feed failure for %s: %w", feedName, err)
+		}
+		if err == nil {
+			if parsed, parseErr := time.Parse(time.RFC3339, failedAt); parseErr == nil {
+				status.LastFailureAt = &parsed
+			}
+			status.LastError = reason
+		}
+		statuses = append(statuses, status)
+	}
+	return statuses, nil
+}
+
 func (s *SQLiteStore) SaveFindingEnrichment(ctx context.Context, enrichment *store.FindingEnrichment) error {
 	var epss any = enrichment.EPSS
 	var kev any
 	if enrichment.KEVListed != nil {
 		kev = *enrichment.KEVListed
+	}
+	var snapshotID any
+	if enrichment.SnapshotID != "" {
+		snapshotID = enrichment.SnapshotID
 	}
 	var checkedAt any
 	if enrichment.CheckedAt != nil {
@@ -73,7 +127,7 @@ func (s *SQLiteStore) SaveFindingEnrichment(ctx context.Context, enrichment *sto
 			cve = excluded.cve, state = excluded.state, snapshot_id = excluded.snapshot_id,
 			epss = excluded.epss, kev_listed = excluded.kev_listed, checked_at = excluded.checked_at`,
 		enrichment.FindingID, enrichment.Feed, enrichment.CVE, enrichment.State,
-		enrichment.SnapshotID, epss, kev, checkedAt)
+		snapshotID, epss, kev, checkedAt)
 	if err != nil {
 		return fmt.Errorf("failed to save finding enrichment: %w", err)
 	}
@@ -126,9 +180,9 @@ func (s *SQLiteStore) GetFindingEnrichments(ctx context.Context, findingID strin
 	return enrichments, nil
 }
 
-func (s *SQLiteStore) UpdateFindingCatalogue(ctx context.Context, findingID string, epss float64, kev bool, updateEPSS, updateKEV bool) error {
-	query := `UPDATE findings SET epss = CASE WHEN ? THEN ? ELSE epss END, kev_listed = CASE WHEN ? THEN ? ELSE kev_listed END WHERE id = ?`
-	_, err := s.db.ExecContext(ctx, query, updateEPSS, epss, updateKEV, kev, findingID)
+func (s *SQLiteStore) UpdateFindingCatalogue(ctx context.Context, findingID string, epss float64, kev bool, priority string, updateEPSS, updateKEV bool) error {
+	query := `UPDATE findings SET epss = CASE WHEN ? THEN ? ELSE epss END, kev_listed = CASE WHEN ? THEN ? ELSE kev_listed END, priority = ? WHERE id = ?`
+	_, err := s.db.ExecContext(ctx, query, updateEPSS, epss, updateKEV, kev, priority, findingID)
 	if err != nil {
 		return fmt.Errorf("failed to update finding catalogue values: %w", err)
 	}

@@ -4,6 +4,8 @@
 package feed
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"encoding/csv"
@@ -15,6 +17,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -28,6 +31,17 @@ const (
 	EPSS Name = "epss"
 	NVD  Name = "nvd"
 )
+
+// DefaultEndpoints are the public, unauthenticated authorities for the three
+// feeds. Callers may override them for mirrors, proxies or hermetic tests; the
+// client still refuses any host not present in its configured map.
+func DefaultEndpoints() map[Name]string {
+	return map[Name]string{
+		KEV:  "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+		EPSS: "https://epss.empiricalsecurity.com/epss_scores-current.csv.gz",
+		NVD:  "https://services.nvd.nist.gov/rest/json/cves/2.0",
+	}
+}
 
 type Record struct {
 	CVE       string
@@ -123,6 +137,85 @@ func (c *Client) Fetch(ctx context.Context, name Name) (*FetchResult, error) {
 	return &FetchResult{Snapshot: snapshot}, nil
 }
 
+// FetchNVDReferenced queries NVD 2.0 only for the distinct CVEs already named
+// by stored findings, rather than mirroring the full NVD catalogue.
+//
+// If any single CVE lookup fails, the entire fetch fails and returns no
+// snapshot: storing a partial snapshot would record an unqueried or failed CVE
+// as absent when the snapshot is applied.
+func (c *Client) FetchNVDReferenced(ctx context.Context, cves []string) (*FetchResult, error) {
+	endpoint, ok := c.endpoints[NVD]
+	if !ok {
+		return nil, fmt.Errorf("feed %q is not a configured endpoint", NVD)
+	}
+
+	seen := make(map[string]bool, len(cves))
+	ordered := make([]string, 0, len(cves))
+	for _, raw := range cves {
+		cve := normaliseCVE(raw)
+		if cve == "" || seen[cve] {
+			continue
+		}
+		seen[cve] = true
+		ordered = append(ordered, cve)
+	}
+	sort.Strings(ordered)
+
+	records := make(map[string]Record, len(ordered))
+	hasher := sha256.New()
+	for _, cve := range ordered {
+		target := *endpoint
+		q := target.Query()
+		q.Set("cveId", cve)
+		target.RawQuery = q.Encode()
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
+		if err != nil {
+			return nil, fmt.Errorf("creating nvd request for %s: %w", cve, err)
+		}
+		resp, err := c.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("fetching nvd %s: %w", cve, err)
+		}
+		body, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if readErr != nil {
+			return nil, fmt.Errorf("reading nvd %s response: %w", cve, readErr)
+		}
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return nil, fmt.Errorf("fetching nvd %s: endpoint returned %s", cve, resp.Status)
+		}
+		parsed, parseErr := parseNVD(body)
+		if parseErr != nil {
+			return nil, fmt.Errorf("parsing nvd %s: %w", cve, parseErr)
+		}
+		for k, v := range parsed {
+			records[k] = v
+		}
+		_, _ = hasher.Write([]byte(cve))
+		_, _ = hasher.Write([]byte{0})
+		_, _ = hasher.Write(body)
+		_, _ = hasher.Write([]byte{'\n'})
+	}
+
+	retrievedAt := time.Now().UTC()
+	if len(ordered) == 0 {
+		_, _ = hasher.Write([]byte("empty:" + retrievedAt.Format(time.RFC3339Nano)))
+	}
+	digestText := hex.EncodeToString(hasher.Sum(nil))
+	return &FetchResult{
+		Snapshot: &Snapshot{
+			ID:            string(NVD) + "-" + digestText[:16],
+			Feed:          NVD,
+			SourceURL:     endpoint.String(),
+			RetrievedAt:   retrievedAt,
+			ContentDigest: "sha256:" + digestText,
+			RecordCount:   len(records),
+			Records:       records,
+		},
+	}, nil
+}
+
 func LoadFile(name Name, path string) (*Snapshot, error) {
 	body, err := os.ReadFile(path)
 	if err != nil {
@@ -184,7 +277,20 @@ func parseKEV(body []byte) (map[string]Record, error) {
 }
 
 func parseEPSS(body []byte) (map[string]Record, error) {
+	if len(body) >= 2 && body[0] == 0x1f && body[1] == 0x8b {
+		gz, err := gzip.NewReader(bytes.NewReader(body))
+		if err != nil {
+			return nil, fmt.Errorf("decompressing gzipped EPSS feed: %w", err)
+		}
+		decompressed, err := io.ReadAll(gz)
+		_ = gz.Close()
+		if err != nil {
+			return nil, fmt.Errorf("reading gzipped EPSS feed: %w", err)
+		}
+		body = decompressed
+	}
 	reader := csv.NewReader(strings.NewReader(string(body)))
+	reader.Comment = '#'
 	reader.FieldsPerRecord = -1
 	header, err := reader.Read()
 	if err != nil {

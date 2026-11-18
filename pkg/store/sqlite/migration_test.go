@@ -258,8 +258,8 @@ func TestMigrationRecordsTheSchemaVersion(t *testing.T) {
 	s := openAt(t, path)
 	s.Close()
 
-	if got := userVersionAt(t, path); got != 7 {
-		t.Errorf("user_version = %d, want 7", got)
+	if got := userVersionAt(t, path); got != 8 {
+		t.Errorf("user_version = %d, want 8", got)
 	}
 }
 
@@ -279,7 +279,7 @@ func TestADatabaseFromTheFutureIsRefused(t *testing.T) {
 	if !errors.As(err, &newer) {
 		t.Fatalf("error = %v; want an ErrNewerSchema the caller can distinguish from an ordinary open failure", err)
 	}
-	if newer.Found != 99 || newer.Expected != 7 {
+	if newer.Found != 99 || newer.Expected != 8 {
 		t.Errorf("found = %d, expected = %d", newer.Found, newer.Expected)
 	}
 
@@ -287,7 +287,7 @@ func TestADatabaseFromTheFutureIsRefused(t *testing.T) {
 	// message has to name the cause and the remedy rather than surface as a
 	// failed query.
 	msg := err.Error()
-	for _, want := range []string{"newer version of Trawl", "Upgrade Trawl", "99", "7"} {
+	for _, want := range []string{"newer version of Trawl", "Upgrade Trawl", "99", "8"} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("message %q does not mention %q", msg, want)
 		}
@@ -322,8 +322,8 @@ func TestOpeningIsIdempotent(t *testing.T) {
 		s.Close()
 	}
 
-	if got := userVersionAt(t, path); got != 7 {
-		t.Errorf("user_version = %d, want 7", got)
+	if got := userVersionAt(t, path); got != 8 {
+		t.Errorf("user_version = %d, want 8", got)
 	}
 }
 

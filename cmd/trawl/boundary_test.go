@@ -20,6 +20,7 @@ var domainPackages = map[string]bool{
 	"sqlite":  true,
 	"vantage": true,
 	"store":   true,
+	"feed":    true,
 }
 
 // storeBypassExemptions name the transport methods that talk to the store

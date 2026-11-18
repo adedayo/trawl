@@ -73,6 +73,33 @@ func (s FindingSeverity) Rank() int {
 	}
 }
 
+// ComputeFindingPriority is the deterministic priority function for a finding.
+//
+// Any CISA KEV listing forces critical priority regardless of base severity,
+// because documented exploitation in the wild dominates static severity. For
+// non-KEV findings, high EPSS scores elevate priority with a floor while never
+// demoting a finding below its own assessed severity.
+func ComputeFindingPriority(severity FindingSeverity, epss float64, kevListed bool) string {
+	if kevListed {
+		return string(SeverityCritical)
+	}
+	floor := SeverityInfo
+	switch {
+	case epss >= 0.7:
+		floor = SeverityCritical
+	case epss >= 0.3:
+		floor = SeverityHigh
+	case epss >= 0.1:
+		floor = SeverityMedium
+	default:
+		floor = severity
+	}
+	if severity.Rank() >= floor.Rank() {
+		return string(severity)
+	}
+	return string(floor)
+}
+
 // Significant reports whether a severity is high enough to warrant attention
 // on its own. The line sits at medium because that is where vantage's
 // catalogue stops describing preferences and starts describing weaknesses.
@@ -119,6 +146,17 @@ type FeedSnapshot struct {
 	RetrievedAt   time.Time `json:"retrievedAt"`
 	ContentDigest string    `json:"contentDigest"`
 	RecordCount   int       `json:"recordCount"`
+}
+
+// FeedStatus records the current operational state of one external catalogue:
+// its latest valid snapshot (preserved across failed refreshes) alongside the
+// latest failure if the most recent attempt did not complete.
+type FeedStatus struct {
+	Feed          string        `json:"feed"`
+	Snapshot      *FeedSnapshot `json:"snapshot,omitempty"`
+	LastFailureAt *time.Time    `json:"lastFailureAt,omitempty"`
+	LastError     string        `json:"lastError,omitempty"`
+	Stale         bool          `json:"stale"`
 }
 
 // EnrichmentState describes what is known about a finding's external feed

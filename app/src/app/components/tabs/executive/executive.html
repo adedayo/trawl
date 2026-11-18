@@ -286,27 +286,55 @@
           </span>
         </button>
 
-        <button type="button" (click)="goToFindings()"
+        <div
           [class]="dark
-            ? 'text-left rounded-xl bg-slate-900 border border-slate-800 p-5 hover:border-slate-700 transition-colors'
-            : 'text-left rounded-xl bg-white border border-slate-200 p-5 hover:border-slate-300 transition-colors shadow-sm'">
-          <span [class]="dark ? 'text-[10px] font-bold uppercase tracking-wider text-slate-400' : 'text-[10px] font-bold uppercase tracking-wider text-slate-500'">
-            Exploited in the wild
-          </span>
-          @if (kevSnapshot()) {
-          <span
-            [class]="kevCount() > 0
-              ? (dark ? 'block text-3xl font-extrabold text-rose-400 mt-2' : 'block text-3xl font-extrabold text-rose-600 mt-2')
-              : (dark ? 'block text-3xl font-extrabold text-slate-50 mt-2' : 'block text-3xl font-extrabold text-slate-900 mt-2')">
-            {{ kevCount() }}
-          </span>
-          } @else {
-          <span [class]="dark ? 'block text-3xl font-extrabold text-slate-500 mt-2' : 'block text-3xl font-extrabold text-slate-400 mt-2'">-</span>
-          }
-          <span [class]="dark ? 'text-[11px] text-slate-500' : 'text-[11px] text-slate-500'">
-            @if (kevSnapshot()) { CISA KEV, retrieved {{ kevSnapshot().retrievedAt }} } @else { no CISA KEV catalogue retrieved }
-          </span>
-        </button>
+            ? 'text-left rounded-xl bg-slate-900 border border-slate-800 p-5 flex flex-col'
+            : 'text-left rounded-xl bg-white border border-slate-200 p-5 flex flex-col shadow-sm'">
+          <button type="button" (click)="goToFindings()" class="text-left">
+            <span [class]="dark ? 'text-[10px] font-bold uppercase tracking-wider text-slate-400' : 'text-[10px] font-bold uppercase tracking-wider text-slate-500'">
+              Exploited in the wild
+            </span>
+            @let kev = kevSummary();
+            @if (kev.hasCatalogue) {
+              <div class="flex items-baseline gap-2 mt-2">
+                <span
+                  [class]="kev.exploited > 0
+                    ? (dark ? 'text-3xl font-extrabold text-rose-400' : 'text-3xl font-extrabold text-rose-600')
+                    : (dark ? 'text-3xl font-extrabold text-slate-50' : 'text-3xl font-extrabold text-slate-900')">
+                  {{ kev.exploited }}
+                </span>
+                @if (kev.stale) {
+                  <span [class]="dark
+                    ? 'px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-950 text-amber-300 border border-amber-900'
+                    : 'px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-50 text-amber-800 border border-amber-200'">
+                    stale
+                  </span>
+                }
+              </div>
+            } @else {
+              <span [class]="dark ? 'block text-3xl font-extrabold text-slate-500 mt-2' : 'block text-3xl font-extrabold text-slate-400 mt-2'">-</span>
+            }
+            <span [class]="dark ? 'block text-[11px] text-slate-500 mt-1' : 'block text-[11px] text-slate-500 mt-1'">
+              @if (kev.hasCatalogue) {
+                CISA KEV, retrieved {{ kev.retrievedAt }}
+              } @else {
+                no CISA KEV catalogue retrieved
+              }
+            </span>
+            @if (kev.notChecked > 0 || kev.checkFailed > 0) {
+              <span [class]="dark ? 'block text-[10px] text-amber-400 mt-1 font-mono' : 'block text-[10px] text-amber-700 mt-1 font-mono'">
+                @if (kev.notChecked > 0) { {{ kev.notChecked }} not checked }
+                @if (kev.checkFailed > 0) { · {{ kev.checkFailed }} check failed }
+              </span>
+            }
+          </button>
+          <button type="button" (click)="refreshFeeds()" [disabled]="wailsIpc.isRefreshingFeeds()"
+            [class]="dark
+              ? 'mt-3 self-start text-[11px] font-semibold text-sky-400 hover:text-sky-300 disabled:opacity-50'
+              : 'mt-3 self-start text-[11px] font-semibold text-sky-700 hover:text-sky-900 disabled:opacity-50'">
+            {{ wailsIpc.isRefreshingFeeds() ? 'Refreshing feeds…' : 'Refresh feeds' }}
+          </button>
+        </div>
 
         <button type="button" (click)="goToEmail()"
           [class]="dark
@@ -417,6 +445,7 @@
                     </span>
                   </td>
                   <td class="px-2 py-3 align-top">
+                    @let kevAge = enrichmentAgeLabel(r.finding, 'cisa-kev');
                     @if (r.kev) {
                       <span [class]="dark
                         ? 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-950 text-rose-400 border border-rose-900'
@@ -428,13 +457,21 @@
                         Not known
                       </span>
                     }
+                    <span [class]="kevAge.stale
+                      ? (dark ? 'block text-[10px] text-amber-400 mt-0.5' : 'block text-[10px] text-amber-700 mt-0.5')
+                      : (dark ? 'block text-[10px] text-slate-600 mt-0.5' : 'block text-[10px] text-slate-400 mt-0.5')">
+                      {{ kevAge.text }}@if (kevAge.stale) { · stale }
+                    </span>
                   </td>
                   <td class="px-2 py-3 align-top">
+                    @let epssAge = enrichmentAgeLabel(r.finding, 'epss');
                     <span [class]="dark ? 'text-xs font-mono text-slate-300' : 'text-xs font-mono text-slate-700'">
                       {{ epssPercent(r.epss) }}
                     </span>
-                    <span [class]="dark ? 'block text-[10px] text-slate-600' : 'block text-[10px] text-slate-400'">
-                      EPSS, 30 days
+                    <span [class]="epssAge.stale
+                      ? (dark ? 'block text-[10px] text-amber-400' : 'block text-[10px] text-amber-700')
+                      : (dark ? 'block text-[10px] text-slate-600' : 'block text-[10px] text-slate-400')">
+                      EPSS, 30 days · {{ epssAge.text }}@if (epssAge.stale) { · stale }
                     </span>
                   </td>
                   <td class="px-2 py-3 align-top">

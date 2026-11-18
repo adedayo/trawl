@@ -52,10 +52,10 @@
 - [x] Angular v2: email-authentication posture panel per domain
 
 ## Phase 3 — Vulnerability intel enrichment
-- [ ] **KEV/NVD/EPSS feed ingestion is not built.** `kev` and `epssScore` exist as fields and are populated from ingested payloads, so the dashboard can rank by them — but nothing pulls the catalogues. The values are only as fresh as the payload that carried them, and no asset is re-evaluated when CISA adds a CVE. The executive view's "Exploited in the wild" counter rests on this.
+- [x] **KEV/NVD/EPSS feed ingestion shipped (019, archived).** Content-addressed snapshots for KEV, EPSS and referenced-CVE NVD lookups, preserved prior snapshots on failed fetch, catalogue-attributed regressions, four-state coverage and staleness disclosure.
 - [ ] CPE/CVE correlation as a unit-tested pure function
-- [x] **Superseded (002 to 009):** the deterministic composite priority score. `pkg/core/ingest.go` deliberately leaves `Priority` unset rather than inventing a composite; ordering is supplied by Change 014's `rankFindings` (KEV, then EPSS, then severity, then id — a total order). A calibrated score arrives with 009.
-- [ ] Recompute-on-feed-update job — blocked on feed ingestion above
+- [x] **Superseded (002 to 009):** the deterministic composite priority score. `pkg/core/ingest.go` deliberately leaves `Priority` unset rather than inventing a composite; ordering is supplied by Change 014's `rankFindings` (KEV, then EPSS, then severity, then id — a total order) and catalogue re-enrichment updates `Priority` via `store.ComputeFindingPriority`. A calibrated score arrives with 009.
+- [x] Recompute-on-feed-update job — shipped under Change 019 (`FeedIngestService.ApplySnapshot`, `jobs/feed-ingest/`, server feed scheduler)
 - [x] Angular v3: severity-sorted findings with KEV badge and EPSS
 - [x] `posture-regression`: snapshots, per-attribute better/worse ordering, two-consecutive-observation confirmation — `pkg/store/posture.go`
 - [x] TLS/certificate/port-set and DMARC-policy snapshots wired into the shared regression mechanism

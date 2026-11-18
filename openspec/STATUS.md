@@ -31,6 +31,7 @@ their reasoning rather than left to accumulate as phantom backlog.
 | `004-desktop-wails-packaging` | Complete. The three scanner runners were **withdrawn**, not deferred. |
 | `015-spec-datastore-hygiene` | Complete. Specification repair after 003, plus the CI guard that stops it recurring. |
 | `017-email-posture-surface` | Complete. The four-state posture is rendered, and coverage is computed once, in Go, at the serialisation boundary. Phase 7 was added during implementation: displaying the advisories exposed a defect in them, in that a finding drawn from a set named the set and not the member. **Not retrospective** — observations stored before it carry no `detail` until their domain is re-scanned. |
+| `019-vulnerability-feed-ingestion` | Complete. KEV, EPSS (plain or gzipped) and referenced-CVE NVD lookups are stored as content-addressed snapshots; failed refreshes record the failure and leave the previous snapshot in force; applying a snapshot recomputes deterministic priority via `ComputeFindingPriority` and raises catalogue regressions; four-state enrichment coverage and snapshot staleness are disclosed at every point of use, with offline file loading and `jobs/feed-ingest` supported. |
 
 ## Active — substantially delivered
 
@@ -46,13 +47,12 @@ their reasoning rather than left to accumulate as phantom backlog.
 | `013-distribution-and-release` | 3 | 33 | Three verification steps, all needing a **clean machine and a real workflow run**. Nothing here can be verified from a development machine, which is why it is still open. |
 | `014-operator-dashboard` | 4 | 28 | Colour contrast in a real browser (jsdom cannot compute a ratio); attribution-refresh suppression, **now unblocked** — 006 Phase 8 landed it as `network_attribution`; two read-model checks. |
 | `005-cloud-continuous-easm` | 6 | 13 | Background cron runner, remote-server configuration for the desktop app, Compose/Litestream setup. Its 006 Phase 9 gate has lifted. |
-| `001-initial-build` | 22 | 34 | Reconciled 30 Aug 2026 against the code. Its remaining items are mostly tracked by later changes; what nothing tracks is listed under *Unclaimed work* below. Holds the **live capability specs**, so it is not archivable when its ledger closes. |
+| `001-initial-build` | 20 | 36 | Reconciled 30 Aug 2026 against the code. Its remaining items are mostly tracked by later changes; what nothing tracks is listed under *Unclaimed work* below. Holds the **live capability specs**, so it is not archivable when its ledger closes. |
 
 ## Active — not started
 
 | Change | Open | Notes |
 |---|---:|---|
-| `019-vulnerability-feed-ingestion` | 10 | **Build next.** KEV, NVD and EPSS are consumed but never fetched, so every exploitation figure is as fresh as the payload that happened to carry it. Supplies 009 with a citable evidence class and gives 014's "Exploited in the wild" counter a date. Its precursor, 018, has now landed. |
 | `020-alerting-and-delivery` | 19 | Specified now, **deliberately unscheduled** — it earns its keep approaching production use. Written early because dedup identity and coverage-in-the-alert are cheap to honour while surfaces are being built and expensive to retrofit once several have grown their own notification paths. |
 | `021-ai-annotation-and-triage` | 20 | Not scheduled; the product is complete without it. Phase 0 is worth doing early regardless: **014's "annotation labelled advisory and subordinate" currently passes because there is no annotation**, which is indistinguishable in CI from passing because it holds. |
 | `008-risk-model-packs` | 15 | Versioned, signed, source-cited parameters. |

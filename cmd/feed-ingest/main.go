@@ -22,6 +22,7 @@ func main() {
 	endpoint := flag.String("url", "", "configured feed endpoint (network mode)")
 	db := flag.String("db", "", "SQLite database path")
 	threshold := flag.Float64("epss-threshold", 0, "EPSS threshold crossing to record, or 0 to disable")
+	dryRun := flag.Bool("dry-run", false, "validate arguments and report the planned feed action without network or database writes")
 	flag.Parse()
 
 	if (*file == "") == (*endpoint == "") || *feedName == "" {
@@ -29,27 +30,26 @@ func main() {
 	}
 
 	name := feed.Name(*feedName)
-	var snapshot *feed.Snapshot
-	var err error
-	if *file != "" {
-		snapshot, err = feed.LoadFile(name, *file)
-	} else {
-		client, clientErr := feed.NewClient(nil, map[feed.Name]string{name: *endpoint})
-		if clientErr != nil {
-			fail(clientErr.Error())
-		}
-		result, fetchErr := client.Fetch(context.Background(), name)
-		if fetchErr != nil {
-			fail(fetchErr.Error())
-		}
-		if result.NotModified {
-			fmt.Println(`{"status":"not_modified"}`)
-			return
-		}
-		snapshot = result.Snapshot
+	switch name {
+	case feed.KEV, feed.EPSS, feed.NVD:
+	default:
+		fail("unsupported feed " + *feedName + " (want cisa-kev, epss, or nvd)")
 	}
-	if err != nil {
-		fail(err.Error())
+
+	if *dryRun {
+		mode := "network"
+		source := *endpoint
+		if *file != "" {
+			mode = "offline"
+			source = *file
+		}
+		_ = json.NewEncoder(os.Stdout).Encode(map[string]any{
+			"dryRun": true,
+			"feed":   name,
+			"mode":   mode,
+			"source": source,
+		})
+		return
 	}
 
 	dbStore, err := store.Open(*db)
@@ -58,8 +58,26 @@ func main() {
 	}
 	defer dbStore.Close()
 
-	regressions, err := service.NewFeedIngestService(dbStore).ApplySnapshot(
-		context.Background(), snapshot, *threshold)
+	svc := service.NewFeedIngestService(dbStore)
+	var snapshot any
+	var regressions []store.Regression
+	if *file != "" {
+		loaded, loadErr := feed.LoadFile(name, *file)
+		if loadErr != nil {
+			fail(loadErr.Error())
+		}
+		regressions, err = svc.ApplySnapshot(context.Background(), loaded, *threshold)
+		snapshot = loaded
+	} else {
+		client, clientErr := feed.NewClient(nil, map[feed.Name]string{name: *endpoint})
+		if clientErr != nil {
+			fail(clientErr.Error())
+		}
+		regressions, err = svc.FetchAndApply(context.Background(), client, name, *threshold)
+		if err == nil {
+			snapshot, _ = dbStore.GetLatestFeedSnapshot(context.Background(), string(name))
+		}
+	}
 	if err != nil {
 		fail(err.Error())
 	}

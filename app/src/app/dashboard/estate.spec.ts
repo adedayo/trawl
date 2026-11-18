@@ -5,6 +5,7 @@ import {
   coverageLabel,
   estateCoverage,
   headlinePosture,
+  kevEnrichmentSummary,
   rankFindings,
   unresolvedAssessments,
   withheldChecks
@@ -220,5 +221,63 @@ describe('coverageLabel', () => {
     expect(
       coverageLabel({ concluded: 0, applicable: 0, fraction: 0, checkFailed: 0, notChecked: 0 })
     ).toBe('nothing assessed');
+  });
+});
+
+describe('kevEnrichmentSummary', () => {
+  it('never counts not_checked or check_failed findings as known-not-listed, and flags stale snapshots', () => {
+    const now = Date.parse('2026-10-10T00:00:00Z');
+    const staleRetrieved = '2026-10-05T00:00:00Z';
+    const summary = kevEnrichmentSummary(
+      [
+        finding({
+          id: 'f-exploited',
+          cveId: 'CVE-2026-0001',
+          enrichments: [
+            {
+              feed: 'cisa-kev',
+              state: 'ok',
+              kevListed: true,
+              snapshot: { id: 'kev-1', retrievedAt: staleRetrieved, sourceUrl: 'https://cisa.gov' }
+            }
+          ]
+        }),
+        finding({
+          id: 'f-absent',
+          cveId: 'CVE-2026-0002',
+          enrichments: [{ feed: 'cisa-kev', state: 'not_found' }]
+        }),
+        finding({
+          id: 'f-unchecked',
+          cveId: 'CVE-2026-0003',
+          enrichments: [{ feed: 'cisa-kev', state: 'not_checked' }]
+        }),
+        finding({
+          id: 'f-failed',
+          cveId: 'CVE-2026-0004',
+          enrichments: [{ feed: 'cisa-kev', state: 'check_failed' }]
+        })
+      ],
+      [],
+      now
+    );
+
+    expect(summary.hasCatalogue).toBe(true);
+    expect(summary.exploited).toBe(1);
+    expect(summary.knownNotListed).toBe(1);
+    expect(summary.notChecked).toBe(1);
+    expect(summary.checkFailed).toBe(1);
+    expect(summary.totalCveFindings).toBe(4);
+    expect(summary.stale).toBe(true);
+  });
+
+  it('reports hasCatalogue false rather than a reassuring zero when no snapshot exists', () => {
+    const summary = kevEnrichmentSummary([
+      finding({ id: 'f-1', cveId: 'CVE-2026-0001' })
+    ]);
+
+    expect(summary.hasCatalogue).toBe(false);
+    expect(summary.notChecked).toBe(1);
+    expect(summary.knownNotListed).toBe(0);
   });
 });

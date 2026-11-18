@@ -23,6 +23,8 @@ export function GetDomainAssessments():Promise<Array<service.DomainAssessment>>;
 
 export function GetEmailPostures():Promise<Array<store.EmailPosture>>;
 
+export function GetFeedStatuses():Promise<Array<store.FeedStatus>>;
+
 export function GetFindings(arg1:string):Promise<Array<store.Finding>>;
 
 export function GetRegressions():Promise<Array<store.Regression>>;
@@ -34,6 +36,8 @@ export function GetSetting(arg1:string):Promise<string>;
 export function GetVersion():Promise<version.Info>;
 
 export function ProbeDiscoveredServices(arg1:string):Promise<void>;
+
+export function RefreshFeeds(arg1:number):Promise<Array<store.FeedStatus>>;
 
 export function RemoveAsset(arg1:string):Promise<void>;
 

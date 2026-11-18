@@ -1,4 +1,4 @@
-import { DomainAssessment, EmailPostureUI } from '../models/types';
+import { DomainAssessment, EmailPostureUI, FeedStatusUI } from '../models/types';
 import { BuildInfo, CalibrationExperiment, CalibrationReportRow, DiscoveryOptions, DiscoveryResult, Scope, TrawlTransport } from './trawl-transport';
 
 /**
@@ -110,6 +110,23 @@ export class HttpTransport implements TrawlTransport {
     });
     if (!response.ok) throw new Error(`Trawl: creating calibration experiment failed with ${response.status}`);
     return (await response.json()) as CalibrationExperiment;
+  }
+
+  getFeedStatuses(): Promise<FeedStatusUI[]> {
+    return this.get<FeedStatusUI[]>('/api/v1/feeds', []);
+  }
+
+  async refreshFeeds(epssThreshold = 0): Promise<FeedStatusUI[]> {
+    const response = await fetch(this.url('/api/v1/feeds/refresh'), {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ epssThreshold })
+    });
+    if (!response.ok && response.status !== 207) {
+      throw new Error(`Trawl: refreshing vulnerability feeds failed with ${response.status}`);
+    }
+    const payload = (await response.json()) as { feeds?: FeedStatusUI[]; error?: string };
+    return payload.feeds ?? [];
   }
 
   getAssessments(): Promise<DomainAssessment[]> {
