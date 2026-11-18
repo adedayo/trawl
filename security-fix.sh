@@ -173,6 +173,20 @@ if $DO_GO; then
     if ! $DRY_RUN; then
       while IFS= read -r mod; do
         [[ -z "$mod" ]] && continue
+        if [[ "$mod" == "stdlib" ]]; then
+          target_go=$(jq -rs '
+            [ .[] | select(.finding) | .finding
+              | select(.trace != null and .trace[0].module == "stdlib" and .trace[0].function != null)
+              | .fixed_version | select(. != null and . != "") | ltrimstr("v")
+            ] | sort_by(split(".") | map(tonumber? // 0)) | last // empty' "$GOVULN_JSON" 2>/dev/null || true)
+          if [[ -n "$target_go" ]]; then
+            go mod edit -go="$target_go"
+            info "    raised go.mod floor to go $target_go"
+          else
+            warn "  could not determine fixed stdlib version"
+          fi
+          continue
+        fi
         go get "$mod@latest" 2>&1 | sed 's/^/    /' || warn "  could not upgrade $mod"
       done <<< "$CALLED_FIXABLE"
       go mod tidy
