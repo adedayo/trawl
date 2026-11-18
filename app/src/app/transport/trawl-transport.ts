@@ -59,6 +59,14 @@ export interface DiscoveryOptions {
   maxSans: number;
 }
 
+export interface AssessOptionsUI {
+  profile?: string;
+  discover?: boolean;
+  discoverActive?: boolean;
+  discoverBudget?: number;
+  probeAddresses?: boolean;
+}
+
 export interface CalibrationReportRow {
   experimentId: string;
   serviceClass: string;
@@ -149,7 +157,7 @@ export interface TrawlTransport {
 
   getAssessments(): Promise<DomainAssessment[]>;
   getAssessment(domain: string): Promise<DomainAssessment | null>;
-  assessDomain(domain: string): Promise<DomainAssessment | null>;
+  assessDomain(domain: string, opts?: AssessOptionsUI): Promise<DomainAssessment | null>;
   probeDiscoveredServices(profile: 'most-common' | 'extended'): Promise<void>;
 
   getScope(): Promise<Scope | null>;

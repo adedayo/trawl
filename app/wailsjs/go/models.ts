@@ -238,6 +238,26 @@ export namespace contact {
 
 export namespace service {
 	
+	export class AssessOptions {
+	    profile?: string;
+	    discover: boolean;
+	    discoverActive: boolean;
+	    discoverBudget?: number;
+	    probeAddresses: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new AssessOptions(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.profile = source["profile"];
+	        this.discover = source["discover"];
+	        this.discoverActive = source["discoverActive"];
+	        this.discoverBudget = source["discoverBudget"];
+	        this.probeAddresses = source["probeAddresses"];
+	    }
+	}
 	export class AssetContactPanel {
 	    assetId: string;
 	    assetValue: string;

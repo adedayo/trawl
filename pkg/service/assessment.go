@@ -316,6 +316,17 @@ type DomainAssessment struct {
 
 // --- Assessment ---------------------------------------------------------
 
+// AssessOptions configures optional Vantage v1.8.0 discovery and opt-in
+// dangling cloud-address identity probing (`dangle`) for an explicit domain
+// assessment. Zero values preserve the conservative default run.
+type AssessOptions struct {
+	Profile        string `json:"profile,omitempty"`
+	Discover       bool   `json:"discover"`
+	DiscoverActive bool   `json:"discoverActive"`
+	DiscoverBudget int    `json:"discoverBudget,omitempty"`
+	ProbeAddresses bool   `json:"probeAddresses"`
+}
+
 // Assess runs an assessment of one domain, bounded by the authorised scope,
 // persists the results and returns the assembled view.
 //
@@ -328,6 +339,18 @@ func (svc *AssessmentService) Assess(
 	domain string,
 	authorisedDomains []string,
 	consentedEndpoints []string,
+) (DomainAssessment, error) {
+	return svc.AssessWithOptions(ctx, domain, authorisedDomains, consentedEndpoints, AssessOptions{})
+}
+
+// AssessWithOptions runs a scope-bounded assessment with explicit external
+// discovery and/or opt-in dangling cloud-address probing (`dangle`).
+func (svc *AssessmentService) AssessWithOptions(
+	ctx context.Context,
+	domain string,
+	authorisedDomains []string,
+	consentedEndpoints []string,
+	opts AssessOptions,
 ) (DomainAssessment, error) {
 	domain = NormaliseDomain(domain)
 	if domain == "" {
@@ -345,7 +368,32 @@ func (svc *AssessmentService) Assess(
 		return DomainAssessment{}, err
 	}
 
-	scope := vadapter.NewScope(authorisedDomains, consentedEndpoints)
+	endpoints := append([]string(nil), consentedEndpoints...)
+	// When the operator explicitly triggers opt-in cloud-address identity
+	// probing on an authorised domain, permit the public IP-range files needed
+	// to classify cloud prefixes while keeping third-party passive discovery
+	// gated on explicit discovery / endpoint consent.
+	if opts.ProbeAddresses {
+		for _, svcName := range []vaudit.ThirdPartyService{
+			vaudit.ServiceAWSRanges,
+			vaudit.ServiceGCPRanges,
+			vaudit.ServiceCloudflareRanges,
+			vaudit.ServiceFastlyRanges,
+		} {
+			endpoints = append(endpoints, svcName.Endpoints()...)
+		}
+	}
+	if opts.Discover && len(consentedEndpoints) == 0 {
+		for _, svcName := range []vaudit.ThirdPartyService{
+			vaudit.ServiceCertSpotter,
+			vaudit.ServiceCRTSh,
+			vaudit.ServiceHackerTarget,
+		} {
+			endpoints = append(endpoints, svcName.Endpoints()...)
+		}
+	}
+
+	scope := vadapter.NewScope(authorisedDomains, endpoints)
 	if !scope.PermitsTarget(domain) {
 		// Recorded, not merely returned. A refusal that leaves no trace is
 		// indistinguishable from an assessment that was never requested.
@@ -367,8 +415,21 @@ func (svc *AssessmentService) Assess(
 		}, nil
 	}
 
+	var knownHosts []string
+	if assets, listErr := svc.store.GetAssets(ctx, store.AssetStatusActive); listErr == nil {
+		for _, a := range assets {
+			if a.Type == store.AssetTypeSubdomain && strings.HasSuffix(NormaliseDomain(a.Value), "."+domain) {
+				knownHosts = append(knownHosts, NormaliseDomain(a.Value))
+			}
+		}
+	}
+
 	resolver := vpkg.NewClient(vpkg.Config{})
-	assessor, _, _, err := vadapter.NewScopedAssessor(resolver, scope)
+	var assessorOpts []vaudit.Option
+	if rs := svc.store.RangeStore(); rs != nil {
+		assessorOpts = append(assessorOpts, vaudit.WithRangeStore(rs))
+	}
+	assessor, _, _, err := vadapter.NewScopedAssessor(resolver, scope, assessorOpts...)
 	if err != nil {
 		return DomainAssessment{}, fmt.Errorf("assessment: building the assessor: %w", err)
 	}
@@ -381,17 +442,31 @@ func (svc *AssessmentService) Assess(
 		return DomainAssessment{}, fmt.Errorf("assessment: building the adapter: %w", err)
 	}
 
+	profile := opts.Profile
+	if profile == "" {
+		if opts.ProbeAddresses || opts.Discover {
+			profile = string(vaudit.ProfileDeep)
+		} else {
+			profile = string(vaudit.ProfileStandard)
+		}
+	}
+
 	res, assessErr := adapter.Assess(ctx, vadapter.Request{
-		AssetID: assetID,
-		Domain:  domain,
-		Profile: string(vaudit.ProfileStandard),
-		Scope:   scope,
+		AssetID:        assetID,
+		Domain:         domain,
+		Profile:        profile,
+		Hosts:          knownHosts,
+		Discover:       opts.Discover,
+		DiscoverActive: opts.DiscoverActive,
+		DiscoverBudget: opts.DiscoverBudget,
+		ProbeAddresses: opts.ProbeAddresses,
+		Scope:          scope,
 	})
 
 	run := store.AssessmentRun{
 		AssetID:        assetID,
 		Outcome:        string(res.Outcome),
-		Profile:        string(vaudit.ProfileStandard),
+		Profile:        profile,
 		LibraryVersion: res.LibraryVersion,
 		StartedAt:      started,
 		FinishedAt:     time.Now().UTC(),

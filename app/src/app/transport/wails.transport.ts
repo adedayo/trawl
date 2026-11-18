@@ -1,5 +1,5 @@
 import { AssetContactPanelUI, DomainAssessment, EmailPostureUI, FeedStatusUI, InstanceAggregationUI } from '../models/types';
-import { BuildInfo, CalibrationExperiment, CalibrationReportRow, DiscoveryOptions, DiscoveryResult, Scope, TrawlTransport } from './trawl-transport';
+import { AssessOptionsUI, BuildInfo, CalibrationExperiment, CalibrationReportRow, DiscoveryOptions, DiscoveryResult, Scope, TrawlTransport } from './trawl-transport';
 
 declare const window: any;
 
@@ -112,7 +112,16 @@ export class WailsTransport implements TrawlTransport {
     return this.call<DomainAssessment | null>('GetDomainAssessment', null, domain);
   }
 
-  assessDomain(domain: string): Promise<DomainAssessment | null> {
+  assessDomain(domain: string, opts?: AssessOptionsUI): Promise<DomainAssessment | null> {
+    if (opts && (opts.discover || opts.discoverActive || opts.probeAddresses || opts.profile)) {
+      return this.call<DomainAssessment | null>('AssessDomainWithOptions', null, domain, {
+        profile: opts.profile ?? '',
+        discover: !!opts.discover,
+        discoverActive: !!opts.discoverActive,
+        discoverBudget: opts.discoverBudget ?? 0,
+        probeAddresses: !!opts.probeAddresses
+      });
+    }
     return this.call<DomainAssessment | null>('AssessDomain', null, domain);
   }
 

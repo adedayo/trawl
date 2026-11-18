@@ -41,6 +41,7 @@ var wailsMethodRoutes = map[string]string{
 	"GetDomainAssessment":            "GET /api/v1/assessments/{domain}",
 	"GetDomainAssessments":           "GET /api/v1/assessments",
 	"AssessDomain":                   "POST /api/v1/assessments/{domain}",
+	"AssessDomainWithOptions":        "POST /api/v1/assessments/{domain}",
 	"ProbeDiscoveredServices":        "POST /api/v1/service-probes",
 	"GetRegressions":                 "GET /api/v1/regressions",
 	"GetSetting":                     "GET /api/v1/settings/{key}",

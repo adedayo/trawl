@@ -628,10 +628,10 @@ export class EmailPostureComponent {
     return this.running().has(domain);
   }
 
-  async reassess(domain: string): Promise<void> {
+  async reassess(domain: string, opts?: { discover?: boolean; probeAddresses?: boolean }): Promise<void> {
     this.running.set(new Set(this.running()).add(domain));
     try {
-      await this.wailsIpc.assessDomain(domain);
+      await this.wailsIpc.assessDomain(domain, opts);
     } finally {
       const next = new Set(this.running());
       next.delete(domain);

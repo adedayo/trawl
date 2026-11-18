@@ -226,3 +226,48 @@ func TestNoObservationMakesNoClaim(t *testing.T) {
 		t.Fatalf("coverage must pass through unchanged; got %q/%q", state, reason)
 	}
 }
+
+func TestExternalDiscoveryObservationPopulatesInventoryAndCoverageDiagnostics(t *testing.T) {
+	at := time.Date(2026, 10, 20, 10, 0, 0, 0, time.UTC)
+	scope := NewScope([]string{"example.com"}, nil)
+
+	obs := &vfinding.Observation{
+		Discovery: &vobs.Discovery{
+			Domain: "example.com",
+			Sources: []vobs.DiscoverySource{
+				{Name: "hackertarget", State: "ok", Count: 2, Warnings: []string{"HackerTarget free ceiling reached"}},
+				{Name: "crt.sh", State: "failed", Error: "HTTP 502"},
+			},
+			Hosts: []vobs.DiscoveredHost{
+				{Name: "research2.example.com", Sources: []string{"active"}, Status: "resolves"},
+				{Name: "portal.example.com", Sources: []string{"hackertarget"}, Status: "resolves"},
+				{Name: "flaky.example.com", Sources: []string{"certspotter"}, Status: "unknown"},
+				{Name: "gone.example.com", Sources: []string{"certspotter"}, Status: "absent"},
+				{Name: "other.stranger.test", Sources: []string{"hackertarget"}, Status: "resolves"},
+			},
+			Omitted:          5,
+			ActiveSuppressed: true,
+		},
+	}
+
+	assets, undetermined := discoveredHosts("example.com", obs, scope, at)
+	if got := valuesOf(assets); len(got) != 2 || got[0] != "portal.example.com" || got[1] != "research2.example.com" {
+		t.Fatalf("unexpected discovered assets from Observation.Discovery: %v", got)
+	}
+	if assets[0].DiscoverySource != "passive-discovery" || assets[1].DiscoverySource != "active-discovery" {
+		t.Fatalf("unexpected discovery source provenance: %q / %q", assets[0].DiscoverySource, assets[1].DiscoverySource)
+	}
+	if len(undetermined) != 1 || undetermined[0] != "flaky.example.com" {
+		t.Fatalf("expected unknown DNS status to be reported as undetermined, got %v", undetermined)
+	}
+
+	state, reason := discoveryGap(store.CoverageCheckFailed, "DISCOVERY_INCOMPLETE", obs, undetermined)
+	if state != store.CoverageCheckFailed {
+		t.Fatalf("expected partial discovery state preserved, got %q", state)
+	}
+	for _, want := range []string{"flaky.example.com", "5 candidate name(s) were omitted", "suppressed", "crt.sh failed: HTTP 502", "HackerTarget free ceiling"} {
+		if !strings.Contains(reason, want) {
+			t.Errorf("discoveryGap reason %q missing %q", reason, want)
+		}
+	}
+}

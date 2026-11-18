@@ -416,6 +416,13 @@ func (c *Core) Assessment(ctx context.Context, domain string) (service.DomainAss
 // that could supply its own scope would be a transport that could widen it,
 // and the HTTP API is reachable by anything on the network.
 func (c *Core) AssessDomain(ctx context.Context, domain string) (service.DomainAssessment, error) {
+	return c.AssessDomainWithOptions(ctx, domain, service.AssessOptions{})
+}
+
+// AssessDomainWithOptions runs a scope-bounded assessment with explicit
+// Vantage v1.8.0 external hostname discovery and/or opt-in dangling
+// cloud-address identity probing (`dangle`).
+func (c *Core) AssessDomainWithOptions(ctx context.Context, domain string, opts service.AssessOptions) (service.DomainAssessment, error) {
 	scope := c.Scope(ctx)
 	if !scope.Authorised() {
 		return service.DomainAssessment{
@@ -425,7 +432,11 @@ func (c *Core) AssessDomain(ctx context.Context, domain string) (service.DomainA
 			Error:   "no signed authorisation is on record; assessment refused",
 		}, nil
 	}
-	return c.assessment.Assess(ctx, domain, scope.SeedDomainsList, scope.ConsentedEndpoints)
+	view, err := c.assessment.AssessWithOptions(ctx, domain, scope.SeedDomainsList, scope.ConsentedEndpoints, opts)
+	if err == nil {
+		c.bus.Publish(ctx, event.Event{Type: event.EventAssetUpdated})
+	}
+	return view, err
 }
 
 // ProbeDiscoveredServices runs a bounded ranked service pass against the
@@ -579,7 +590,10 @@ func (c *Core) RunScan(ctx context.Context, req ScanRequest) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if _, err := c.AssessDomain(ctx, req.Domain); err != nil {
+			hasThirdParty := len(c.Scope(ctx).ConsentedEndpoints) > 0
+			if _, err := c.AssessDomainWithOptions(ctx, req.Domain, service.AssessOptions{
+				Discover: hasThirdParty,
+			}); err != nil {
 				record(fmt.Errorf("assessment: %w", err))
 			}
 		}()

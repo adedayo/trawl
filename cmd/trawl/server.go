@@ -506,7 +506,14 @@ func (s *server) handleGetAssessment(w http.ResponseWriter, r *http.Request) {
 // the refused outcome, not an error: the assessment was correctly declined,
 // and that is a result the operator needs recorded.
 func (s *server) handleAssessDomain(w http.ResponseWriter, r *http.Request) {
-	view, err := s.core.AssessDomain(r.Context(), r.PathValue("domain"))
+	var opts service.AssessOptions
+	if r.ContentLength > 0 {
+		if err := decodeJSON(r, &opts); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+	}
+	view, err := s.core.AssessDomainWithOptions(r.Context(), r.PathValue("domain"), opts)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return

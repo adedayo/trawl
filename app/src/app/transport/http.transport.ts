@@ -1,5 +1,5 @@
 import { AssetContactPanelUI, DomainAssessment, EmailPostureUI, FeedStatusUI, InstanceAggregationUI } from '../models/types';
-import { BuildInfo, CalibrationExperiment, CalibrationReportRow, DiscoveryOptions, DiscoveryResult, Scope, TrawlTransport } from './trawl-transport';
+import { AssessOptionsUI, BuildInfo, CalibrationExperiment, CalibrationReportRow, DiscoveryOptions, DiscoveryResult, Scope, TrawlTransport } from './trawl-transport';
 
 /**
  * HttpTransport speaks to the headless Trawl server over its REST API and
@@ -146,10 +146,11 @@ export class HttpTransport implements TrawlTransport {
     return this.get<DomainAssessment | null>(`/api/v1/assessments/${encodeURIComponent(domain)}`, null);
   }
 
-  async assessDomain(domain: string): Promise<DomainAssessment | null> {
+  async assessDomain(domain: string, opts?: AssessOptionsUI): Promise<DomainAssessment | null> {
     const result = await this.send<DomainAssessment>(
       'POST',
-      `/api/v1/assessments/${encodeURIComponent(domain)}`
+      `/api/v1/assessments/${encodeURIComponent(domain)}`,
+      opts
     );
     return result ?? null;
   }

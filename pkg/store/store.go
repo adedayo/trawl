@@ -355,5 +355,9 @@ type Store interface {
 	GetJobs(ctx context.Context, status JobStatus) ([]Job, error)
 
 	// Lifecycle & Health
+	RangeStore() interface {
+		Get(ctx context.Context, url string) ([]byte, time.Time, bool)
+		Put(ctx context.Context, url string, data []byte, at time.Time) error
+	}
 	Close() error
 }

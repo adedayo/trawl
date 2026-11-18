@@ -35,8 +35,8 @@ func TestSchemaVersionCarriesStructuredObservations(t *testing.T) {
 	if major != 1 {
 		t.Fatalf("finding schema major version is %d, not 1: the result shape has changed incompatibly and the adapter must be reviewed, not re-pinned", major)
 	}
-	if minor < 2 {
-		t.Fatalf("finding schema is %s; structured email-authentication posture arrived in 1.2, so this build reads DMARC tags and DKIM selector facts that the pinned library does not emit", vfinding.SchemaVersion)
+	if minor < 3 {
+		t.Fatalf("finding schema is %s; structured external discovery and dangling-address observations arrived in 1.3", vfinding.SchemaVersion)
 	}
 }
 
@@ -299,5 +299,31 @@ func TestAgeReportsAbsenceRatherThanZero(t *testing.T) {
 	}
 	if aged != 48*time.Hour {
 		t.Fatalf("age must be that of the oldest entry, so a single fresh source cannot vouch for a stale one; got %s", aged)
+	}
+}
+
+func TestVantage18DiscoveryAndAddressesObservationFieldsStillExist(t *testing.T) {
+	obs := vfinding.Observation{
+		Discovery: &vobs.Discovery{
+			Domain:           "example.com",
+			Sources:          []vobs.DiscoverySource{{Name: "hackertarget", State: "ok", Count: 1}},
+			Hosts:            []vobs.DiscoveredHost{{Name: "app.example.com", Sources: []string{"hackertarget"}, Status: "resolves"}},
+			Omitted:          2,
+			ActiveSuppressed: true,
+			Partial:          true,
+		},
+		Addresses: &vobs.Addresses{
+			Domain: "example.com",
+			Probes: []vobs.AddressProbe{{
+				Host:     "app.example.com",
+				Address:  netip.MustParseAddr("203.0.113.20"),
+				Provider: "Amazon Web Services",
+				Class:    "dedicated",
+				Probed:   true,
+			}},
+		},
+	}
+	if obs.Discovery.Hosts[0].Status != "resolves" || obs.Addresses.Probes[0].Class != "dedicated" {
+		t.Fatalf("v1.8.0 observation fields did not round-trip: %+v", obs)
 	}
 }

@@ -7,6 +7,8 @@ import {version} from '../models';
 
 export function AssessDomain(arg1:string):Promise<service.DomainAssessment>;
 
+export function AssessDomainWithOptions(arg1:string,arg2:service.AssessOptions):Promise<service.DomainAssessment>;
+
 export function CreateCalibrationExperiment(arg1:string):Promise<store.CalibrationExperiment>;
 
 export function EraseDiscoveredData():Promise<void>;

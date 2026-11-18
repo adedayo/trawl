@@ -110,6 +110,13 @@ func (a *App) AssessDomain(domain string) (service.DomainAssessment, error) {
 	return a.core.AssessDomain(a.ctx, domain)
 }
 
+// AssessDomainWithOptions runs a scope-bounded assessment with explicit
+// Vantage external discovery and/or opt-in dangling cloud-address identity
+// probing (`dangle`).
+func (a *App) AssessDomainWithOptions(domain string, opts service.AssessOptions) (service.DomainAssessment, error) {
+	return a.core.AssessDomainWithOptions(a.ctx, domain, opts)
+}
+
 // ProbeDiscoveredServices runs a bounded Vantage service discovery pass over
 // tracked, authorised assets.
 func (a *App) ProbeDiscoveredServices(profile string) error {

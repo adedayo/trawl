@@ -122,15 +122,27 @@
               </p>
             </button>
 
-            <button
-              type="button"
-              (click)="reassess(row.domain)"
-              [disabled]="isRunning(row.domain)"
-              [class]="dark
-                ? 'px-3 py-1.5 rounded border border-slate-700 text-slate-200 text-[11px] font-semibold hover:bg-slate-800 disabled:opacity-50'
-                : 'px-3 py-1.5 rounded border border-slate-300 text-slate-700 text-[11px] font-semibold hover:bg-slate-100 disabled:opacity-50'">
-              {{ isRunning(row.domain) ? 'Assessing…' : 'Re-assess' }}
-            </button>
+            <div class="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                (click)="reassess(row.domain, { discover: true, probeAddresses: true })"
+                [disabled]="isRunning(row.domain)"
+                title="Opt-in Vantage v1.8.0 external hostname discovery + cloud-address TLS identity check (dangle)"
+                [class]="dark
+                  ? 'px-3 py-1.5 rounded border border-cyan-800 bg-cyan-950/50 text-cyan-300 text-[11px] font-semibold hover:bg-cyan-900/60 disabled:opacity-50'
+                  : 'px-3 py-1.5 rounded border border-cyan-300 bg-cyan-50 text-cyan-800 text-[11px] font-semibold hover:bg-cyan-100 disabled:opacity-50'">
+                {{ isRunning(row.domain) ? 'Assessing…' : 'Probe dangling IPs' }}
+              </button>
+              <button
+                type="button"
+                (click)="reassess(row.domain)"
+                [disabled]="isRunning(row.domain)"
+                [class]="dark
+                  ? 'px-3 py-1.5 rounded border border-slate-700 text-slate-200 text-[11px] font-semibold hover:bg-slate-800 disabled:opacity-50'
+                  : 'px-3 py-1.5 rounded border border-slate-300 text-slate-700 text-[11px] font-semibold hover:bg-slate-100 disabled:opacity-50'">
+                {{ isRunning(row.domain) ? 'Assessing…' : 'Re-assess' }}
+              </button>
+            </div>
           </div>
 
           @if (isOpen(row.domain)) {

@@ -20,6 +20,7 @@ import (
 
 	vantage "github.com/adedayo/vantage/pkg"
 	vaudit "github.com/adedayo/vantage/pkg/audit"
+	vdiscovery "github.com/adedayo/vantage/pkg/discovery"
 	vfinding "github.com/adedayo/vantage/pkg/finding"
 
 	"github.com/adedayo/trawl/pkg/event"
@@ -72,6 +73,20 @@ type Request struct {
 	NoNetwork bool
 	// Hosts are additional names within the domain to assess.
 	Hosts []string
+	// Discover enables Vantage's multi-source external hostname discovery
+	// (Cert Spotter, historical crt.sh, HackerTarget) before selected checks
+	// run. Only sources whose endpoints are permitted by Scope can be reached.
+	Discover bool
+	// DiscoverActive explicitly permits bounded generic DNS candidate guessing
+	// inside Discover. Requires Discover and never guesses without it.
+	DiscoverActive bool
+	// DiscoverBudget bounds active candidate generation; zero uses Vantage's default.
+	DiscoverBudget int
+	// ProbeAddresses explicitly enables the opt-in dangling cloud-address
+	// TLS/HTTP identity check (`dangle`). Never enabled implicitly by profiles.
+	ProbeAddresses bool
+	// ProbeAddressBudget bounds name/address pairs probed by `dangle`; zero uses default.
+	ProbeAddressBudget int
 	// ExpectJurisdictions are the countries the operator declares their
 	// infrastructure should be in.
 	ExpectJurisdictions []string
@@ -214,8 +229,9 @@ func (a *Adapter) Assess(ctx context.Context, req Request) (Result, error) {
 	}
 
 	selection := vaudit.Selection{
-		Only:      req.Checks,
-		NoNetwork: req.NoNetwork,
+		Only:           req.Checks,
+		NoNetwork:      req.NoNetwork,
+		ProbeAddresses: req.ProbeAddresses,
 	}
 	if req.Profile != "" {
 		p, err := vaudit.ParseProfile(req.Profile)
@@ -224,6 +240,9 @@ func (a *Adapter) Assess(ctx context.Context, req Request) (Result, error) {
 		}
 		selection.Profile = p
 	}
+
+	discover := req.Discover && !req.NoNetwork
+	probeAddresses := req.ProbeAddresses && !req.NoNetwork
 
 	// A deployment policy overrides both, because a policy that a caller can
 	// widen by naming checks is not a policy. The excluded checks are carried
@@ -241,6 +260,10 @@ func (a *Adapter) Assess(ctx context.Context, req Request) (Result, error) {
 		if req.NoNetwork {
 			selection.Only, excluded = sel.withoutOptInNetwork()
 		}
+		if probeAddresses && !containsCheck(selection.Only, "dangle") {
+			probeAddresses = false
+			selection.ProbeAddresses = false
+		}
 
 		// Every check refused: there is nothing to ask, and pretending
 		// otherwise would let an empty run present as a clean one.
@@ -254,11 +277,22 @@ func (a *Adapter) Assess(ctx context.Context, req Request) (Result, error) {
 			}, errEveryCheckExcluded
 		}
 	}
+	selection.ProbeAddresses = probeAddresses
+
+	var discOpts vdiscovery.Options
+	if discover && req.DiscoverActive {
+		discOpts.Active = true
+		discOpts.Budget = req.DiscoverBudget
+	}
 
 	vres, err := a.assessor.Assess(ctx, vaudit.Request{
+		Discover:            discover,
+		Discovery:           discOpts,
 		Targets:             []string{req.Domain},
 		Selection:           selection,
 		Hosts:               req.Hosts,
+		ProbeAddresses:      probeAddresses,
+		ProbeAddressBudget:  req.ProbeAddressBudget,
 		ExpectJurisdictions: req.ExpectJurisdictions,
 		Observer:            a.observer(ctx, req),
 	})
@@ -303,6 +337,15 @@ func (a *Adapter) policySelection(ctx context.Context) (Selection, error) {
 		a.selCache, a.selErr = SelectChecks(caps, *a.policy)
 	})
 	return a.selCache, a.selErr
+}
+
+func containsCheck(checks []string, want string) bool {
+	for _, c := range checks {
+		if c == want {
+			return true
+		}
+	}
+	return false
 }
 
 // Selection reports the checks the configured policy admits, so a caller can

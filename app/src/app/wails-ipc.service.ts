@@ -2,7 +2,7 @@ import { inject, Injectable, signal } from '@angular/core';
 import { AssetContactPanelUI, DomainAssessment, EmailPostureUI, FeedStatusUI, InstanceAggregationUI } from './models/types';
 import { RegressionUI } from './dashboard/estate';
 import { ThemeService } from './theme.service';
-import { CalibrationExperiment, CalibrationReportRow, createTransport, DiscoveryOptions, DiscoveryResult, ProposedDomain, Scope, TrawlTransport } from './transport';
+import { AssessOptionsUI, CalibrationExperiment, CalibrationReportRow, createTransport, DiscoveryOptions, DiscoveryResult, ProposedDomain, Scope, TrawlTransport } from './transport';
 
 /**
  * WailsIpcService is the application's single point of contact with the
@@ -664,8 +664,8 @@ export class WailsIpcService {
    * the card the operator is looking at updates without the whole list
    * flickering.
    */
-  public async assessDomain(domain: string): Promise<void> {
-    const result = await this.transport.assessDomain(domain);
+  public async assessDomain(domain: string, opts?: AssessOptionsUI): Promise<void> {
+    const result = await this.transport.assessDomain(domain, opts);
     if (!result) {
       return;
     }
@@ -677,6 +677,9 @@ export class WailsIpcService {
       this.assessments.set(next);
     } else {
       this.assessments.set([...current, result]);
+    }
+    if (opts?.discover || opts?.probeAddresses) {
+      await this.refreshAssets();
     }
   }
 

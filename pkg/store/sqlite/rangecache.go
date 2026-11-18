@@ -29,6 +29,14 @@ type RangeCache struct {
 // NewRangeCache builds a cache over an open database.
 func NewRangeCache(db *sql.DB) *RangeCache { return &RangeCache{db: db} }
 
+// RangeStore exposes the durable range cache satisfying vantage's netattr.RangeStore.
+func (s *SQLiteStore) RangeStore() interface {
+	Get(ctx context.Context, url string) ([]byte, time.Time, bool)
+	Put(ctx context.Context, url string, data []byte, at time.Time) error
+} {
+	return NewRangeCache(s.db)
+}
+
 // Get returns cached content and when it was obtained, at any age.
 func (c *RangeCache) Get(ctx context.Context, url string) ([]byte, time.Time, bool) {
 	if c == nil || c.db == nil {

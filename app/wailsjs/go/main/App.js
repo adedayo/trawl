@@ -6,6 +6,10 @@ export function AssessDomain(arg1) {
   return window['go']['main']['App']['AssessDomain'](arg1);
 }
 
+export function AssessDomainWithOptions(arg1, arg2) {
+  return window['go']['main']['App']['AssessDomainWithOptions'](arg1, arg2);
+}
+
 export function CreateCalibrationExperiment(arg1) {
   return window['go']['main']['App']['CreateCalibrationExperiment'](arg1);
 }

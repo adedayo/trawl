@@ -273,8 +273,50 @@ func TestRequestIsTranslatedFaithfully(t *testing.T) {
 	if f.seen.Enumerate {
 		t.Error("enumeration must stay opt-in: it queries a third party")
 	}
+	if f.seen.Discover || f.seen.ProbeAddresses {
+		t.Error("external discovery and dangling-address probing must stay opt-in")
+	}
 	if len(f.seen.Selection.Only) != 2 {
 		t.Fatalf("check selection = %v, want 2 entries", f.seen.Selection.Only)
+	}
+}
+
+func TestOptInDiscoveryAndDanglePropagateOnlyWhenPermitted(t *testing.T) {
+	f := &fakeAssessor{result: vfinding.NewResult("vantage", "1.8.0")}
+	a := newAdapter(t, f)
+
+	_, err := a.Assess(context.Background(), Request{
+		AssetID:        "a",
+		Domain:         "example.com",
+		Discover:       true,
+		DiscoverActive: true,
+		DiscoverBudget: 50,
+		ProbeAddresses: true,
+	})
+	if err != nil {
+		t.Fatalf("Assess: %v", err)
+	}
+	if !f.seen.Discover || !f.seen.Discovery.Active || f.seen.Discovery.Budget != 50 || !f.seen.ProbeAddresses || !f.seen.Selection.ProbeAddresses {
+		t.Fatalf("expected explicit Discover and ProbeAddresses to reach assessor: %+v", f.seen)
+	}
+
+	// Under DefaultEgressPolicy, dangle requires target-addresses/intrusive/third-party
+	// so policy selection must keep ProbeAddresses disabled rather than letting a
+	// request flag bypass deployment policy.
+	fRestricted := &fakeAssessor{
+		caps:   realCapabilities(t),
+		result: vfinding.NewResult("vantage", "1.8.0"),
+	}
+	aRestricted := newAdapter(t, fRestricted, WithEgressPolicy(DefaultEgressPolicy()))
+	if _, err := aRestricted.Assess(context.Background(), Request{
+		AssetID:        "a",
+		Domain:         "example.com",
+		ProbeAddresses: true,
+	}); err != nil {
+		t.Fatalf("Assess under default policy: %v", err)
+	}
+	if fRestricted.seen.ProbeAddresses || fRestricted.seen.Selection.ProbeAddresses {
+		t.Fatal("ProbeAddresses bypassed DefaultEgressPolicy")
 	}
 }
 
