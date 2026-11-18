@@ -40,11 +40,242 @@ export namespace contact {
 	        this.DeduplicationRule = source["DeduplicationRule"];
 	    }
 	}
+	export class CoverageFigure {
+	    checksConcluded: number;
+	    checksApplicable: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new CoverageFigure(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.checksConcluded = source["checksConcluded"];
+	        this.checksApplicable = source["checksApplicable"];
+	    }
+	}
+	export class FactorTrace {
+	    id: string;
+	    name: string;
+	    value: number;
+	    source: string;
+	    evidenceClass: string;
+	    observedAt?: string;
+	    state: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new FactorTrace(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.value = source["value"];
+	        this.source = source["source"];
+	        this.evidenceClass = source["evidenceClass"];
+	        this.observedAt = source["observedAt"];
+	        this.state = source["state"];
+	    }
+	}
+	export class TimeAtRiskSummary {
+	    observedDays: number;
+	    inferredDays: number;
+	    estimatedBlindDays: number;
+	    expectedDetectionDays: number;
+	    leftCensored: boolean;
+	    stillExposed: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new TimeAtRiskSummary(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.observedDays = source["observedDays"];
+	        this.inferredDays = source["inferredDays"];
+	        this.estimatedBlindDays = source["estimatedBlindDays"];
+	        this.expectedDetectionDays = source["expectedDetectionDays"];
+	        this.leftCensored = source["leftCensored"];
+	        this.stillExposed = source["stillExposed"];
+	    }
+	}
+	export class Interval {
+	    point: number;
+	    low: number;
+	    high: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Interval(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.point = source["point"];
+	        this.low = source["low"];
+	        this.high = source["high"];
+	    }
+	}
+	export class ContactPriorEstimate {
+	    assetId: string;
+	    serviceId: string;
+	    serviceClass: string;
+	    weaknessClass: string;
+	    available: boolean;
+	    suppressedReason?: string;
+	    lambdaContact: Interval;
+	    windowDays: number;
+	    windowRationale: string;
+	    pContact: Interval;
+	    timeAtRisk: TimeAtRiskSummary;
+	    factors: FactorTrace[];
+	    excludedFactors?: string[];
+	    coverage: CoverageFigure;
+	    label: string;
+	    scopeStatement: string;
+	    isPrior: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ContactPriorEstimate(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.assetId = source["assetId"];
+	        this.serviceId = source["serviceId"];
+	        this.serviceClass = source["serviceClass"];
+	        this.weaknessClass = source["weaknessClass"];
+	        this.available = source["available"];
+	        this.suppressedReason = source["suppressedReason"];
+	        this.lambdaContact = this.convertValues(source["lambdaContact"], Interval);
+	        this.windowDays = source["windowDays"];
+	        this.windowRationale = source["windowRationale"];
+	        this.pContact = this.convertValues(source["pContact"], Interval);
+	        this.timeAtRisk = this.convertValues(source["timeAtRisk"], TimeAtRiskSummary);
+	        this.factors = this.convertValues(source["factors"], FactorTrace);
+	        this.excludedFactors = source["excludedFactors"];
+	        this.coverage = this.convertValues(source["coverage"], CoverageFigure);
+	        this.label = source["label"];
+	        this.scopeStatement = source["scopeStatement"];
+	        this.isPrior = source["isPrior"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	
+	export class InstanceAggregation {
+	    weaknessClass: string;
+	    totalInstances: number;
+	    confirmedRemediated: number;
+	    uncoveredInstances: number;
+	    unknownReachability: number;
+	    available: boolean;
+	    allInstancesPContact: Interval;
+	    residualPContact: Interval;
+	    coverage: CoverageFigure;
+	    label: string;
+	    scopeStatement: string;
+	    isPrior: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new InstanceAggregation(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.weaknessClass = source["weaknessClass"];
+	        this.totalInstances = source["totalInstances"];
+	        this.confirmedRemediated = source["confirmedRemediated"];
+	        this.uncoveredInstances = source["uncoveredInstances"];
+	        this.unknownReachability = source["unknownReachability"];
+	        this.available = source["available"];
+	        this.allInstancesPContact = this.convertValues(source["allInstancesPContact"], Interval);
+	        this.residualPContact = this.convertValues(source["residualPContact"], Interval);
+	        this.coverage = this.convertValues(source["coverage"], CoverageFigure);
+	        this.label = source["label"];
+	        this.scopeStatement = source["scopeStatement"];
+	        this.isPrior = source["isPrior"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 
 }
 
 export namespace service {
 	
+	export class AssetContactPanel {
+	    assetId: string;
+	    assetValue: string;
+	    reachability: string;
+	    estimates: contact.ContactPriorEstimate[];
+	    scopeStatement: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AssetContactPanel(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.assetId = source["assetId"];
+	        this.assetValue = source["assetValue"];
+	        this.reachability = source["reachability"];
+	        this.estimates = this.convertValues(source["estimates"], contact.ContactPriorEstimate);
+	        this.scopeStatement = source["scopeStatement"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class CheckView {
 	    checkId: string;
 	    state: string;

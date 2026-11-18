@@ -1,4 +1,4 @@
-import { DomainAssessment, EmailPostureUI, FeedStatusUI } from '../models/types';
+import { AssetContactPanelUI, DomainAssessment, EmailPostureUI, FeedStatusUI, InstanceAggregationUI } from '../models/types';
 import { BuildInfo, CalibrationExperiment, CalibrationReportRow, DiscoveryOptions, DiscoveryResult, Scope, TrawlTransport } from './trawl-transport';
 
 declare const window: any;
@@ -94,6 +94,14 @@ export class WailsTransport implements TrawlTransport {
 
   async refreshFeeds(epssThreshold = 0): Promise<FeedStatusUI[]> {
     return this.callOrThrow<FeedStatusUI[]>('RefreshFeeds', epssThreshold);
+  }
+
+  getAssetContactPanel(assetId: string, excludedFactors: string[] = []): Promise<AssetContactPanelUI | null> {
+    return this.call<AssetContactPanelUI | null>('GetAssetContactPanel', null, assetId, excludedFactors);
+  }
+
+  getWeaknessContactAggregations(): Promise<InstanceAggregationUI[]> {
+    return this.call<InstanceAggregationUI[]>('GetWeaknessContactAggregations', []);
   }
 
   getAssessments(): Promise<DomainAssessment[]> {

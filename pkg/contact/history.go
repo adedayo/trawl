@@ -5,9 +5,17 @@ package contact
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"time"
 )
+
+func expNeg(x float64) float64 {
+	if x <= 0 {
+		return 1
+	}
+	return math.Exp(-x)
+}
 
 type ExposureState string
 
@@ -112,4 +120,109 @@ func ComputeHistory(observations []Observation, now time.Time, cadence time.Dura
 	result.AwareInferred = result.InferredDuration
 	_ = openAt
 	return result, nil
+}
+
+// LiveTimeAtRisk advances a stored or previously computed History to wallClock
+// without collapsing observed and inferred intervals. For an exposure that is
+// still open past LastObserved, elapsed wall-clock time accrues into
+// InferredDuration (and AwareInferred), because no assessment has bounded the
+// trailing open interval yet.
+func (h History) LiveTimeAtRisk(wallClock time.Time) History {
+	out := h
+	if !out.StillExposed || out.LastObserved.IsZero() || !wallClock.After(out.LastObserved) {
+		return out
+	}
+	trailing := wallClock.Sub(out.LastObserved)
+	// ComputeHistory may already have accrued up to an earlier `now`; when a
+	// stored row is rehydrated from ObservedDuration + LastObserved, callers set
+	// InferredDuration to the historical gap before LastObserved and call
+	// LiveTimeAtRisk(now). To stay idempotent only when RehydrateHistory is used,
+	// RehydrateHistory constructs the pre-trailing History cleanly.
+	out.InferredDuration += trailing
+	out.AwareInferred = out.InferredDuration
+	return out
+}
+
+// TotalAwareDays returns aware time at risk (observed + inferred) in days, kept
+// as an internal arithmetic helper for rate evaluation while keeping the two
+// durations separate on every emitted type.
+func (h History) TotalAwareDays() float64 {
+	return (h.ObservedDuration + h.InferredDuration).Hours() / 24.0
+}
+
+// CadenceComparison reports the expected blind-time and contact-probability
+// reduction from moving an asset class from currentCadence to proposedCadence,
+// given an observed weakness-introduction rate (introductions per year) and an
+// effective contact rate lambdaPerDay.
+type CadenceComparison struct {
+	CurrentCadence           time.Duration `json:"currentCadence"`
+	ProposedCadence          time.Duration `json:"proposedCadence"`
+	CurrentExpectedBlind     time.Duration `json:"currentExpectedBlind"`
+	ProposedExpectedBlind    time.Duration `json:"proposedExpectedBlind"`
+	BlindTimeReduction       time.Duration `json:"blindTimeReduction"`
+	CurrentBlindContactProb  float64       `json:"currentBlindContactProb"`
+	ProposedBlindContactProb float64       `json:"proposedBlindContactProb"`
+	ContactProbReduction     float64       `json:"contactProbReduction"`
+	ExpectedBlindDaysSavedYr float64       `json:"expectedBlindDaysSavedPerYear"`
+}
+
+// EvaluateCadenceChange computes the exposure reduction from changing the
+// assessment cadence, given the observed weakness-introduction rate per year
+// and the daily contact rate lambdaPerDay.
+func EvaluateCadenceChange(currentCadence, proposedCadence time.Duration, introductionsPerYear, lambdaPerDay float64) (CadenceComparison, error) {
+	if currentCadence <= 0 || proposedCadence <= 0 {
+		return CadenceComparison{}, fmt.Errorf("cadences must be positive")
+	}
+	if introductionsPerYear < 0 || lambdaPerDay < 0 {
+		return CadenceComparison{}, fmt.Errorf("rates must be non-negative")
+	}
+	curBlind := currentCadence / 2
+	propBlind := proposedCadence / 2
+	curDays := curBlind.Hours() / 24.0
+	propDays := propBlind.Hours() / 24.0
+	curProb := 1.0 - expNeg(lambdaPerDay*curDays)
+	propProb := 1.0 - expNeg(lambdaPerDay*propDays)
+	return CadenceComparison{
+		CurrentCadence:           currentCadence,
+		ProposedCadence:          proposedCadence,
+		CurrentExpectedBlind:     curBlind,
+		ProposedExpectedBlind:    propBlind,
+		BlindTimeReduction:       curBlind - propBlind,
+		CurrentBlindContactProb:  curProb,
+		ProposedBlindContactProb: propProb,
+		ContactProbReduction:     curProb - propProb,
+		ExpectedBlindDaysSavedYr: introductionsPerYear * (curDays - propDays),
+	}, nil
+}
+
+// LatencySplit reports detection latency (a property of the monitoring
+// programme's cadence) separately from remediation latency (time from first
+// detection to confirmed clean closure). They are never summed into a single
+// responsiveness metric.
+type LatencySplit struct {
+	ExpectedDetectionLatency time.Duration `json:"expectedDetectionLatency"`
+	WorstDetectionLatency    time.Duration `json:"worstDetectionLatency"`
+	RemediationLatency       time.Duration `json:"remediationLatency"`
+	StillOpen                bool          `json:"stillOpen"`
+}
+
+// ComputeLatencySplit derives separate detection and remediation latencies from
+// an exposure history and wall clock.
+func ComputeLatencySplit(h History, now time.Time) LatencySplit {
+	var rem time.Duration
+	if !h.FirstObserved.IsZero() {
+		if h.StillExposed {
+			if now.After(h.FirstObserved) {
+				rem = now.Sub(h.FirstObserved)
+			}
+		} else if h.LastObserved.After(h.FirstObserved) {
+			rem = h.LastObserved.Sub(h.FirstObserved)
+		}
+	}
+	return LatencySplit{
+		ExpectedDetectionLatency: h.ExpectedBlindTime,
+		WorstDetectionLatency:    h.WorstBlindTime,
+		RemediationLatency:       rem,
+		StillOpen:                h.StillExposed,
+	}
 }

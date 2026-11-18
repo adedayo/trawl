@@ -243,6 +243,14 @@ func (c *Core) FeedStatuses(ctx context.Context) ([]store.FeedStatus, error) {
 	return c.feedIngest.FeedStatuses(ctx, time.Now().UTC(), service.DefaultFeedStalenessThreshold)
 }
 
+func (c *Core) AssetContactPanel(ctx context.Context, assetID string, excludedFactors []string) (service.AssetContactPanel, error) {
+	return c.assessment.ContactPanel(ctx, assetID, excludedFactors, time.Now().UTC())
+}
+
+func (c *Core) WeaknessContactAggregations(ctx context.Context) ([]contact.InstanceAggregation, error) {
+	return c.assessment.WeaknessAggregations(ctx, time.Now().UTC())
+}
+
 // ApplyFeedSnapshotBody parses and applies a raw catalogue document supplied
 // over an API or file boundary without starting an asset scan.
 func (c *Core) ApplyFeedSnapshotBody(ctx context.Context, feedName, sourceURL string, body []byte, epssThreshold float64) (*feed.Snapshot, []store.Regression, error) {

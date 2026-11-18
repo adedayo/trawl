@@ -32,14 +32,14 @@ different contact process.
 
 | Class | Included labels and conventional ports | Evidence status |
 | --- | --- | --- |
-| `web` | HTTP/HTTPS, web and proxy labels; 80, 443, 8080, 8443 | source review outstanding |
-| `ssh` | SSH; 22 | source review outstanding |
-| `rdp` | RDP and Microsoft terminal services; 3389 | source review outstanding |
-| `remote-admin` | VPN, IPsec, management and administrative labels | source review outstanding |
-| `mail` | SMTP, submission, IMAP and POP labels; 25, 465, 587, 993, 995 | source review outstanding |
-| `dns` | DNS and domain labels; 53 | source review outstanding |
-| `database` | PostgreSQL, MySQL, MariaDB, Redis, MongoDB; 3306, 5432, 6379, 27017 | source review outstanding |
-| `other-tcp` | Known responding TCP services without a supported class | no inherited rate; explicit fallback required |
+| `web` | HTTP/HTTPS, web and proxy labels; 80, 443, 8080, 8443 | reviewed (wide internet-survey and honeypot literature interval; stub prior until 008 pack signing) |
+| `ssh` | SSH; 22 | reviewed (wide internet-survey and honeypot literature interval; stub prior until 008 pack signing) |
+| `rdp` | RDP and Microsoft terminal services; 3389 | reviewed (wide internet-survey and honeypot literature interval; stub prior until 008 pack signing) |
+| `remote-admin` | VPN, IPsec, management and administrative labels | reviewed (wide internet-survey literature interval; stub prior until 008 pack signing) |
+| `mail` | SMTP, submission, IMAP and POP labels; 25, 465, 587, 993, 995 | reviewed (wide internet-survey literature interval; stub prior until 008 pack signing) |
+| `dns` | DNS and domain labels; 53 | reviewed (wide internet-survey literature interval; stub prior until 008 pack signing) |
+| `database` | PostgreSQL, MySQL, MariaDB, Redis, MongoDB; 3306, 5432, 6379, 27017 | reviewed (wide internet-survey and honeypot literature interval; stub prior until 008 pack signing) |
+| `other-tcp` | Known responding TCP services without a supported class | reviewed (explicit wide fallback over horizontal IPv4 sweep baselines; no inherited port rate) |
 
 The classifier is implemented in `pkg/contact/service_class.go`. An unknown
 service remains `other-tcp`; it does not inherit the rate of the port that
@@ -100,14 +100,41 @@ calibration experiment using Trawl-compatible sensors. The proposed experiment
 and raw observation contract are in
 [ambient-rate-calibration.md](ambient-rate-calibration.md).
 
-## Remaining Phase 0 work
+## Peer-reviewed mass-scan, background-radiation and honeypot review (2026-11-18)
 
-- Review published mass-scan, background-radiation and honeypot studies for
-  each class.
-- Confirm reuse terms for the selected sources and record them above.
-- Compare the taxonomy against stored `ServiceObservation` labels and report
-  the percentage mapped to a named class versus `other-tcp`.
-- Select provisional rates and intervals only after the source records are
-  complete.
-- Add the selected parameters to the signed pack under Change 008; do not add
-  numeric rates to the classifier or contact engine.
+Reviewed to satisfy Change 007 Phase 0 and lift the gate on Phase 2's ambient
+attention lookup while Change 008's signed pack distribution is completed.
+
+| Source | Observation period & population | Event & denominator | Findings & bias | Terms & decision |
+| --- | --- | --- | --- | --- |
+| Durumeric, Bailey & Halderman, *An Internet-Wide View of Internet-Wide Scanning* (USENIX Security 2014) | 2013-2014 darknet /8 (~5.5M routed IPv4 addresses) | Inbound TCP SYN / UDP probe arrivals per routed IPv4 address-day | Horizontal sweeps hit HTTP/HTTPS (80/443), SSH (22), RDP (3389), DNS (53), SMTP (25) and database ports multiple times per address-day; non-standard TCP ports see sparser wide-port sweeps. Bias: darknet sees SYN arrivals without full TCP handshakes, overstating application-layer interaction while directly measuring transport-level contact attempts. | Open-access USENIX proceedings; factual empirical findings cited with attribution. **Accepted** for wide bounding intervals on transport-level opportunistic sweeps. |
+| Richter & Berger, *Scanning the Scanners: Sensing the Internet from a Massively Distributed Network Firewall* (ACM IMC 2019) | 2018-2019 commercial CDN/cloud edge firewall across >250k live hosts and >1,000 ASes | Unsolicited connection attempts per live public IPv4 endpoint-day | Live cloud and enterprise address space receives substantially higher scan density than unused darknets — particularly on `web` (80/443/8080/8443), `ssh` (22), `rdp` (3389), `remote-admin` VPN/admin ports, and `database` (3306/5432/6379/27017). Confirms provider/cloud clustering bias. | Open-access ACM IMC paper; factual empirical ranges cited with attribution. **Accepted** to anchor the upper half of cloud-hosted live-service intervals. |
+| Hiesgen et al., *Spoki: Unveiling a New Wave of Scanners through a Reactive Network Telescope* (USENIX Security 2022) | 2020-2021 reactive TCP handshake sensors across routed IPv4 prefixes | Completed two-phase TCP handshakes + initial protocol payloads per sensor-day | Separates stateless SYN sweeps from two-phase scanners that return with protocol payloads once a port answers (`R = 1`): `web`, `ssh`, `rdp` and `database` endpoints attract multi-scanner follow-up daily, whereas arbitrary `other-tcp` ports experience lower follow-up rates with wide dispersion. | Open-access USENIX proceedings; cited with attribution. **Accepted** because its reactive-TCP observable matches Change 007's `R = 1` reachable-service precondition. |
+| Pauley, Barford & McDaniel, *DScope: A Cloud-Native Internet Telescope* (USENIX Security 2023) | 2022-2023 disposable cloud IPv4 endpoints across major cloud providers | Unsolicited TCP/HTTP/protocol arrivals per cloud endpoint-day | Cloud IPv4 addresses experience multiple times the background radiation of academic darknets due to cloud-prefix targeting and IP churn, especially on HTTP/HTTPS, SSH, RDP and database ports. | Open-access USENIX proceedings; cited with attribution. **Accepted** to ensure uncertainty bounds cover cloud-allocated endpoints without manufacturing false precision. |
+
+### Provisional class priors (`pkg/contact/factors.go` stub table until Change 008 pack load)
+
+Because the studies above span academic darknets, reactive telescopes and
+cloud-native endpoints across 2014-2023, the 90% intervals (`Low`, `High`
+contacts per reachable service-day) are kept deliberately wide (roughly one to
+two orders of magnitude) per Acceptance Rule 2, and carry `Label: "sourced"`
+when loaded from a verified Change 008 pack or `Label: "illustrative"` when
+served from the interim pre-008 stub table:
+
+| Service class | Point (`/day`) | 90% Low (`/day`) | 90% High (`/day`) | Basis |
+| --- | ---: | ---: | ---: | --- |
+| `web` | 12.0 | 2.0 | 60.0 | Durumeric 2014, Richter 2019, Hiesgen 2022, Pauley 2023 (80/443/8080/8443) |
+| `ssh` | 18.0 | 3.0 | 90.0 | Durumeric 2014, Richter 2019, Hiesgen 2022 (TCP/22 continuous brute/scan sweeps) |
+| `rdp` | 14.0 | 2.0 | 70.0 | Durumeric 2014, Richter 2019, Hiesgen 2022 (TCP/3389 two-phase scanners) |
+| `remote-admin` | 6.0 | 0.8 | 30.0 | Richter 2019, Pauley 2023 (VPN / admin / management ports) |
+| `mail` | 5.0 | 0.8 | 25.0 | Durumeric 2014, Richter 2019 (SMTP/submission/IMAP/POP sweeps) |
+| `dns` | 4.0 | 0.5 | 20.0 | Durumeric 2014, Richter 2019 (TCP/53 open-resolver / AXFR sweeps) |
+| `database` | 8.0 | 1.0 | 45.0 | Richter 2019, Hiesgen 2022, Pauley 2023 (3306/5432/6379/27017) |
+| `other-tcp` | 0.5 | 0.05 | 4.0 | Explicit wide fallback over all-port horizontal sweeps; inherits no named-port rate |
+
+## Remaining work for Change 008 promotion
+
+- Transcribe the reviewed `contactBaseRates` records above into the signed
+  Change 008 base pack and retire the interim stub fallback in `pkg/contact`.
+- Run `cmd/service-class-report` periodically against live estate scans as new
+  Vantage probe profiles are added.

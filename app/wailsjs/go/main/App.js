@@ -14,6 +14,10 @@ export function EraseDiscoveredData() {
   return window['go']['main']['App']['EraseDiscoveredData']();
 }
 
+export function GetAssetContactPanel(arg1, arg2) {
+  return window['go']['main']['App']['GetAssetContactPanel'](arg1, arg2);
+}
+
 export function GetAssets(arg1) {
   return window['go']['main']['App']['GetAssets'](arg1);
 }
@@ -60,6 +64,10 @@ export function GetSetting(arg1) {
 
 export function GetVersion() {
   return window['go']['main']['App']['GetVersion']();
+}
+
+export function GetWeaknessContactAggregations() {
+  return window['go']['main']['App']['GetWeaknessContactAggregations']();
 }
 
 export function ProbeDiscoveredServices(arg1) {

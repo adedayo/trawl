@@ -87,7 +87,7 @@ Per-change counts and the outstanding-ledger notes live in
 | 004 | Wails desktop packaging | **Complete — archived.** The three scanner runners were withdrawn, not deferred. |
 | 005 | Cloud continuous EASM | In progress; partly gated on 006 Phase 9 |
 | 006 | Vantage integration — measured-state signals, coverage model | Phases 1–7 landed; 8–9 outstanding |
-| 007 | Contact probability — the keystone; supplies P(contact) | In progress. Phase 1 exposure history and the Phase 4a calibration evidence path have landed; Phases 2 to 4 are the critical path and have not started. Phase 4a was resequenced behind them on 2026-09-23. |
+| 007 | Contact probability — the keystone; supplies P(contact) | Substantially delivered (Phases 0-6 and Phase 4a infrastructure complete; only live isolated-sensor experiment run and bias review remain deferred). |
 | 008 | Risk model packs — versioned, signed, source-cited parameters | Proposed |
 | 009 | Exploit probability engine — three layers, three evidence classes | Proposed; absorbs the archived 002 |
 | 010 | Scenario loss model — frequency, magnitude, FAIR overlay | Proposed |
@@ -104,7 +104,7 @@ Per-change counts and the outstanding-ledger notes live in
 | 021 | AI annotation and triage | **Not scheduled**; the product is complete without it. Phase 0 is worth doing early regardless, since 014's annotation boundary currently passes because there is no annotation. |
 | 022 | Spec lifecycle automation | Phase 1 landed: `cmd/specledger` generates the STATUS.md counts and reports structural failures. Promoting accepted requirements into `openspec/specs/` remains. |
 | 023 | spartan/ui adoption | **Decided: adopt.** Settles the oldest open decision in the project. Dependencies installed and the suite is unchanged by them; no surface migrated yet. Sequence with 014's accessibility work. |
-| 024 | Vantage service reachability | Proposed. Consumes Vantage Change 016 when released, then wires explicit responding observations into the exposure history and 007's contact prior. |
+| 024 | Vantage service reachability | Phases 0-4 and structured TLS migration landed; wires explicit responding observations into exposure history and 007's contact prior. |
 
 Suggested build order: **006 has landed and drops out of the queue.** **019** (the KEV, NVD and EPSS fetch) is recorded in `STATUS.md` as build next, and **008 precision primitives** continue in parallel as they always have. **007 Phases 2 to 4** (factor computation, the contact estimate, instance aggregation) are the critical path for the risk arc and run on sourced class priors, with Phase 4a's calibration evidence path deferred behind them (2026-09-23) and a stub ambient table carrying Phase 2 until 008 lands. Then 009 → 010 → 011 → 012.
 

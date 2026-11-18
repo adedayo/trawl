@@ -1,4 +1,4 @@
-import { DomainAssessment, EmailPostureUI, FeedStatusUI } from '../models/types';
+import { AssetContactPanelUI, DomainAssessment, EmailPostureUI, FeedStatusUI, InstanceAggregationUI } from '../models/types';
 import { BuildInfo, CalibrationExperiment, CalibrationReportRow, DiscoveryOptions, DiscoveryResult, Scope, TrawlTransport } from './trawl-transport';
 
 /**
@@ -127,6 +127,15 @@ export class HttpTransport implements TrawlTransport {
     }
     const payload = (await response.json()) as { feeds?: FeedStatusUI[]; error?: string };
     return payload.feeds ?? [];
+  }
+
+  getAssetContactPanel(assetId: string, excludedFactors: string[] = []): Promise<AssetContactPanelUI | null> {
+    const query = excludedFactors.length > 0 ? `?exclude=${encodeURIComponent(excludedFactors.join(','))}` : '';
+    return this.get<AssetContactPanelUI | null>(`/api/v1/contact/assets/${encodeURIComponent(assetId)}${query}`, null);
+  }
+
+  getWeaknessContactAggregations(): Promise<InstanceAggregationUI[]> {
+    return this.get<InstanceAggregationUI[]>('/api/v1/contact/weaknesses', []);
   }
 
   getAssessments(): Promise<DomainAssessment[]> {

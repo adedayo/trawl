@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { WailsIpcService } from '../../../wails-ipc.service';
-import { AssetAttribution } from '../../../models/types';
+import { AssetAttribution, AssetContactPanelUI, IntervalUI } from '../../../models/types';
 import { byHost, HostingSummary, noHosting, summariseHosting } from './hosting';
 
 @Component({
@@ -39,6 +39,12 @@ export class AssetsComponent {
   /** The asset whose hosting detail is open, if any. */
   readonly expandedId = signal<string>('');
 
+  /** The asset whose contact-prior panel is open, if any. */
+  readonly contactAssetId = signal<string>('');
+  readonly contactPanel = signal<AssetContactPanelUI | null>(null);
+  readonly contactLoading = signal<boolean>(false);
+  readonly excludedFactors = signal<string[]>([]);
+
   hosting(assetId: string): HostingSummary {
     return this.hostingIndex().get(assetId) ?? noHosting;
   }
@@ -49,6 +55,60 @@ export class AssetsComponent {
 
   toggleHosting(assetId: string): void {
     this.expandedId.update(current => (current === assetId ? '' : assetId));
+  }
+
+  async toggleContactPanel(assetId: string): Promise<void> {
+    if (this.contactAssetId() === assetId) {
+      this.contactAssetId.set('');
+      this.contactPanel.set(null);
+      this.excludedFactors.set([]);
+      return;
+    }
+    this.contactAssetId.set(assetId);
+    this.excludedFactors.set([]);
+    await this.reloadContactPanel(assetId, []);
+  }
+
+  async toggleExcludedFactor(factorId: string): Promise<void> {
+    const assetId = this.contactAssetId();
+    if (!assetId || factorId === 'reachability' || factorId.startsWith('ambient:') || factorId === 'time-at-risk') {
+      return;
+    }
+    const current = new Set(this.excludedFactors());
+    if (current.has(factorId)) {
+      current.delete(factorId);
+    } else {
+      current.add(factorId);
+    }
+    const next = Array.from(current);
+    this.excludedFactors.set(next);
+    await this.reloadContactPanel(assetId, next);
+  }
+
+  isFactorExcluded(factorId: string): boolean {
+    return this.excludedFactors().includes(factorId);
+  }
+
+  canRemoveFactor(factorId: string): boolean {
+    return factorId.startsWith('discoverability:') || factorId.startsWith('barrier:');
+  }
+
+  formatProbInterval(iv: IntervalUI): string {
+    const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
+    return `${pct(iv.low)} - ${pct(iv.high)} (central ${pct(iv.point)})`;
+  }
+
+  formatRateInterval(iv: IntervalUI): string {
+    return `${iv.low.toFixed(2)} - ${iv.high.toFixed(2)} / day (central ${iv.point.toFixed(2)})`;
+  }
+
+  private async reloadContactPanel(assetId: string, excluded: string[]): Promise<void> {
+    this.contactLoading.set(true);
+    try {
+      this.contactPanel.set(await this.wailsIpc.getAssetContactPanel(assetId, excluded));
+    } finally {
+      this.contactLoading.set(false);
+    }
   }
 
   /** Assets with an action in flight, so their buttons can be disabled. */

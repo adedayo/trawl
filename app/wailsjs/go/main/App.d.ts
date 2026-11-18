@@ -11,6 +11,8 @@ export function CreateCalibrationExperiment(arg1:string):Promise<store.Calibrati
 
 export function EraseDiscoveredData():Promise<void>;
 
+export function GetAssetContactPanel(arg1:string,arg2:Array<string>):Promise<service.AssetContactPanel>;
+
 export function GetAssets(arg1:store.AssetStatus):Promise<Array<store.Asset>>;
 
 export function GetCalibrationExperiments():Promise<Array<store.CalibrationExperiment>>;
@@ -34,6 +36,8 @@ export function GetSecretFindings(arg1:string):Promise<Array<store.SecretFinding
 export function GetSetting(arg1:string):Promise<string>;
 
 export function GetVersion():Promise<version.Info>;
+
+export function GetWeaknessContactAggregations():Promise<Array<contact.InstanceAggregation>>;
 
 export function ProbeDiscoveredServices(arg1:string):Promise<void>;
 

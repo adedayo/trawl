@@ -78,6 +78,11 @@
             </td>
             <td [class]="theme() === 'dark' ? 'py-4 px-6 text-slate-400' : 'py-4 px-6 text-slate-500'">{{ asset.firstSeen }} / {{ asset.lastSeen }}</td>
             <td class="py-4 px-6 text-right space-x-2">
+              <button type="button" (click)="toggleContactPanel(asset.id)"
+                [attr.aria-expanded]="contactAssetId() === asset.id"
+                [class]="theme() === 'dark' ? 'px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-cyan-300 font-medium transition' : 'px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 border border-slate-300 text-cyan-800 font-medium transition'">
+                Contact prior
+              </button>
               @if (confirmingId() === asset.id) {
                 <span [class]="theme() === 'dark' ? 'text-[11px] text-rose-300 mr-1' : 'text-[11px] text-rose-700 mr-1'">Remove {{ assetName(asset.id) }} and all its history?</span>
                 <button (click)="removeAsset(asset.id)" [class]="theme() === 'dark' ? 'px-2 py-1 rounded bg-rose-800 hover:bg-rose-700 text-white font-medium transition' : 'px-2 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-medium transition'">Confirm</button>
@@ -130,6 +135,107 @@
                   <div [class]="theme() === 'dark' ? 'text-[10px] text-amber-400 mt-2 border-t border-slate-800 pt-2' : 'text-[10px] text-amber-700 mt-2 border-t border-slate-200 pt-2'">
                     No provider data recorded, so the age of this attribution is unknown.
                   </div>
+                }
+              </td>
+            </tr>
+          }
+          @if (contactAssetId() === asset.id) {
+            <tr [class]="theme() === 'dark' ? 'bg-slate-950/60' : 'bg-slate-50/80'">
+              <td colspan="7" class="px-6 py-5 space-y-4">
+                @if (contactLoading()) {
+                  <div [class]="theme() === 'dark' ? 'text-xs text-slate-400 font-mono' : 'text-xs text-slate-600 font-mono'">Computing ambient contact prior…</div>
+                } @else if (contactPanel(); as panel) {
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <span [class]="theme() === 'dark' ? 'text-xs font-bold uppercase tracking-wider text-cyan-300' : 'text-xs font-bold uppercase tracking-wider text-cyan-800'">
+                        Ambient Contact Prior · {{ panel.assetValue }}
+                      </span>
+                      <p [class]="theme() === 'dark' ? 'text-[11px] text-slate-400 mt-0.5' : 'text-[11px] text-slate-600 mt-0.5'">
+                        {{ panel.scopeStatement }}
+                      </p>
+                    </div>
+                    @if (excludedFactors().length > 0) {
+                      <div class="flex flex-wrap items-center gap-1.5">
+                        <span [class]="theme() === 'dark' ? 'text-[10px] text-amber-300 font-mono' : 'text-[10px] text-amber-800 font-mono'">What-if excluded:</span>
+                        @for (ex of excludedFactors(); track ex) {
+                          <button type="button" (click)="toggleExcludedFactor(ex)"
+                            [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 font-mono text-[10px]' : 'px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 font-mono text-[10px]'">
+                            Restore {{ ex }}
+                          </button>
+                        }
+                      </div>
+                    }
+                  </div>
+
+                  @for (est of panel.estimates; track est.serviceId) {
+                    <div [class]="theme() === 'dark' ? 'rounded-lg border border-slate-800 bg-slate-900/70 p-4 space-y-3' : 'rounded-lg border border-slate-200 bg-white p-4 space-y-3'">
+                      <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="font-mono text-xs font-semibold">
+                          {{ est.serviceId }} · class {{ est.serviceClass }}
+                        </div>
+                        <div class="flex items-center gap-2 text-[10px] font-mono">
+                          <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 uppercase' : 'px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-300 uppercase'">
+                            {{ est.label }} · prior
+                          </span>
+                          <span [class]="theme() === 'dark' ? 'text-slate-400' : 'text-slate-600'">
+                            coverage {{ est.coverage.checksConcluded }}/{{ est.coverage.checksApplicable }}
+                          </span>
+                        </div>
+                      </div>
+
+                      @if (!est.available) {
+                        <div [class]="theme() === 'dark' ? 'text-xs text-amber-300 font-mono' : 'text-xs text-amber-800 font-mono'">
+                          Estimate withheld - {{ est.suppressedReason }}
+                        </div>
+                      } @else {
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                          <div>
+                            <div [class]="theme() === 'dark' ? 'text-[10px] uppercase text-slate-400 font-mono' : 'text-[10px] uppercase text-slate-500 font-mono'">P(contact | window) 90% interval</div>
+                            <div [class]="theme() === 'dark' ? 'font-mono font-bold text-slate-100 mt-0.5' : 'font-mono font-bold text-slate-900 mt-0.5'">
+                              {{ formatProbInterval(est.pContact) }}
+                            </div>
+                            <div [class]="theme() === 'dark' ? 'text-[10px] text-slate-400 mt-0.5' : 'text-[10px] text-slate-500 mt-0.5'">
+                              Window: {{ est.windowDays.toFixed(1) }}d ({{ est.windowRationale }})
+                            </div>
+                          </div>
+                          <div>
+                            <div [class]="theme() === 'dark' ? 'text-[10px] uppercase text-slate-400 font-mono' : 'text-[10px] uppercase text-slate-500 font-mono'">Ambient rate λ_contact</div>
+                            <div [class]="theme() === 'dark' ? 'font-mono text-slate-200 mt-0.5' : 'font-mono text-slate-800 mt-0.5'">
+                              {{ formatRateInterval(est.lambdaContact) }}
+                            </div>
+                          </div>
+                          <div>
+                            <div [class]="theme() === 'dark' ? 'text-[10px] uppercase text-slate-400 font-mono' : 'text-[10px] uppercase text-slate-500 font-mono'">Time at risk (split accrual)</div>
+                            <div [class]="theme() === 'dark' ? 'font-mono text-slate-200 mt-0.5' : 'font-mono text-slate-800 mt-0.5'">
+                              @if (est.timeAtRisk.leftCensored) { at least }{{ est.timeAtRisk.observedDays.toFixed(2) }}d observed · {{ est.timeAtRisk.inferredDays.toFixed(2) }}d inferred
+                            </div>
+                            <div [class]="theme() === 'dark' ? 'text-[10px] text-slate-400 mt-0.5' : 'text-[10px] text-slate-500 mt-0.5'">
+                              estimated blind pre-detection: {{ est.timeAtRisk.estimatedBlindDays.toFixed(2) }}d
+                            </div>
+                          </div>
+                        </div>
+
+                        <div class="pt-2 border-t border-slate-200 dark:border-slate-800">
+                          <div [class]="theme() === 'dark' ? 'text-[10px] uppercase text-slate-400 font-mono mb-1.5' : 'text-[10px] uppercase text-slate-500 font-mono mb-1.5'">
+                            Decomposed factors (remove a factor to recompute)
+                          </div>
+                          <div class="flex flex-wrap gap-2">
+                            @for (f of est.factors; track f.id) {
+                              <div [class]="theme() === 'dark' ? 'px-2.5 py-1 rounded border border-slate-700 bg-slate-800/70 text-[11px] font-mono flex items-center gap-2' : 'px-2.5 py-1 rounded border border-slate-200 bg-slate-50 text-[11px] font-mono flex items-center gap-2'">
+                                <span>{{ f.id }}={{ f.value.toFixed(2) }} ({{ f.source }})</span>
+                                @if (canRemoveFactor(f.id)) {
+                                  <button type="button" (click)="toggleExcludedFactor(f.id)"
+                                    [class]="theme() === 'dark' ? 'text-rose-300 hover:underline text-[10px]' : 'text-rose-700 hover:underline text-[10px]'">
+                                    remove
+                                  </button>
+                                }
+                              </div>
+                            }
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  }
                 }
               </td>
             </tr>

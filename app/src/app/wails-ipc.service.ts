@@ -1,5 +1,5 @@
 import { inject, Injectable, signal } from '@angular/core';
-import { DomainAssessment, EmailPostureUI, FeedStatusUI } from './models/types';
+import { AssetContactPanelUI, DomainAssessment, EmailPostureUI, FeedStatusUI, InstanceAggregationUI } from './models/types';
 import { RegressionUI } from './dashboard/estate';
 import { ThemeService } from './theme.service';
 import { CalibrationExperiment, CalibrationReportRow, createTransport, DiscoveryOptions, DiscoveryResult, ProposedDomain, Scope, TrawlTransport } from './transport';
@@ -65,6 +65,7 @@ export class WailsIpcService {
   public calibrationExperiments = signal<CalibrationExperiment[]>([]);
   public feedStatuses = signal<FeedStatusUI[]>([]);
   public isRefreshingFeeds = signal(false);
+  public weaknessContactAggregations = signal<InstanceAggregationUI[]>([]);
 
   async loadCalibrationReport(experimentId: string): Promise<void> {
     this.calibrationReportLoading.set(true);
@@ -91,6 +92,14 @@ export class WailsIpcService {
 
   public async refreshFeedStatuses(): Promise<void> {
     this.feedStatuses.set((await this.transport.getFeedStatuses()) || []);
+  }
+
+  public async getAssetContactPanel(assetId: string, excludedFactors: string[] = []): Promise<AssetContactPanelUI | null> {
+    return this.transport.getAssetContactPanel(assetId, excludedFactors);
+  }
+
+  public async refreshWeaknessContactAggregations(): Promise<void> {
+    this.weaknessContactAggregations.set((await this.transport.getWeaknessContactAggregations()) || []);
   }
 
   public async refreshFeeds(epssThreshold = 0): Promise<void> {

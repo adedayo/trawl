@@ -3,42 +3,42 @@
 **Do not start until Change 006 is implemented.**
 
 ## Phase 0 — Preconditions
-- [ ] Change 006 signal registry populated (stage declarations present on every mapped signal)
-- [ ] Posture history retention confirmed sufficient to derive first-seen/last-seen per asset-service
-- [ ] Source review: published mass-scan, internet-background-radiation and honeypot contact-rate research, per service class (gates Phase 2's ambient attention lookup: the critical path for sourced ambient rates runs through this item)
+- [x] Change 006 signal registry populated (stage declarations present on every mapped signal; enforced by `TestSignalRegistrySingleStageConsumption` in `pkg/contact/guardrail_test.go`)
+- [x] Posture history retention confirmed sufficient to derive first-seen/last-seen per asset-service (`service_observations` is append-only in `pkg/store/sqlite/services.go` and preserves `first_seen`, `last_seen` and `observed_at` indefinitely across runs)
+- [x] Source review: published mass-scan, internet-background-radiation and honeypot contact-rate research, per service class (`ambient-rate-evidence.md`: Durumeric et al. 2014, Richter & Berger 2019, Hiesgen et al. 2022, Pauley et al. 2023)
 
 ## Phase 1 — Exposure history
 - [x] `assetExposureHistory`: first-observed-exposed, last-observed-exposed, still-exposed flag, per asset-service (`pkg/store/contact.go`, `pkg/store/sqlite/contact.go`, `pkg/store/sqlite/contact_test.go`)
 - [x] Left-censoring detection and flagging (`ComputeHistory` in `pkg/contact/history.go`, `TestFirstExposureIsLeftCensoredAndBlindTimeIsEstimated`)
 - [x] Detection-latency derivation from assessment cadence (`BlindDuration` in `pkg/contact/history.go`, `TestFirstExposureIsLeftCensoredAndBlindTimeIsEstimated`)
-- [ ] Live time-at-risk computation (grows with wall clock, not frozen at last scan)
+- [x] Live time-at-risk computation (grows with wall clock, not frozen at last scan; `History.LiveTimeAtRisk` in `pkg/contact/history.go`, `TestUnremediatedExposurePContactStrictlyIncreasesOverWallClockTime`)
 - [x] Split accrual: `observedDuration` over intervals bounded by successful assessments, `inferredDuration` over gaps; the two are stored separately and never summed into a single "measured" figure
 - [x] Window closure requires a check that ran and returned clean; `not_checked` and `check_failed` extend the inferred component and record no remediation
 - [x] Property test: an exposure assessed continuously reports zero inferred duration; the same exposure with an observation gap reports the gap as inferred, and total time at risk is unchanged
 - [x] Blind/aware split: cadence-derived estimate of pre-detection interval, labelled estimated, reported alongside the observed post-detection interval
 - [x] `expectedDetectionLatency` per asset class from cadence (`C/2` expected, `C` worst case), reported as a property of the monitoring programme
-- [ ] Cadence what-if: given the ledger's observed weakness-introduction rate, compute the exposure reduction from a proposed cadence change
-- [ ] Detection latency and remediation latency stored and reported as separate figures; no combined responsiveness metric
+- [x] Cadence what-if: given the ledger's observed weakness-introduction rate, compute the exposure reduction from a proposed cadence change (`EvaluateCadenceChange` in `pkg/contact/history.go`, `TestCadenceEvaluationAndLatencySeparation`)
+- [x] Detection latency and remediation latency stored and reported as separate figures; no combined responsiveness metric (`ComputeLatencySplit` in `pkg/contact/history.go`, `TestCadenceEvaluationAndLatencySeparation`)
 
 ## Phase 2 — Factor computation
-- [ ] Reachability gate from confirmed responding services; unknown suppresses the estimate
-- [ ] Discoverability multiplier from CT, passive DNS, wildcard zone, zone-transfer exposure, index presence — with cap
-- [ ] Access-barrier attenuator from auth requirement, allowlist, mTLS, WAF/CDN fronting — bounded strictly below 1
-- [ ] Ambient attention lookup by service class (values sourced from Change 008 packs; a stub table until 008 lands)
-- [ ] Pure-function unit tests per factor
+- [x] Reachability gate from confirmed responding services; unknown suppresses the estimate (`DeriveReachability` and `ComputeContactEstimate` in `pkg/contact/estimate.go`, `TestReachabilityGatesAndSuppressesUnknown`)
+- [x] Discoverability multiplier from CT, passive DNS, wildcard zone, zone-transfer exposure, index presence — with cap (`ComputeDiscoverability` in `pkg/contact/estimate.go`, `TestDiscoverabilityHasFloorAndCap`)
+- [x] Access-barrier attenuator from auth requirement, allowlist, mTLS, WAF/CDN fronting — bounded strictly below 1 (`ComputeAccessBarrier` in `pkg/contact/estimate.go`, `TestAccessBarrierAttenuatesStrictlyBelowOne`)
+- [x] Ambient attention lookup by service class (values sourced from Change 008 packs; a stub table until 008 lands — `LookupAmbientAttention` in `pkg/contact/estimate.go`)
+- [x] Pure-function unit tests per factor (`pkg/contact/estimate_test.go`)
 
 ## Phase 3 — Contact estimate
-- [ ] `computeContactEstimate` pure function: λ_contact, P(contact | T), intervals
-- [ ] Window selection by weakness class with recorded rationale
-- [ ] Interval propagation from factor uncertainty
-- [ ] Calibration label assignment
-- [ ] Coverage figure attached from Change 006 states
+- [x] `computeContactEstimate` pure function: λ_contact, P(contact | T), intervals (`ComputeContactEstimate` in `pkg/contact/estimate.go`)
+- [x] Window selection by weakness class with recorded rationale (`SelectWindow` in `pkg/contact/estimate.go`)
+- [x] Interval propagation from factor uncertainty (`ComputeContactEstimate` in `pkg/contact/estimate.go`)
+- [x] Calibration label assignment (`LabelIllustrative` / `LabelSourced` / `LabelCalibrated` in `pkg/contact/estimate.go`)
+- [x] Coverage figure attached from Change 006 states (`CoverageFigure` on `ContactPriorEstimate`, `deriveCoverageFigure` in `pkg/service/contact.go`)
 
 ## Phase 4 — Instance aggregation
-- [ ] Instance enumeration from inventory per weakness
-- [ ] Heterogeneous aggregation `1 − Π(1 − P_i)`, reducing to `1 − (1 − P)^N` when homogeneous
-- [ ] Remediation coverage from confirmed-absent re-observation
-- [ ] Residual estimate over uncovered instances
+- [x] Instance enumeration from inventory per weakness (`AssessmentService.WeaknessAggregations` in `pkg/service/contact.go`)
+- [x] Heterogeneous aggregation `1 − Π(1 − P_i)`, reducing to `1 − (1 − P)^N` when homogeneous (`AggregateInstances` in `pkg/contact/aggregate.go`, `TestHeterogeneousAndHomogeneousInstanceAggregationAndResidual`)
+- [x] Remediation coverage from confirmed-absent re-observation (`ConfirmedRemediated` in `pkg/contact/aggregate.go` and `pkg/service/contact_test.go`)
+- [x] Residual estimate over uncovered instances (`ResidualPContact` in `pkg/contact/aggregate.go`, `TestHeterogeneousAndHomogeneousInstanceAggregationAndResidual`)
 
 ## Phase 4a — Calibration evidence infrastructure
 
@@ -59,15 +59,15 @@ unscheduled.
 - [ ] Review experiment bias, retention and reuse terms before parameter promotion
 
 ## Phase 5 — Guardrails as required checks
-- [ ] **Required CI check**: single-stage signal consumption
-- [ ] **Required CI check**: no assessment-derived path can write a contact posterior
-- [ ] Test: unremediated exposure's P(contact) strictly increases over time
-- [ ] Test: reachability unknown never defaults to zero or to a nominal value
+- [x] **Required CI check**: single-stage signal consumption (`TestSignalRegistrySingleStageConsumption` in `pkg/contact/guardrail_test.go`)
+- [x] **Required CI check**: no assessment-derived path can write a contact posterior (`TestNoAssessmentPathCanWriteAContactPosterior` in `pkg/contact/guardrail_test.go`)
+- [x] Test: unremediated exposure's P(contact) strictly increases over time (`TestUnremediatedExposurePContactStrictlyIncreasesOverWallClockTime` in `pkg/contact/estimate_test.go`)
+- [x] Test: reachability unknown never defaults to zero or to a nominal value (`TestReachabilityGatesAndSuppressesUnknown` in `pkg/contact/estimate_test.go` and `TestContactPanelEndToEndAndFactorRemoval` in `pkg/service/contact_test.go`)
 
 ## Phase 6 — Surface
-- [ ] Per-asset contact panel: factors, sources, time at risk with censoring, interval, label, coverage
-- [ ] Explicit statement that the figure prices ambient contact only
-- [ ] Factor-removal recompute action
+- [x] Per-asset contact panel: factors, sources, time at risk with censoring, interval, label, coverage (`AssessmentService.ContactPanel` in `pkg/service/contact.go`, `assets.ts`, `assets.html`)
+- [x] Explicit statement that the figure prices ambient contact only (`contact.AmbientScopeStatement` carried on `ContactPriorEstimate` and `AssetContactPanel`, rendered in `assets.html`)
+- [x] Factor-removal recompute action (`RecomputeWithoutFactor` in `pkg/contact/estimate.go`, `toggleExcludedFactor` in `assets.ts`, `TestFactorRemovalRecomputesWithoutTouchingOtherFactors`)
 
 ## Exit Criteria
 

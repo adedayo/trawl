@@ -42,12 +42,12 @@
 
 ## Phase 4 - Contact-model handoff
 
-- [ ] Expose reachability coverage and exposure history to Change 007's factor
-      computation
-- [ ] Reachability unknown suppresses a contact estimate rather than becoming
-      zero or a nominal value
-- [ ] A responding service affects the exposure-derived contact prior only
-- [ ] Add a CI guard proving assessment code cannot write contact posteriors
+- [x] Expose reachability coverage and exposure history to Change 007's factor
+      computation (`AssessmentService.ContactPanel` and `WeaknessAggregations` in `pkg/service/contact.go`)
+- [x] Reachability unknown suppresses a contact estimate rather than becoming
+      zero or a nominal value (`DeriveReachability` and `ComputeContactEstimate` in `pkg/contact/estimate.go`, `TestContactPanelEndToEndAndFactorRemoval`)
+- [x] A responding service affects the exposure-derived contact prior only (`ContactPriorEstimate.IsPrior` in `pkg/contact/estimate.go`, `pkg/service/contact.go`)
+- [x] Add a CI guard proving assessment code cannot write contact posteriors (`TestNoAssessmentPathCanWriteAContactPosterior` in `pkg/contact/guardrail_test.go`)
 
 ## Phase 5 - TLS migration
 

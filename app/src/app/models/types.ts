@@ -61,6 +61,78 @@ export interface FeedStatusUI {
   stale: boolean;
 }
 
+export interface IntervalUI {
+  point: number;
+  low: number;
+  high: number;
+}
+
+export interface ContactFactorTraceUI {
+  id: string;
+  name: string;
+  value: number;
+  source: string;
+  evidenceClass: string;
+  observedAt?: string;
+  state: string;
+}
+
+export interface ContactPriorEstimateUI {
+  assetId: string;
+  serviceId: string;
+  serviceClass: string;
+  weaknessClass: string;
+  available: boolean;
+  suppressedReason?: string;
+  lambdaContact: IntervalUI;
+  windowDays: number;
+  windowRationale: string;
+  pContact: IntervalUI;
+  timeAtRisk: {
+    observedDays: number;
+    inferredDays: number;
+    estimatedBlindDays: number;
+    expectedDetectionDays: number;
+    leftCensored: boolean;
+    stillExposed: boolean;
+  };
+  factors: ContactFactorTraceUI[];
+  excludedFactors?: string[];
+  coverage: {
+    checksConcluded: number;
+    checksApplicable: number;
+  };
+  label: 'illustrative' | 'sourced' | 'calibrated' | string;
+  scopeStatement: string;
+  isPrior: boolean;
+}
+
+export interface AssetContactPanelUI {
+  assetId: string;
+  assetValue: string;
+  reachability: 'responding' | 'not_responding' | 'unknown' | string;
+  estimates: ContactPriorEstimateUI[];
+  scopeStatement: string;
+}
+
+export interface InstanceAggregationUI {
+  weaknessClass: string;
+  totalInstances: number;
+  confirmedRemediated: number;
+  uncoveredInstances: number;
+  unknownReachability: number;
+  available: boolean;
+  allInstancesPContact: IntervalUI;
+  residualPContact: IntervalUI;
+  coverage: {
+    checksConcluded: number;
+    checksApplicable: number;
+  };
+  label: string;
+  scopeStatement: string;
+  isPrior: boolean;
+}
+
 /**
  * The assessed state of one email-authentication control on one domain.
  *

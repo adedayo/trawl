@@ -1,4 +1,4 @@
-import { DomainAssessment, EmailPostureUI, FeedStatusUI } from '../models/types';
+import { AssetContactPanelUI, DomainAssessment, EmailPostureUI, FeedStatusUI, InstanceAggregationUI } from '../models/types';
 
 /**
  * The scope is the operator's declared authorisation. It is the same record in
@@ -144,6 +144,8 @@ export interface TrawlTransport {
   createCalibrationExperiment(label: string): Promise<CalibrationExperiment>;
   getFeedStatuses(): Promise<FeedStatusUI[]>;
   refreshFeeds(epssThreshold?: number): Promise<FeedStatusUI[]>;
+  getAssetContactPanel(assetId: string, excludedFactors?: string[]): Promise<AssetContactPanelUI | null>;
+  getWeaknessContactAggregations(): Promise<InstanceAggregationUI[]>;
 
   getAssessments(): Promise<DomainAssessment[]>;
   getAssessment(domain: string): Promise<DomainAssessment | null>;

@@ -143,6 +143,14 @@ func (a *App) RefreshFeeds(epssThreshold float64) ([]store.FeedStatus, error) {
 	return a.core.RefreshFeeds(a.ctx, nil, epssThreshold)
 }
 
+func (a *App) GetAssetContactPanel(assetID string, excludedFactors []string) (service.AssetContactPanel, error) {
+	return a.core.AssetContactPanel(a.ctx, assetID, excludedFactors)
+}
+
+func (a *App) GetWeaknessContactAggregations() ([]contact.InstanceAggregation, error) {
+	return a.core.WeaknessContactAggregations(a.ctx)
+}
+
 func (a *App) GetSetting(key string) (string, error) {
 	return a.core.Setting(a.ctx, key)
 }

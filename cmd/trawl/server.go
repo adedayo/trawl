@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -191,6 +192,8 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/feeds", s.handleGetFeedStatuses)
 	mux.HandleFunc("POST /api/v1/feeds/refresh", s.authed(s.handleRefreshFeeds))
 	mux.HandleFunc("POST /api/v1/feeds/snapshot", s.authed(s.handleIngestFeedSnapshot))
+	mux.HandleFunc("GET /api/v1/contact/assets/{id}", s.handleGetAssetContactPanel)
+	mux.HandleFunc("GET /api/v1/contact/weaknesses", s.handleGetWeaknessContactAggregations)
 	mux.HandleFunc("GET /api/v1/jobs", s.handleGetJobs)
 
 	// Measured-state assessment.
@@ -438,6 +441,32 @@ func errorText(err error) string {
 		return ""
 	}
 	return err.Error()
+}
+
+func (s *server) handleGetAssetContactPanel(w http.ResponseWriter, r *http.Request) {
+	var excluded []string
+	if raw := r.URL.Query().Get("exclude"); raw != "" {
+		for _, item := range strings.Split(raw, ",") {
+			if trimmed := strings.TrimSpace(item); trimmed != "" {
+				excluded = append(excluded, trimmed)
+			}
+		}
+	}
+	panel, err := s.core.AssetContactPanel(r.Context(), r.PathValue("id"), excluded)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, panel)
+}
+
+func (s *server) handleGetWeaknessContactAggregations(w http.ResponseWriter, r *http.Request) {
+	aggs, err := s.core.WeaknessContactAggregations(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, aggs)
 }
 
 func (s *server) handleGetJobs(w http.ResponseWriter, r *http.Request) {
