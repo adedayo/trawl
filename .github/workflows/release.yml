@@ -116,7 +116,7 @@ jobs:
 
       - name: Install Wails CLI
         run: |
-          go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: Build universal app bundle
@@ -269,7 +269,7 @@ jobs:
       - name: Install NSIS and Wails CLI
         run: |
           choco install nsis -y --no-progress
-          go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1
           echo "$(go env GOPATH)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
           # Chocolatey installs NSIS but does not put makensis on PATH for
@@ -384,7 +384,7 @@ jobs:
 
       - name: Install Wails CLI and nfpm
         run: |
-          go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1
           go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.41.3
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
