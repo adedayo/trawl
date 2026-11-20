@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { WailsIpcService } from '../../../wails-ipc.service';
 import { ServiceObservation } from '../../../models/types';
+import { rankFindings } from '../../../dashboard/estate';
 
 export interface ServiceEvidenceSummary {
   facts: string[];
@@ -121,6 +122,7 @@ export class OverviewComponent {
   activeTab = this.wailsIpc.activeTab;
   assets = this.wailsIpc.assets;
   findings = this.wailsIpc.findings;
+  priorityFindings = computed(() => rankFindings(this.findings()).map(r => r.finding));
   assessments = this.wailsIpc.assessments;
   probing = signal(false);
   serviceFilter = signal('');

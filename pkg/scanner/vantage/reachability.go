@@ -187,6 +187,27 @@ func ActiveServiceFindingIDs(observations []store.ServiceObservation, now time.T
 	return active
 }
 
+// AssessedServiceFindingPrefixes returns the ID prefixes
+// ("service:<assetId>:<host>:<port>:<layer>:") whose probes reached a definite
+// conclusion (responding or not_responding) in this batch. Unprobed ports and
+// failed/inconclusive probes are omitted so callers never resolve an open
+// finding on the strength of a timeout or a narrower profile.
+func AssessedServiceFindingPrefixes(observations []store.ServiceObservation) []string {
+	seen := map[string]bool{}
+	var prefixes []string
+	for _, observation := range observations {
+		if !observation.Coverage.Assessed() {
+			continue
+		}
+		prefix := fmt.Sprintf("service:%s:%s:%d:%s:", observation.AssetID, observation.Host, observation.Port, observation.Layer)
+		if !seen[prefix] {
+			seen[prefix] = true
+			prefixes = append(prefixes, prefix)
+		}
+	}
+	return prefixes
+}
+
 func saveAdvisory(save func(*store.Finding) error, observation store.ServiceObservation, code string, severity store.FindingSeverity, title, remediation string, now time.Time) error {
 	return save(&store.Finding{
 		ID: findingID(observation, code), AssetID: observation.AssetID, Title: title,

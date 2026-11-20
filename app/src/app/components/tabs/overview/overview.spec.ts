@@ -1,7 +1,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { vi } from 'vitest';
 
 import { OverviewComponent, matchesServiceFilter, serviceEvidenceHeadline, summariseServiceEvidence } from './overview';
 import { ServiceObservation } from '../../../models/types';
+import { WailsIpcService } from '../../../wails-ipc.service';
 
 const httpsObservation: ServiceObservation = {
   assetId: 'asset-1', host: 'api.example.com', port: 443, service: 'https',
@@ -54,5 +56,57 @@ describe('Overview', () => {
     expect(headline.headline).toBe('HSTS is not advertised.');
     expect(headline.issueCount).toBe(1);
     expect(headline.goodCount).toBe(3);
+  });
+
+  it('retains findings from earlier hosts when a subsequent host probe returns zero findings', async () => {
+    const ipc = TestBed.inject(WailsIpcService);
+    ipc.assets.set([
+      { id: 'asset-a', value: 'exposed.example.com', status: 'active' },
+      { id: 'asset-b', value: 'quiet.example.com', status: 'active' }
+    ]);
+
+    vi.spyOn(ipc.transport, 'getFindings').mockImplementation(async (assetId: string) => {
+      if (assetId === 'asset-a') {
+        return [
+          {
+            id: 'service:asset-a:exposed.example.com:443:http:missing-hsts',
+            assetId: 'asset-a',
+            title: 'HTTPS service does not advertise HSTS',
+            severity: 'low',
+            status: 'open'
+          }
+        ];
+      }
+      if (assetId === 'asset-b') {
+        return [];
+      }
+      return [];
+    });
+
+    await ipc.refreshFindings('asset-a');
+    await ipc.refreshFindings('asset-b');
+
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(ipc.findings().length).toBe(1);
+    expect(ipc.findings()[0].assetValue).toBe('exposed.example.com');
+    expect(component.priorityFindings().length).toBe(1);
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('HTTPS service does not advertise HSTS');
+    expect(text).toContain('exposed.example.com');
+    expect(text).toContain('LOW');
+  });
+
+  it('omits resolved findings from Priority External Exposure Findings and orders open ones deterministically', () => {
+    const ipc = TestBed.inject(WailsIpcService);
+    ipc.findings.set([
+      { id: 'f-low', title: 'Low open', severity: 'low', status: 'open', kev: false, epssScore: 0 },
+      { id: 'f-resolved', title: 'Closed finding', severity: 'critical', status: 'resolved', kev: true, epssScore: 0.9 },
+      { id: 'f-high', title: 'High open', severity: 'high', status: 'open', kev: false, epssScore: 0 }
+    ]);
+
+    expect(component.priorityFindings().map(f => f.id)).toEqual(['f-high', 'f-low']);
   });
 });

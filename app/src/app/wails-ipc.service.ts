@@ -363,10 +363,11 @@ export class WailsIpcService {
     this.noteOutcome(payload);
 
     await Promise.all([
+      this.refreshAssets(),
+      this.refreshFindings(''),
       this.refreshSecretFindings(),
       this.refreshEmailPostures(),
-      this.refreshAssessments(),
-      this.refreshAssets()
+      this.refreshAssessments()
     ]);
 
     // Mid-portfolio, refresh the views but leave the status alone: the run is
@@ -430,7 +431,22 @@ export class WailsIpcService {
   }
 
   public async refreshAssets(status: string = ''): Promise<void> {
-    this.assets.set((await this.transport.getAssets(status)) || []);
+    const nextAssets = (await this.transport.getAssets(status)) || [];
+    this.assets.set(nextAssets);
+    if (this.findings().length > 0 && nextAssets.length > 0) {
+      const valueById = new Map<string, string>();
+      for (const a of nextAssets) {
+        if (a?.id && a?.value) {
+          valueById.set(a.id, a.value);
+        }
+      }
+      this.findings.update(current =>
+        current.map(f => ({
+          ...f,
+          assetValue: valueById.get(f.assetId) || f.assetValue || f.assetId || ''
+        }))
+      );
+    }
   }
 
   /**
@@ -443,20 +459,56 @@ export class WailsIpcService {
    */
   public async removeAsset(id: string): Promise<void> {
     await this.transport.removeAsset(id);
-    await this.refreshAssets();
+    await Promise.all([this.refreshAssets(), this.refreshFindings('')]);
   }
 
-  public async refreshFindings(assetId: string): Promise<void> {
-    const findings = (await this.transport.getFindings(assetId)) || [];
-    this.findings.set(findings.map((finding: any) => ({
+  private mapFinding(finding: any, assetNameById: Map<string, string>): any {
+    const resolvedValue =
+      finding.assetValue ||
+      assetNameById.get(finding.assetId) ||
+      finding.assetId ||
+      '';
+    return {
       ...finding,
-      assetValue: finding.assetValue || finding.assetId || '',
+      assetValue: resolvedValue,
       cveId: finding.cveId || finding.cve || '',
       kev: finding.kev ?? finding.kevListed ?? false,
       epssScore: finding.epssScore ?? finding.epss ?? 0,
+      cvssScore: finding.cvssScore ?? 0,
       status: finding.status || 'open',
       detectedAt: finding.detectedAt || finding.firstSeen || finding.lastSeen || ''
-    })));
+    };
+  }
+
+  /**
+   * Loads findings from the store.
+   *
+   * When `assetId` is empty, replaces the estate-wide list. When `assetId`
+   * names a single asset (during incremental `finding:new` or
+   * `service-probe-progress` events), merges that asset's rows into the
+   * existing signal rather than replacing the whole list — otherwise a
+   * clean/unresponsive host finishing right after an exposed one wipes every
+   * other asset's findings off the screen.
+   */
+  public async refreshFindings(assetId: string = ''): Promise<void> {
+    const rows = (await this.transport.getFindings(assetId)) || [];
+    const assetNameById = new Map<string, string>();
+    for (const a of this.assets()) {
+      if (a?.id && a?.value) {
+        assetNameById.set(a.id, a.value);
+      }
+    }
+    const mapped = rows.map((f: any) => this.mapFinding(f, assetNameById));
+
+    if (!assetId) {
+      this.findings.set(mapped);
+      return;
+    }
+
+    this.findings.update(current => {
+      const others = current.filter((f: any) => f.assetId !== assetId);
+      return [...mapped, ...others];
+    });
   }
 
   public async triggerScan(domain: string, repoUrl: string): Promise<void> {
@@ -685,7 +737,7 @@ export class WailsIpcService {
 
   public async probeDiscoveredServices(profile: 'most-common' | 'extended'): Promise<void> {
     await this.transport.probeDiscoveredServices(profile);
-    await this.refreshAssessments();
+    await Promise.all([this.refreshAssessments(), this.refreshFindings('')]);
   }
 
   /**

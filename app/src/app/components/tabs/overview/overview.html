@@ -122,7 +122,7 @@
     </div>
 
     <div [class]="theme() === 'dark' ? 'divide-y divide-slate-800/80' : 'divide-y divide-slate-100'">
-      @for (finding of findings(); track finding.id) {
+      @for (finding of priorityFindings(); track finding.id) {
         <div [class]="theme() === 'dark' ? 'p-6 hover:bg-slate-800/40 transition flex flex-col md:flex-row md:items-center justify-between gap-4' : 'p-6 hover:bg-slate-50 transition flex flex-col md:flex-row md:items-center justify-between gap-4'">
           <div class="space-y-2 flex-1">
             <div class="flex items-center space-x-3 flex-wrap gap-y-2">
@@ -132,8 +132,12 @@
                 <span class="px-2.5 py-0.5 rounded-md bg-rose-600 text-white text-xs font-mono font-bold uppercase">CRITICAL</span>
               } @else if (finding.severity === 'high') {
                 <span class="px-2.5 py-0.5 rounded-md bg-amber-500 text-slate-950 text-xs font-mono font-bold uppercase">HIGH</span>
-              } @else {
+              } @else if (finding.severity === 'medium') {
                 <span class="px-2.5 py-0.5 rounded-md bg-blue-600 text-white text-xs font-mono font-bold uppercase">MEDIUM</span>
+              } @else if (finding.severity === 'low') {
+                <span class="px-2.5 py-0.5 rounded-md bg-slate-600 text-white text-xs font-mono font-bold uppercase">LOW</span>
+              } @else {
+                <span class="px-2.5 py-0.5 rounded-md bg-slate-500 text-white text-xs font-mono font-bold uppercase">INFO</span>
               }
 
               <!-- KEV Badge -->
@@ -142,10 +146,12 @@
                   <span>CISA KEV EXPLOITED</span>
                 </span>
               }
-              <span class="text-[10px] font-mono text-slate-500">KEV checked: {{ catalogueDate(finding, 'cisa-kev') }}</span>
+              @if (finding.cveId) {
+                <span class="text-[10px] font-mono text-slate-500">KEV checked: {{ catalogueDate(finding, 'cisa-kev') }}</span>
 
-              <!-- CVE Tag -->
-              <span [class]="theme() === 'dark' ? 'text-xs font-mono font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-2 py-0.5 rounded' : 'text-xs font-mono font-bold text-cyan-800 bg-cyan-50 border border-cyan-200 px-2 py-0.5 rounded'">{{ finding.cveId }}</span>
+                <!-- CVE Tag -->
+                <span [class]="theme() === 'dark' ? 'text-xs font-mono font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-2 py-0.5 rounded' : 'text-xs font-mono font-bold text-cyan-800 bg-cyan-50 border border-cyan-200 px-2 py-0.5 rounded'">{{ finding.cveId }}</span>
+              }
 
               <!-- Asset Name -->
               <span [class]="theme() === 'dark' ? 'text-xs font-mono text-slate-300 bg-slate-800 px-2 py-0.5 rounded' : 'text-xs font-mono text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded'">{{ finding.assetValue }}</span>

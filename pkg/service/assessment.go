@@ -142,7 +142,12 @@ func (svc *AssessmentService) ProbeServices(ctx context.Context, prober vprobe.P
 	}, observations, time.Now().UTC()); err != nil {
 		return nil, fmt.Errorf("service probe: saving advisories: %w", err)
 	}
-	if err := svc.resolveServiceFindings(ctx, request.AssetID, vadapter.ActiveServiceFindingIDs(observations, time.Now().UTC())); err != nil {
+	if err := svc.resolveServiceFindings(
+		ctx,
+		request.AssetID,
+		vadapter.ActiveServiceFindingIDs(observations, time.Now().UTC()),
+		vadapter.AssessedServiceFindingPrefixes(observations),
+	); err != nil {
 		return nil, err
 	}
 	if err := svc.UpdateServiceExposureHistory(ctx, request.AssetID, time.Now().UTC(), 24*time.Hour); err != nil {
@@ -151,13 +156,26 @@ func (svc *AssessmentService) ProbeServices(ctx context.Context, prober vprobe.P
 	return observations, nil
 }
 
-func (svc *AssessmentService) resolveServiceFindings(ctx context.Context, assetID string, active map[string]bool) error {
+func (svc *AssessmentService) resolveServiceFindings(ctx context.Context, assetID string, active map[string]bool, assessedPrefixes []string) error {
+	if len(assessedPrefixes) == 0 {
+		return nil
+	}
 	findings, err := svc.store.GetFindings(ctx, assetID)
 	if err != nil {
 		return fmt.Errorf("service probe: reading findings: %w", err)
 	}
 	for i := range findings {
 		if !strings.HasPrefix(findings[i].ID, "service:") || findings[i].Status == store.FindingResolved {
+			continue
+		}
+		wasAssessed := false
+		for _, prefix := range assessedPrefixes {
+			if strings.HasPrefix(findings[i].ID, prefix) {
+				wasAssessed = true
+				break
+			}
+		}
+		if !wasAssessed {
 			continue
 		}
 		if !active[findings[i].ID] {

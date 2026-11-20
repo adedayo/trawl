@@ -166,6 +166,53 @@ func TestServiceFindingResolvesAfterServiceCloses(t *testing.T) {
 	}
 }
 
+func TestServiceFindingStaysOpenAcrossUnknownOrNarrowerProbe(t *testing.T) {
+	svc, s, ctx := newAssessmentService(t)
+	seedAsset(t, s, ctx, "asset-1", "example.com")
+	when := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
+
+	// Initial extended probe finds port 8443 responding.
+	open8443 := vobs.ServiceObservation{
+		Host: "example.com", Port: 8443, Service: "https-alt", Protocol: "https",
+		Layer: vobs.ServiceLayerHTTP, State: vobs.ServiceResponding,
+		ProbeProfile: "extended", ObservedAt: when,
+	}
+	if _, err := svc.ProbeServices(ctx, serviceProberStub{observations: []vobs.ServiceObservation{open8443}}, vadapter.ServiceRequest{
+		AssetID: "asset-1", Host: "example.com", Profile: vprobe.DiscoveryCustom,
+		Custom: []vprobe.Request{{Target: vprobe.Target{Host: "example.com", Port: 8443, Service: "https-alt", Protocol: "https"}, Layer: vobs.ServiceLayerHTTP}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Subsequent probe fails inconclusively on 8443 (timeout) and checks only 443 clean.
+	unknown8443 := open8443
+	unknown8443.State = vobs.ServiceUnknown
+	closed443 := vobs.ServiceObservation{
+		Host: "example.com", Port: 443, Service: "https", Protocol: "https",
+		Layer: vobs.ServiceLayerHTTP, State: vobs.ServiceNotResponding,
+		ProbeProfile: "most-common", ObservedAt: when.Add(time.Hour),
+	}
+	if _, err := svc.ProbeServices(ctx, serviceProberStub{observations: []vobs.ServiceObservation{unknown8443, closed443}}, vadapter.ServiceRequest{
+		AssetID: "asset-1", Host: "example.com", Profile: vprobe.DiscoveryCustom,
+		Custom: []vprobe.Request{
+			{Target: vprobe.Target{Host: "example.com", Port: 8443, Service: "https-alt", Protocol: "https"}, Layer: vobs.ServiceLayerHTTP},
+			{Target: vprobe.Target{Host: "example.com", Port: 443, Service: "https", Protocol: "https"}, Layer: vobs.ServiceLayerHTTP},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	findings, err := s.GetFindings(ctx, "asset-1")
+	if err != nil || len(findings) == 0 {
+		t.Fatalf("findings = %+v, err = %v", findings, err)
+	}
+	for _, f := range findings {
+		if f.Status == store.FindingResolved {
+			t.Fatalf("inconclusive or unrelated-port probe falsely resolved %s", f.ID)
+		}
+	}
+}
+
 // A domain whose only record is a refusal must still appear in the portfolio.
 // It is precisely the case an operator needs to see, and it carries neither
 // coverage nor observations to be found by.
