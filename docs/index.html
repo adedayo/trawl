@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Trawl - External Attack Surface &amp; Posture Validation Engine</title>
-  <meta name="description" content="Find out what an attacker can see of your organisation - and get told the moment it changes. Free, open-source, self-hosted external attack surface monitoring." />
+  <title>Trawl - External Attack Surface Visibility for Security Leaders</title>
+  <meta name="description" content="Know what attackers can see of your organisation - and get alerted the moment a control regresses. Private, honest, open-source external attack surface monitoring." />
   <link rel="icon" type="image/svg+xml" href="logo.svg" />
   <style>
     :root {
@@ -76,14 +76,14 @@
     .brand:hover { text-decoration: none; }
     .brand img { width: 34px; height: 34px; }
     .badge {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 0.72rem;
       font-weight: 600;
-      padding: 2px 8px;
+      padding: 2px 9px;
       border-radius: 999px;
       background: rgba(6, 182, 212, 0.12);
       border: 1px solid rgba(34, 211, 238, 0.35);
       color: var(--cyan);
+      letter-spacing: 0.02em;
     }
     .nav-links {
       display: flex;
@@ -144,7 +144,7 @@
     }
     .hero h1 {
       margin: 0 auto 18px;
-      max-width: 820px;
+      max-width: 860px;
       font-size: clamp(2.1rem, 4.4vw, 3.35rem);
       line-height: 1.12;
       letter-spacing: -0.025em;
@@ -157,7 +157,7 @@
     }
     .hero p.lead {
       margin: 0 auto 28px;
-      max-width: 700px;
+      max-width: 720px;
       color: var(--text-muted);
       font-size: 1.08rem;
     }
@@ -166,20 +166,20 @@
       flex-wrap: wrap;
       justify-content: center;
       gap: 12px;
-      margin-bottom: 36px;
+      margin-bottom: 34px;
     }
     .hero-meta {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      gap: 22px;
+      gap: 24px;
       color: var(--text-dim);
-      font-size: 0.84rem;
+      font-size: 0.86rem;
       margin-bottom: 36px;
     }
     .hero-meta span strong { color: var(--text-muted); }
 
-    /* Hero browser frame */
+    /* Browser frame */
     .frame {
       background: var(--bg-card);
       border: 1px solid var(--border-strong);
@@ -209,8 +209,7 @@
       background: #334155;
     }
     .frame-title {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 0.78rem;
+      font-size: 0.8rem;
       color: var(--text-muted);
     }
     .theme-switch {
@@ -247,7 +246,7 @@
       padding: 64px 0;
     }
     .section-head {
-      max-width: 720px;
+      max-width: 740px;
       margin-bottom: 32px;
     }
     .section-eyebrow {
@@ -268,6 +267,41 @@
       margin: 0;
       color: var(--text-muted);
       font-size: 0.98rem;
+    }
+
+    /* Value cards */
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 18px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 18px;
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+    .card-kicker {
+      font-size: 0.74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--cyan);
+      margin-bottom: 8px;
+    }
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 1.06rem;
+    }
+    .card p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 0.93rem;
     }
 
     /* Interactive tour */
@@ -303,54 +337,24 @@
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      padding: 16px 20px;
+      padding: 18px 22px;
       background: #0b1224;
       border-top: 1px solid var(--border);
     }
     .tour-caption h3 {
       margin: 0 0 4px;
-      font-size: 1rem;
+      font-size: 1.02rem;
     }
     .tour-caption p {
       margin: 0;
       color: var(--text-muted);
-      font-size: 0.9rem;
-      max-width: 780px;
+      font-size: 0.92rem;
+      max-width: 820px;
     }
     .tour-note {
       margin-top: 12px;
       font-size: 0.8rem;
       color: var(--text-dim);
-    }
-
-    /* Feature cards */
-    .grid-3 {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
-      gap: 18px;
-    }
-    .card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 22px;
-    }
-    .card-kicker {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 0.72rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--cyan);
-      margin-bottom: 8px;
-    }
-    .card h3 {
-      margin: 0 0 8px;
-      font-size: 1.05rem;
-    }
-    .card p {
-      margin: 0;
-      color: var(--text-muted);
-      font-size: 0.92rem;
     }
 
     /* Four-state strip */
@@ -364,54 +368,38 @@
       background: var(--bg-elevated);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 16px;
+      padding: 18px;
     }
     .state-tag {
       display: inline-block;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 0.76rem;
+      font-size: 0.78rem;
       font-weight: 700;
-      padding: 2px 8px;
+      padding: 3px 10px;
       border-radius: 6px;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }
     .state-ok { background: rgba(52, 211, 153, 0.14); color: var(--emerald); border: 1px solid rgba(52, 211, 153, 0.35); }
     .state-nf { background: rgba(251, 113, 133, 0.14); color: var(--rose); border: 1px solid rgba(251, 113, 133, 0.35); }
     .state-nc { background: rgba(148, 163, 184, 0.14); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.35); }
     .state-cf { background: rgba(251, 191, 36, 0.14); color: var(--amber); border: 1px solid rgba(251, 191, 36, 0.35); }
-    .state-pill p { margin: 0; font-size: 0.86rem; color: var(--text-muted); }
+    .state-pill p { margin: 0; font-size: 0.88rem; color: var(--text-muted); }
 
-    /* Install */
-    .install-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 18px;
-    }
-    pre {
-      margin: 12px 0 0;
-      padding: 14px 16px;
-      background: #020617;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      overflow-x: auto;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 0.84rem;
-      color: #e2e8f0;
-    }
-    .verify-box {
+    /* Callout */
+    .cta-box {
       margin-top: 22px;
-      padding: 18px 22px;
+      padding: 24px 28px;
       border-radius: var(--radius);
-      background: rgba(6, 182, 212, 0.07);
-      border: 1px solid rgba(34, 211, 238, 0.25);
+      background: rgba(6, 182, 212, 0.08);
+      border: 1px solid rgba(34, 211, 238, 0.28);
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 14px;
+      gap: 18px;
     }
-    .verify-box p { margin: 0; color: var(--text-muted); font-size: 0.92rem; max-width: 760px; }
-    .verify-box strong { color: var(--text); }
+    .cta-box p { margin: 0; color: var(--text-muted); font-size: 0.95rem; max-width: 720px; }
+    .cta-box strong { color: var(--text); }
+    .cta-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 
     /* Lightbox */
     .lightbox {
@@ -468,16 +456,16 @@
       <a class="brand" href="#">
         <img src="logo.svg" alt="Trawl shield logo" />
         <span>TRAWL</span>
-        <span class="badge">Apache 2.0</span>
+        <span class="badge">Open Source</span>
       </a>
       <nav class="nav-links" aria-label="Primary">
-        <a href="#tour">Screenshots</a>
-        <a href="#capabilities">Capabilities</a>
-        <a href="#guardrails">Guardrails</a>
-        <a href="#install">Install</a>
+        <a href="#why-trawl">Why Trawl</a>
+        <a href="#tour">Product Tour</a>
+        <a href="#trust">Honest Reporting</a>
+        <a href="#get-started">Get Started</a>
       </nav>
       <a class="btn btn-secondary" href="https://github.com/adedayo/trawl" target="_blank" rel="noopener">
-        GitHub Repository
+        View on GitHub
       </a>
     </div>
   </header>
@@ -487,29 +475,28 @@
       <div class="container">
         <div class="hero-eyebrow">
           <span class="dot" aria-hidden="true"></span>
-          <span>Self-hosted desktop app &amp; Docker server · Single Go binary + embedded SQLite</span>
+          <span>Continuous External Attack Surface &amp; Control Validation</span>
         </div>
-        <h1>Find out what an attacker can see <span>and know the moment it changes.</span></h1>
+        <h1>Know what attackers can see <span>and catch the moment it gets worse.</span></h1>
         <p class="lead">
-          Trawl discovers your internet-facing footprint from the outside without credentials or agents,
-          ranks exposure honestly against CISA KEV and EPSS, validates email and DNS controls,
-          scans public git history for leaked secrets, and tracks every change across time.
+          Most organisations cannot confidently answer which of their systems are reachable from the internet today.
+          Trawl sees your estate from the outside without agents or credentials, ranks real-world exposure honestly,
+          and alerts your team the moment a control degrades.
         </p>
         <div class="hero-actions">
-          <a class="btn btn-primary" href="#install">Install Trawl</a>
-          <a class="btn btn-secondary" href="#tour">Explore the UI</a>
-          <a class="btn btn-secondary" href="https://github.com/adedayo/trawl/releases/latest" target="_blank" rel="noopener">Latest Release</a>
+          <a class="btn btn-primary" href="#tour">See Trawl in Action</a>
+          <a class="btn btn-secondary" href="#get-started">Get Started Free</a>
         </div>
         <div class="hero-meta">
-          <span><strong>No account required</strong> · runs locally or on your own server</span>
-          <span><strong>Zero data egress</strong> · your estate stays in SQLite</span>
-          <span><strong>Non-destructive</strong> · scope enforced in the transport</span>
+          <span><strong>Private by design</strong> · runs inside your own environment</span>
+          <span><strong>No vendor lock-in</strong> · free, open-source, no per-asset fees</span>
+          <span><strong>Safe to operate</strong> · non-destructive and strictly scope-bound</span>
         </div>
 
         <div class="frame">
           <div class="frame-bar">
             <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
-            <div class="frame-title">Trawl · Executive View (synthetic demo estate: northwind.example)</div>
+            <div class="frame-title">Executive View · Illustrative estate (northwind.example)</div>
             <div class="theme-switch" role="group" aria-label="Preview appearance">
               <button type="button" id="hero-dark-btn" class="active">Dark</button>
               <button type="button" id="hero-light-btn">Light</button>
@@ -518,9 +505,74 @@
           <img
             id="hero-img"
             src="screenshots/executive.png"
-            alt="Trawl Executive View showing assessed control posture, four-state coverage bar, CISA KEV count, regressions, and prioritised findings"
+            alt="Trawl Executive View showing assessed control posture, four-state coverage bar, actively exploited findings, regressions, and prioritised actions"
             data-lightbox="screenshots/executive.png"
           />
+        </div>
+      </div>
+    </section>
+
+    <section id="why-trawl">
+      <div class="container">
+        <div class="section-head">
+          <div class="section-eyebrow">Why security leaders choose Trawl</div>
+          <h2>Close the blind spots your internal tools never see</h2>
+          <p>
+            Internal scanners only check systems someone remembered to register. Meanwhile, marketing launches a
+            subdomain, a firewall rule is widened temporarily, an email policy quietly weakens, or a developer commits
+            a key to a public repository. Trawl closes that gap continuously.
+          </p>
+        </div>
+
+        <div class="grid-3">
+          <article class="card">
+            <div class="card-kicker">1. Outside-in Visibility</div>
+            <h3>See your real external footprint</h3>
+            <p>
+              Continuously discover internet-facing domains, services, and forgotten assets the same way an adversary
+              does, without installing agents or handing out internal credentials.
+            </p>
+          </article>
+          <article class="card">
+            <div class="card-kicker">2. Prioritisation You Can Defend</div>
+            <h3>Rank by real exploitation, not noise</h3>
+            <p>
+              Focus engineering capacity on what is actively exploited in the wild and most likely to be targeted next.
+              Every priority order is transparent and reproducible, never an opaque vendor score.
+            </p>
+          </article>
+          <article class="card">
+            <div class="card-kicker">3. Regression Detection</div>
+            <h3>Spot when something stops being fine</h3>
+            <p>
+              Most tools flood teams with "new" findings while missing quiet drift. Trawl compares every check against
+              the last so a weakened email policy, TLS downgrade, or newly exposed database raises an immediate flag.
+            </p>
+          </article>
+          <article class="card">
+            <div class="card-kicker">4. Brand &amp; Credential Protection</div>
+            <h3>Stop spoofing and leaked keys early</h3>
+            <p>
+              Validate anti-spoofing email controls across every domain and catch leaked credentials across the full
+              history of your public repositories before someone else finds them.
+            </p>
+          </article>
+          <article class="card">
+            <div class="card-kicker">5. Board-to-Engineer Clarity</div>
+            <h3>Plain-English briefings and full history</h3>
+            <p>
+              Every finding explains what was found, why it matters, how it could be abused, and how to confirm the
+              fix, backed by an immutable timeline showing when it appeared, changed, or was resolved.
+            </p>
+          </article>
+          <article class="card">
+            <div class="card-kicker">6. Sovereign &amp; Zero-Friction</div>
+            <h3>Your attack surface stays yours</h3>
+            <p>
+              No third-party SaaS holds a map of your vulnerabilities. Deploy on a single workstation for an immediate
+              review or run continuously inside your own environment at zero licensing cost.
+            </p>
+          </article>
         </div>
       </div>
     </section>
@@ -528,23 +580,23 @@
     <section id="tour">
       <div class="container">
         <div class="section-head">
-          <div class="section-eyebrow">Interactive walkthrough</div>
-          <h2>Every surface of the engine, shown with real data</h2>
+          <div class="section-eyebrow">Product walkthrough</div>
+          <h2>From executive oversight to actionable remediation</h2>
           <p>
-            Select a view below to inspect how Trawl presents coverage, history, plain-English explanations,
-            email posture, observed software, ambient contact priors, and exposed secrets. Click any screenshot to zoom.
+            Explore how Trawl gives leadership an honest view of external exposure while giving security and
+            engineering teams the evidence they need to fix issues quickly. Click any screenshot to enlarge.
           </p>
         </div>
 
         <div class="tour-tabs" role="tablist" aria-label="Trawl dashboard views">
           <button class="tour-tab" role="tab" aria-selected="true" data-key="executive">Executive View</button>
-          <button class="tour-tab" role="tab" aria-selected="false" data-key="overview">Overview &amp; Trends</button>
-          <button class="tour-tab" role="tab" aria-selected="false" data-key="findings">Unified Findings</button>
-          <button class="tour-tab" role="tab" aria-selected="false" data-key="detail">Plain-English Detail</button>
-          <button class="tour-tab" role="tab" aria-selected="false" data-key="email">Email &amp; DNS Posture</button>
-          <button class="tour-tab" role="tab" aria-selected="false" data-key="assets">Software Inventory</button>
-          <button class="tour-tab" role="tab" aria-selected="false" data-key="contact">Contact Prior</button>
-          <button class="tour-tab" role="tab" aria-selected="false" data-key="secrets">Secret Scanning</button>
+          <button class="tour-tab" role="tab" aria-selected="false" data-key="overview">Trends &amp; Changes</button>
+          <button class="tour-tab" role="tab" aria-selected="false" data-key="findings">Prioritised Findings</button>
+          <button class="tour-tab" role="tab" aria-selected="false" data-key="detail">Plain-English Briefing</button>
+          <button class="tour-tab" role="tab" aria-selected="false" data-key="email">Email &amp; Domain Protection</button>
+          <button class="tour-tab" role="tab" aria-selected="false" data-key="assets">Observed Software</button>
+          <button class="tour-tab" role="tab" aria-selected="false" data-key="contact">Exposure Likelihood</button>
+          <button class="tour-tab" role="tab" aria-selected="false" data-key="secrets">Leaked Credentials</button>
         </div>
 
         <div class="frame">
@@ -561,158 +613,97 @@
           />
           <div class="tour-caption">
             <div>
-              <h3 id="tour-title">Executive View - Observed exposure without made-up risk scores</h3>
+              <h3 id="tour-title">Executive View - Clear posture without made-up risk scores</h3>
               <p id="tour-desc">
-                Shows assessed control posture alongside explicit assessment coverage, CISA KEV and EPSS freshness,
-                confirmed regressions, verified live secrets, and unconfirmed software candidates kept separate from confirmed exposure.
+                See what is reachable, how much of your estate was actually assessed, what is actively exploited in the
+                wild, what regressed since the last check, and what deserves attention first.
               </p>
             </div>
           </div>
         </div>
         <p class="tour-note">
-          All screenshots were captured directly from Trawl running against a synthetic RFC 2606 / RFC 5737 demo estate (northwind.example, 198.51.100.0/24).
+          All screenshots show an illustrative fictional estate (northwind.example) for demonstration.
         </p>
       </div>
     </section>
 
-    <section id="capabilities">
+    <section id="trust">
       <div class="container">
         <div class="section-head">
-          <div class="section-eyebrow">What you get</div>
-          <h2>Built for clarity, provenance, and continuous drift detection</h2>
+          <div class="section-eyebrow">Built for executive trust</div>
+          <h2>"We did not look" must never look like "everything is fine"</h2>
           <p>
-            One Go engine powers both the standalone desktop application and the headless Docker server.
-          </p>
-        </div>
-
-        <div class="grid-3">
-          <article class="card">
-            <div class="card-kicker">Discovery &amp; Reachability</div>
-            <h3>Deliberate external inventory</h3>
-            <p>
-              Combines certificate transparency, DNS, ASN and passive discovery with opt-in service reachability checks
-              via embedded Vantage. Every connection is attributable to a named check against an authorised target.
-            </p>
-          </article>
-          <article class="card">
-            <div class="card-kicker">Deterministic Priority</div>
-            <h3>CISA KEV + EPSS ranking</h3>
-            <p>
-              Priority is a pure function of active exploitation (CISA KEV), exploitation likelihood (EPSS), and severity.
-              Feed snapshots are content-addressed and staleness is disclosed everywhere a ranking appears.
-            </p>
-          </article>
-          <article class="card">
-            <div class="card-kicker">Findings History</div>
-            <h3>Append-only timeline &amp; diffs</h3>
-            <p>
-              Every finding carries a stable key and an immutable event log: first seen, changed, priority moved, resolved,
-              or reopened. Changes caused by a scanner or feed update are labelled separately from changes in your estate.
-            </p>
-          </article>
-          <article class="card">
-            <div class="card-kicker">Offline Narratives</div>
-            <h3>Plain-English explanations</h3>
-            <p>
-              Every finding explains what was found, why it matters, how it could be abused, what good looks like, and
-              how a re-scan confirms the fix. Human-authored, deterministic, and works fully offline.
-            </p>
-          </article>
-          <article class="card">
-            <div class="card-kicker">Software Inventory</div>
-            <h3>Candidates kept apart from confirmed flaws</h3>
-            <p>
-              Observed banners and headers build a curated per-asset software inventory matched against NVD 2.0.
-              Unconfirmed version matches stay clearly separated from demonstrated vulnerabilities.
-            </p>
-          </article>
-          <article class="card">
-            <div class="card-kicker">Email, DNS &amp; Secrets</div>
-            <h3>Spoofing controls &amp; git history</h3>
-            <p>
-              Validates SPF, DKIM, DMARC, MTA-STS, TLS-RPT, BIMI, CAA and dangling CNAMEs through Vantage, and scans full
-              public git history for leaked credentials via embedded Checkmate with redaction at ingestion.
-            </p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section id="guardrails">
-      <div class="container">
-        <div class="section-head">
-          <div class="section-eyebrow">Engineering guardrails</div>
-          <h2>"We did not look" must never render as "it is fine"</h2>
-          <p>
-            Assessment coverage is four-state throughout the engine, database, API and dashboard.
-            A check that failed or never ran lowers coverage and never contributes the reassurance of a passing control.
+            Most security dashboards hide blind spots behind a reassuring green score. Trawl separates what was
+            verified from what was missing, skipped, or inconclusive, so leadership always knows the real boundaries
+            of assurance.
           </p>
         </div>
 
         <div class="states">
           <div class="state-pill">
-            <span class="state-tag state-ok">ok · Assessed</span>
-            <p>The check ran, reached a conclusion, and the control is configured.</p>
+            <span class="state-tag state-ok">Verified</span>
+            <p>The control was checked and confirmed to be properly in place.</p>
           </div>
           <div class="state-pill">
-            <span class="state-tag state-nf">not_found · Not published</span>
-            <p>The check ran and concluded that the record or control is genuinely absent.</p>
+            <span class="state-tag state-nf">Missing</span>
+            <p>The check completed and confirmed the protection is absent - real work for the owning team.</p>
           </div>
           <div class="state-pill">
-            <span class="state-tag state-nc">not_checked · Not checked</span>
-            <p>Never attempted (excluded by profile or egress policy). Not evidence either way.</p>
+            <span class="state-tag state-nc">Not checked</span>
+            <p>Excluded by policy or scope. Lowers reported coverage rather than counting as a pass.</p>
           </div>
           <div class="state-pill">
-            <span class="state-tag state-cf">check_failed · Could not tell</span>
-            <p>Attempted but inconclusive (resolver timeout, refused endpoint). An assessment gap, not a pass.</p>
+            <span class="state-tag state-cf">Inconclusive</span>
+            <p>Attempted, but a timeout or network issue prevented an answer. Flagged as a gap, never as healthy.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <section id="install">
+    <section id="get-started">
       <div class="container">
         <div class="section-head">
-          <div class="section-eyebrow">Get started</div>
-          <h2>Run locally as a desktop app, or self-host for your team</h2>
+          <div class="section-eyebrow">Flexible adoption</div>
+          <h2>Start with a quick desktop assessment, or monitor continuously as a team</h2>
           <p>
-            Both distributions run the exact same Go engine and SQLite schema. No external database service required.
+            Evaluate your external posture in minutes with zero procurement cycle, then scale to continuous scheduled
+            monitoring in your own environment whenever you are ready.
           </p>
         </div>
 
-        <div class="install-grid">
+        <div class="grid-2">
           <div class="card">
-            <div class="card-kicker">macOS Desktop</div>
-            <h3>Homebrew Cask</h3>
-            <p>Universal macOS build. Stores state locally in <code>~/.trawl/</code>.</p>
-            <pre><code>brew install --cask adedayo/tap/trawl</code></pre>
+            <div class="card-kicker">Individual &amp; Advisory Review</div>
+            <h3>Desktop Application</h3>
+            <p>
+              Install on macOS, Windows, or Linux with no server setup required. Ideal for security leaders, architects,
+              and small teams who want immediate visibility into their external footprint.
+            </p>
           </div>
 
           <div class="card">
-            <div class="card-kicker">Linux &amp; Windows Desktop</div>
-            <h3>Native Packages</h3>
-            <p>Signed checksums and Sigstore bundles for Debian, Fedora, AppImage, and Windows.</p>
-            <pre><code>sudo apt install ./trawl_*_amd64.deb
-sudo dnf install ./trawl-*.x86_64.rpm</code></pre>
-          </div>
-
-          <div class="card">
-            <div class="card-kicker">Continuous Team Mode</div>
-            <h3>Self-Hosted Docker Compose</h3>
-            <p>Guided setup starts <code>trawl-server</code>, the dashboard, and scheduled workers.</p>
-            <pre><code>git clone https://github.com/adedayo/trawl.git
-cd trawl &amp;&amp; ./setup.sh</code></pre>
+            <div class="card-kicker">Continuous Programme</div>
+            <h3>Self-Hosted Team Deployment</h3>
+            <p>
+              Run scheduled discovery, posture checks, and regression alerts continuously inside your own
+              infrastructure. Share one view across security and engineering with full data sovereignty.
+            </p>
           </div>
         </div>
 
-        <div class="verify-box">
+        <div class="cta-box">
           <p>
-            <strong>Verifiable supply chain:</strong> Every release publishes <code>SHA256SUMS</code>, keyless
-            Sigstore cosign signatures (<code>.sig</code> / <code>.pem</code>) logged in Rekor, and an SBOM.
+            <strong>Ready to see your organisation from the outside?</strong> Trawl is free, open-source, and
+            independently verifiable from source.
           </p>
-          <a class="btn btn-secondary" href="https://github.com/adedayo/trawl/blob/main/docs/distribution.md#verifying-a-download" target="_blank" rel="noopener">
-            Verification Guide
-          </a>
+          <div class="cta-actions">
+            <a class="btn btn-primary" href="https://github.com/adedayo/trawl/releases/latest" target="_blank" rel="noopener">
+              Download Latest Release
+            </a>
+            <a class="btn btn-secondary" href="https://github.com/adedayo/trawl/blob/main/docs/distribution.md" target="_blank" rel="noopener">
+              Installation Guide
+            </a>
+          </div>
         </div>
       </div>
     </section>
@@ -720,13 +711,12 @@ cd trawl &amp;&amp; ./setup.sh</code></pre>
 
   <footer>
     <div class="container footer-inner">
-      <div>Trawl External Attack Surface &amp; Posture Validation Engine · Apache License 2.0</div>
+      <div>Trawl · Continuous External Attack Surface &amp; Posture Visibility</div>
       <div class="footer-links">
         <a href="https://github.com/adedayo/trawl" target="_blank" rel="noopener">GitHub</a>
         <a href="https://github.com/adedayo/trawl/blob/main/docs/distribution.md" target="_blank" rel="noopener">Install Options</a>
         <a href="https://github.com/adedayo/trawl/blob/main/docs/findings-history.md" target="_blank" rel="noopener">Findings History</a>
-        <a href="https://github.com/adedayo/trawl/blob/main/docs/feeds.md" target="_blank" rel="noopener">Threat Feeds</a>
-        <a href="https://github.com/adedayo/trawl/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://github.com/adedayo/trawl/issues" target="_blank" rel="noopener">Feedback &amp; Issues</a>
       </div>
     </div>
   </footer>
@@ -740,62 +730,61 @@ cd trawl &amp;&amp; ./setup.sh</code></pre>
       executive: {
         bar: 'Trawl · Executive View',
         src: 'screenshots/executive.png',
-        alt: 'Trawl Executive View showing posture, coverage, KEV findings, and regressions',
-        title: 'Executive View - Observed exposure without made-up risk scores',
-        desc: 'Shows assessed control posture alongside explicit assessment coverage, CISA KEV and EPSS freshness, confirmed regressions, verified live secrets, and unconfirmed software candidates kept separate from confirmed exposure.'
+        alt: 'Trawl Executive View showing posture, coverage, actively exploited findings, and regressions',
+        title: 'Executive View - Clear posture without made-up risk scores',
+        desc: 'See what is reachable, how much of your estate was actually assessed, what is actively exploited in the wild, what regressed since the last check, and what deserves attention first.'
       },
       overview: {
-        bar: 'Trawl · Overview & History Trends',
+        bar: 'Trawl · Trends & Since-Last-Scan Changes',
         src: 'screenshots/overview.png',
-        alt: 'Trawl Overview tab showing KPIs, scan trend chart with coverage markers, and since-last-scan changes',
-        title: 'Overview & Trends - Spot regressions and coverage drops at a glance',
-        desc: 'Plots open findings over time from immutable scan summaries. Runs with lower assessment coverage are drawn hollow so a thin scan is never mistaken for an improvement, alongside a since-last-scan diff panel.'
+        alt: 'Trawl Overview showing trend chart with coverage indicators and recent posture changes',
+        title: 'Trends & Changes - Track real progress, not coverage dips',
+        desc: 'Follow open exposure over time and compare what changed since the last scan. Runs with lower coverage are visually marked so an incomplete check is never mistaken for improvement.'
       },
       findings: {
-        bar: 'Trawl · Unified Findings Index',
+        bar: 'Trawl · Prioritised Findings',
         src: 'screenshots/findings.png',
-        alt: 'Trawl Unified Findings list with status, severity, source, asset and changed-since filters',
-        title: 'Unified Findings - Signals, CVEs, exposed services, secrets and candidates in one place',
-        desc: 'Filter by status, severity, source, asset, or changed-since window. Every finding carries a stable identity, first-seen date, age, and CISA KEV or unconfirmed-candidate badges.'
+        alt: 'Trawl unified findings list with filters for status, severity, source, asset and recent changes',
+        title: 'Prioritised Findings - One queue across every external exposure',
+        desc: 'Bring actively exploited vulnerabilities, exposed services, misconfigured controls, leaked secrets, and unconfirmed software candidates into one filterable view with age and change history.'
       },
       detail: {
-        bar: 'Trawl · Finding Detail & Executive Narrative',
+        bar: 'Trawl · Plain-English Briefing',
         src: 'screenshots/finding-detail.png',
-        alt: 'Trawl Finding Detail panel showing plain-English executive summary, evidence, guidance and timeline',
-        title: 'Plain-English Detail - Offline guidance, evidence, and append-only timeline',
-        desc: 'Every finding opens with a human-authored, deterministic explanation: what was found, why it matters, how it could be abused, remediation steps, raw evidence, and its full history.'
+        alt: 'Trawl Finding Detail panel showing plain-English executive summary, business impact, remediation guidance and timeline',
+        title: 'Plain-English Briefing - Context leaders and engineers both understand',
+        desc: 'Every finding explains what was found, why it matters to the organisation, how an attacker could abuse it, what good looks like, and how to confirm the fix - backed by an immutable history.'
       },
       email: {
-        bar: 'Trawl · Email & DNS Posture (Vantage)',
+        bar: 'Trawl · Email & Domain Protection',
         src: 'screenshots/email-posture.png',
-        alt: 'Trawl Email Posture tab displaying four-state SPF, DKIM, DMARC and MTA-STS controls',
-        title: 'Email & DNS Posture - Four-state control validation via embedded Vantage',
-        desc: 'Checks SPF, DKIM, DMARC, MTA-STS, TLS-RPT, BIMI, CAA and dangling CNAMEs. Distinguishes assessed, not published, not checked, and could not tell so resolver failures never look like passing controls.'
+        alt: 'Trawl Email Posture tab displaying verified, missing, not checked, and inconclusive controls',
+        title: 'Email & Domain Protection - Stop brand impersonation at the source',
+        desc: 'Continuously verify anti-spoofing and transport protections across every domain. Clearly separates missing protections from checks that were skipped or could not conclude.'
       },
       assets: {
-        bar: 'Trawl · Tracked Assets & Software Inventory',
+        bar: 'Trawl · Observed Software Inventory',
         src: 'screenshots/assets.png',
-        alt: 'Trawl Assets tab with expanded Observed Software panel showing OpenSSH and nginx versions',
-        title: 'Software Inventory - Structured per-asset product and version tracking',
-        desc: 'Extracts observed software from HTTP headers and service banners, maps known products to NVD CPEs, and discloses software coverage explicitly so missing banners are never reported as zero vulnerabilities.'
+        alt: 'Trawl Assets view with expanded Observed Software inventory showing versions and coverage',
+        title: 'Observed Software - Know what is exposed without false certainty',
+        desc: 'Tracks externally visible software versions per asset and keeps unconfirmed version-based vulnerability candidates clearly separated from confirmed exposure.'
       },
       contact: {
-        bar: 'Trawl · Ambient Contact Prior',
+        bar: 'Trawl · Ambient Exposure Likelihood',
         src: 'screenshots/contact-prior.png',
-        alt: 'Trawl Contact Prior panel displaying 90 percent probability intervals, ambient rates, and decomposed factors',
-        title: 'Ambient Contact Prior - Calibrated probability intervals with transparent provenance',
-        desc: 'Computes per-service ambient internet contact probability with 90% uncertainty intervals, literature-sourced ambient rates, split observed/inferred time-at-risk, and one-click factor-removal what-if recomputation.'
+        alt: 'Trawl Exposure Likelihood panel showing 90 percent probability intervals and contributing factors',
+        title: 'Exposure Likelihood - Transparent ranges and what-if analysis',
+        desc: 'Estimates how quickly opportunistic internet scanning reaches each exposed service, complete with uncertainty ranges, cited evidence, and interactive what-if factor removal.'
       },
       secrets: {
-        bar: 'Trawl · Public Repository Secret Scanning (Checkmate)',
+        bar: 'Trawl · Public Repository Secret Scanning',
         src: 'screenshots/secrets.png',
-        alt: 'Trawl Secret Scanning tab showing redacted AWS and Stripe keys found in public git history',
-        title: 'Secret Scanning - Full git-history credential detection via embedded Checkmate',
-        desc: 'Scans operator-declared public repositories across their entire commit history, redacting raw secret values at ingestion time and tracking each finding across rescans.'
+        alt: 'Trawl Secret Scanning view showing redacted leaked credentials found in public repository history',
+        title: 'Leaked Credentials - Catch exposed keys before attackers do',
+        desc: 'Scans the full commit history of your public repositories to surface active and historical credential leaks, redacting sensitive values automatically so exposure is never amplified.'
       }
     };
 
-    // Hero dark/light toggle
     const heroImg = document.getElementById('hero-img');
     const heroDark = document.getElementById('hero-dark-btn');
     const heroLight = document.getElementById('hero-light-btn');
@@ -812,7 +801,6 @@ cd trawl &amp;&amp; ./setup.sh</code></pre>
       heroDark.classList.remove('active');
     });
 
-    // Interactive tour tabs
     const tabs = document.querySelectorAll('.tour-tab');
     const tourImg = document.getElementById('tour-img');
     const tourBarTitle = document.getElementById('tour-bar-title');
@@ -833,7 +821,6 @@ cd trawl &amp;&amp; ./setup.sh</code></pre>
       });
     });
 
-    // Lightbox
     const lightbox = document.getElementById('lightbox');
     const lightboxImg = document.getElementById('lightbox-img');
     document.querySelectorAll('img[data-lightbox]').forEach(img => {
