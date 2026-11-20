@@ -1,8 +1,13 @@
-import { inject, Injectable, signal } from '@angular/core';
-import { AssetContactPanelUI, DomainAssessment, EmailPostureUI, FeedStatusUI, InstanceAggregationUI } from './models/types';
+import { DestroyRef, effect, inject, Injectable, signal, untracked } from '@angular/core';
+import { AssetContactPanelUI, AssetSoftwareUI, CandidateRefreshSummaryUI, ChangeSet, DomainAssessment, EmailPostureUI, FeedStatusUI, FindingDetail, FindingSummary, HistoryPoint, InstanceAggregationUI, ScanRunView, SoftwareCoverageUI } from './models/types';
+import { findingHash, normalizeDetail, parseFindingHash } from './dashboard/findings';
+import { normalizeChangeSet } from './dashboard/history';
 import { RegressionUI } from './dashboard/estate';
 import { ThemeService } from './theme.service';
 import { AssessOptionsUI, CalibrationExperiment, CalibrationReportRow, createTransport, DiscoveryOptions, DiscoveryResult, ProposedDomain, Scope, TrawlTransport } from './transport';
+
+/** The tabs of the shell. */
+export type AppTab = 'executive' | 'overview' | 'assets' | 'findings' | 'email' | 'secrets' | 'scope';
 
 /**
  * WailsIpcService is the application's single point of contact with the
@@ -34,7 +39,7 @@ export class WailsIpcService {
    * would silently undo them.
    */
   public readonly theme = this.themes.theme;
-  public activeTab = signal<'executive' | 'overview' | 'assets' | 'findings' | 'email' | 'secrets' | 'scope'>('executive');
+  public activeTab = signal<AppTab>('executive');
 
   // Data State
   public assets = signal<any[]>([]);
@@ -59,12 +64,50 @@ export class WailsIpcService {
    * be fine.
    */
   public regressions = signal<RegressionUI[]>([]);
+
+  // Change 025: findings history and drill-down.
+  //
+  // Each list carries a load state beside it. Three states, as with `loadState`:
+  // an empty array means "nothing recorded" only once the state says `ready`,
+  // and an `error` keeps whatever was last loaded rather than blanking it.
+
+  /** The unified findings list across every source. */
+  public findingIndex = signal<FindingSummary[]>([]);
+  public findingIndexState = signal<'loading' | 'ready' | 'error'>('loading');
+  public findingIndexError = signal<string>('');
+
+  /** The run ledger, newest first. */
+  public scanRuns = signal<ScanRunView[]>([]);
+  public scanRunsState = signal<'loading' | 'ready' | 'error'>('loading');
+
+  /** Per-run summaries, oldest first, for the trend. */
+  public history = signal<HistoryPoint[]>([]);
+  public historyState = signal<'loading' | 'ready' | 'error'>('loading');
+
+  /** What changed since the previous run (the engine's default comparison). */
+  public changeSet = signal<ChangeSet | null>(null);
+  public changeSetState = signal<'loading' | 'ready' | 'error'>('loading');
+
+  /**
+   * The finding whose detail is open, or null. Kept in step with the address
+   * `#/findings/<key>` so the detail can be shared and the back button closes
+   * it. Opening a key always opens the Findings tab.
+   */
+  public selectedFindingKey = signal<string | null>(null);
+
   public calibrationReport = signal<CalibrationReportRow[]>([]);
   public calibrationReportLoading = signal(false);
   public calibrationReportError = signal('');
   public calibrationExperiments = signal<CalibrationExperiment[]>([]);
   public feedStatuses = signal<FeedStatusUI[]>([]);
   public isRefreshingFeeds = signal(false);
+  /** The feed being refreshed on its own, or null; disables that feed's button only. */
+  public refreshingFeed = signal<string | null>(null);
+  public assetSoftware = signal<AssetSoftwareUI[]>([]);
+  public softwareCoverage = signal<SoftwareCoverageUI[]>([]);
+  public isRefreshingCandidates = signal(false);
+  public candidateRefreshError = signal('');
+  public lastCandidateRefresh = signal<CandidateRefreshSummaryUI | null>(null);
   public weaknessContactAggregations = signal<InstanceAggregationUI[]>([]);
 
   async loadCalibrationReport(experimentId: string): Promise<void> {
@@ -107,9 +150,56 @@ export class WailsIpcService {
     try {
       const statuses = await this.transport.refreshFeeds(epssThreshold);
       this.feedStatuses.set(statuses || []);
-      await Promise.all([this.refreshFindings(''), this.refreshRegressions()]);
+      await Promise.all([this.refreshFindings(''), this.refreshRegressions(), this.refreshFindingViews()]);
     } finally {
       this.isRefreshingFeeds.set(false);
+    }
+  }
+
+  /**
+   * Refreshes one catalogue. Findings are re-read afterwards because applying a
+   * snapshot can change priority, and the list the operator is looking at
+   * should not keep the old one.
+   */
+  public async refreshFeed(feed: string, epssThreshold = 0): Promise<void> {
+    this.refreshingFeed.set(feed);
+    try {
+      const statuses = await this.transport.refreshFeed(feed, epssThreshold);
+      this.feedStatuses.set(statuses || []);
+      await Promise.all([this.refreshFindings(''), this.refreshRegressions(), this.refreshFindingViews()]);
+    } finally {
+      this.refreshingFeed.set(null);
+    }
+  }
+
+  public async refreshSoftware(assetId = ''): Promise<void> {
+    const [items, cov] = await Promise.all([
+      this.transport.getAssetSoftware(assetId),
+      this.transport.getSoftwareCoverage(assetId)
+    ]);
+    this.assetSoftware.set(items || []);
+    this.softwareCoverage.set(cov || []);
+  }
+
+  /**
+   * Explicitly refreshes software candidate vulnerabilities from NVD.
+   * Never invoked at startup or on ingest.
+   */
+  public async refreshCandidates(force = false): Promise<CandidateRefreshSummaryUI | null> {
+    this.isRefreshingCandidates.set(true);
+    this.candidateRefreshError.set('');
+    try {
+      const summary = await this.transport.refreshCandidates(force);
+      this.lastCandidateRefresh.set(summary);
+      await Promise.all([this.refreshFindingViews(), this.refreshSoftware(), this.refreshFeedStatuses()]);
+      return summary;
+    } catch (error) {
+      this.candidateRefreshError.set(
+        error instanceof Error ? error.message : 'Candidate lookup could not be completed.'
+      );
+      return null;
+    } finally {
+      this.isRefreshingCandidates.set(false);
     }
   }
 
@@ -219,9 +309,12 @@ export class WailsIpcService {
   public lastDiscovery = signal<DiscoveryResult | null>(null);
 
   constructor() {
+    this.initFindingAddress();
+
     this.transport.on('asset:updated', () => this.refreshAssets());
 
     this.transport.on('finding:new', (payload: any) => {
+      void this.refreshFindingIndex();
       if (payload?.assetId) {
         this.refreshFindings(payload.assetId);
       }
@@ -236,6 +329,8 @@ export class WailsIpcService {
         this.setScanStatus(`Probed ${payload.host} (${payload.completed} of ${payload.total}) · ${state}`,
           payload.error ? 'warning' : 'info');
         void this.refreshAssessments();
+        void this.refreshFindingIndex();
+        void this.refreshSoftware();
         if (payload.assetId) {
           void this.refreshFindings(payload.assetId);
         }
@@ -367,7 +462,8 @@ export class WailsIpcService {
       this.refreshFindings(''),
       this.refreshSecretFindings(),
       this.refreshEmailPostures(),
-      this.refreshAssessments()
+      this.refreshAssessments(),
+      this.refreshFindingViews()
     ]);
 
     // Mid-portfolio, refresh the views but leave the status alone: the run is
@@ -433,6 +529,7 @@ export class WailsIpcService {
   public async refreshAssets(status: string = ''): Promise<void> {
     const nextAssets = (await this.transport.getAssets(status)) || [];
     this.assets.set(nextAssets);
+    void this.refreshSoftware();
     if (this.findings().length > 0 && nextAssets.length > 0) {
       const valueById = new Map<string, string>();
       for (const a of nextAssets) {
@@ -459,7 +556,7 @@ export class WailsIpcService {
    */
   public async removeAsset(id: string): Promise<void> {
     await this.transport.removeAsset(id);
-    await Promise.all([this.refreshAssets(), this.refreshFindings('')]);
+    await Promise.all([this.refreshAssets(), this.refreshFindings(''), this.refreshFindingViews()]);
   }
 
   private mapFinding(finding: any, assetNameById: Map<string, string>): any {
@@ -737,7 +834,7 @@ export class WailsIpcService {
 
   public async probeDiscoveredServices(profile: 'most-common' | 'extended'): Promise<void> {
     await this.transport.probeDiscoveredServices(profile);
-    await Promise.all([this.refreshAssessments(), this.refreshFindings('')]);
+    await Promise.all([this.refreshAssessments(), this.refreshFindings(''), this.refreshFindingViews()]);
   }
 
   /**
@@ -819,6 +916,237 @@ export class WailsIpcService {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Change 025: unified findings, history and change views
+  // -------------------------------------------------------------------------
+
+  private findingIndexRunning = false;
+  private findingIndexPending = false;
+
+  /**
+   * Loads the unified findings list.
+   *
+   * Failure keeps the previous list and records the state as `error`: an empty
+   * list is a claim about the estate, and it must not be the accidental result
+   * of a request that failed. Overlapping calls coalesce, because progress
+   * events can arrive faster than the list can be read.
+   */
+  public async refreshFindingIndex(): Promise<void> {
+    if (this.findingIndexRunning) {
+      this.findingIndexPending = true;
+      return;
+    }
+    this.findingIndexRunning = true;
+    try {
+      do {
+        this.findingIndexPending = false;
+        try {
+          this.findingIndex.set((await this.transport.getFindingIndex()) || []);
+          this.findingIndexError.set('');
+          this.findingIndexState.set('ready');
+          this.markFresh();
+        } catch (error) {
+          console.error('Trawl: could not load the findings index', error);
+          this.findingIndexError.set(error instanceof Error ? error.message : 'The findings index could not be loaded.');
+          this.findingIndexState.set('error');
+          this.streamHealthy.set(false);
+        }
+      } while (this.findingIndexPending);
+    } finally {
+      this.findingIndexRunning = false;
+    }
+  }
+
+  public async refreshScanRuns(): Promise<void> {
+    try {
+      this.scanRuns.set((await this.transport.getScanRuns()) || []);
+      this.scanRunsState.set('ready');
+    } catch (error) {
+      console.error('Trawl: could not load the scan ledger', error);
+      this.scanRunsState.set('error');
+    }
+  }
+
+  /**
+   * Loads the run summaries the trend is drawn from. `since` is RFC 3339, or
+   * empty for everything recorded.
+   */
+  public async refreshHistory(since: string = ''): Promise<void> {
+    try {
+      this.history.set((await this.transport.getHistorySummary(since)) || []);
+      this.historyState.set('ready');
+    } catch (error) {
+      console.error('Trawl: could not load the history summary', error);
+      this.historyState.set('error');
+    }
+  }
+
+  /** Loads the default comparison: the latest run against the one before it. */
+  public async refreshChanges(): Promise<void> {
+    try {
+      this.changeSet.set(normalizeChangeSet(await this.transport.getFindingChanges()));
+      this.changeSetState.set('ready');
+    } catch (error) {
+      console.error('Trawl: could not load the change set', error);
+      this.changeSetState.set('error');
+    }
+  }
+
+  /** Everything the findings and change views read, refreshed together. */
+  public async refreshFindingViews(): Promise<void> {
+    await Promise.allSettled([
+      this.refreshFindingIndex(),
+      this.refreshScanRuns(),
+      this.refreshHistory(this.historySince),
+      this.refreshChanges()
+    ]);
+  }
+
+  /** The `since` the trend was last loaded with, so a refresh keeps the range. */
+  private historySince = '';
+
+  /** Loads the trend for a chosen range and remembers it for later refreshes. */
+  public async loadHistorySince(since: string): Promise<void> {
+    this.historySince = since;
+    await this.refreshHistory(since);
+  }
+
+  /** One finding's detail. Rejects on failure; null means the key is unknown. */
+  public async getFindingDetail(key: string): Promise<FindingDetail | null> {
+    return normalizeDetail(await this.transport.getFindingDetail(key));
+  }
+
+  /** An arbitrary comparison between two runs. Rejects on failure. */
+  public async compareScans(from: string, to: string): Promise<ChangeSet> {
+    return normalizeChangeSet(await this.transport.getFindingChanges(from, to));
+  }
+
+  // -------------------------------------------------------------------------
+  // The finding address: #/findings/<key>
+  //
+  // The tab shell stays; the Angular Router is not used. A hash is enough to
+  // make a detail linkable and to let the back button close it, and it needs
+  // no server cooperation, which matters because the same bundle is served by
+  // Wails and by nginx.
+  // -------------------------------------------------------------------------
+
+  /** The tab to return to when a detail opened from elsewhere is closed. */
+  private findingReturnTab: AppTab | null = null;
+
+  /** True while the current history entry was pushed by `openFinding`. */
+  private findingEntryPushed = false;
+
+  private initFindingAddress(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    // A shared address opens straight onto its finding.
+    const initial = parseFindingHash(window.location.hash);
+    if (initial) {
+      this.selectedFindingKey.set(initial);
+      this.activeTab.set('findings');
+    }
+
+    // Back, forward and a hand-edited address all arrive here.
+    const onHashChange = () => this.syncFromAddress();
+    window.addEventListener('hashchange', onHashChange);
+    inject(DestroyRef).onDestroy(() => window.removeEventListener('hashchange', onHashChange));
+
+    // Leaving the Findings tab by any route closes an open detail, so the
+    // address never names a finding the screen is not showing.
+    effect(() => {
+      if (this.activeTab() !== 'findings' && this.selectedFindingKey()) {
+        untracked(() => this.closeFinding({ restoreTab: false }));
+      }
+    });
+  }
+
+  private syncFromAddress(): void {
+    const key = parseFindingHash(window.location.hash);
+    if (key === this.selectedFindingKey()) {
+      return;
+    }
+    if (key) {
+      this.findingReturnTab = null;
+      this.findingEntryPushed = false;
+      this.selectedFindingKey.set(key);
+      this.activeTab.set('findings');
+      return;
+    }
+    this.findingEntryPushed = false;
+    this.finishClose(true);
+  }
+
+  /**
+   * Opens a finding's detail and gives it a stable address.
+   *
+   * The first open pushes a history entry, so the back button closes the
+   * detail; opening another finding while one is open replaces that entry
+   * instead of stacking them.
+   */
+  public openFinding(key: string): void {
+    if (!key) {
+      return;
+    }
+    const alreadyOpen = this.selectedFindingKey() !== null;
+    if (!alreadyOpen) {
+      this.findingReturnTab = this.activeTab() === 'findings' ? null : this.activeTab();
+    }
+    this.selectedFindingKey.set(key);
+    this.activeTab.set('findings');
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const hash = findingHash(key);
+    if (window.location.hash === hash) {
+      return;
+    }
+    if (alreadyOpen && this.findingEntryPushed) {
+      window.history.replaceState(null, '', hash);
+    } else {
+      window.location.hash = hash;
+      this.findingEntryPushed = true;
+    }
+  }
+
+  /**
+   * Closes the open detail.
+   *
+   * Where `openFinding` pushed an entry, closing walks it back, so the history
+   * stack ends as it began. A detail that was opened by arriving at its
+   * address has nothing behind it to return to, so the hash is cleared in
+   * place instead.
+   */
+  public closeFinding(options: { restoreTab?: boolean } = {}): void {
+    if (this.selectedFindingKey() === null) {
+      return;
+    }
+    const restoreTab = options.restoreTab ?? true;
+    const pushed = this.findingEntryPushed;
+    this.findingEntryPushed = false;
+    this.finishClose(restoreTab);
+
+    if (typeof window === 'undefined' || parseFindingHash(window.location.hash) === null) {
+      return;
+    }
+    if (pushed) {
+      window.history.back();
+    } else {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }
+
+  private finishClose(restoreTab: boolean): void {
+    const back = this.findingReturnTab;
+    this.findingReturnTab = null;
+    this.selectedFindingKey.set(null);
+    if (restoreTab && back) {
+      this.activeTab.set(back);
+    }
+  }
+
   /** Reloads every view from the store. */
   public async refreshAll(): Promise<void> {
     if (this.loadState() === 'loading' && !this.lastUpdatedAt()) {
@@ -841,7 +1169,8 @@ export class WailsIpcService {
       this.refreshSecretFindings(),
       this.refreshEmailPostures(),
       this.refreshAssessments(),
-      this.refreshRegressions()
+      this.refreshRegressions(),
+      this.refreshFindingViews()
     ]);
     const failed = results.filter(r => r.status === 'rejected') as PromiseRejectedResult[];
     if (failed.length === 0) {

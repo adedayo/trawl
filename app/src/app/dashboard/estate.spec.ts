@@ -280,4 +280,59 @@ describe('kevEnrichmentSummary', () => {
     expect(summary.notChecked).toBe(1);
     expect(summary.knownNotListed).toBe(0);
   });
+
+  it('reports when the source was last consulted separately from when its content arrived', () => {
+    const summary = kevEnrichmentSummary(
+      [],
+      [
+        {
+          feed: 'cisa-kev',
+          stale: false,
+          lastCheckedAt: '2026-11-19T08:00:00Z',
+          snapshot: {
+            id: 'kev-1', feed: 'cisa-kev', sourceUrl: 'https://cisa.gov', contentDigest: 'sha256:x',
+            retrievedAt: '2026-11-10T08:00:00Z', recordCount: 1214
+          }
+        }
+      ],
+      Date.parse('2026-11-19T09:00:00Z')
+    );
+
+    expect(summary.retrievedAt).toBe('2026-11-10T08:00:00Z');
+    expect(summary.lastCheckedAt).toBe('2026-11-19T08:00:00Z');
+    expect(summary.recordCount).toBe(1214);
+    expect(summary.stale).toBe(false);
+  });
+
+  it('falls back to the catalogue retrieval time when no check has been recorded', () => {
+    const summary = kevEnrichmentSummary([], [
+      {
+        feed: 'cisa-kev',
+        stale: false,
+        snapshot: {
+          id: 'kev-1', feed: 'cisa-kev', sourceUrl: 'https://cisa.gov', contentDigest: 'sha256:x',
+          retrievedAt: '2026-11-10T08:00:00Z', recordCount: 5
+        }
+      }
+    ]);
+
+    expect(summary.lastCheckedAt).toBe('2026-11-10T08:00:00Z');
+  });
+
+  it('carries the last failure without discarding the catalogue still in force', () => {
+    const summary = kevEnrichmentSummary([], [
+      {
+        feed: 'cisa-kev',
+        stale: false,
+        lastError: 'endpoint returned 502',
+        snapshot: {
+          id: 'kev-1', feed: 'cisa-kev', sourceUrl: 'https://cisa.gov', contentDigest: 'sha256:x',
+          retrievedAt: '2026-11-10T08:00:00Z', recordCount: 5
+        }
+      }
+    ]);
+
+    expect(summary.hasCatalogue).toBe(true);
+    expect(summary.lastError).toBe('endpoint returned 502');
+  });
 });

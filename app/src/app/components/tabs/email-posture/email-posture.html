@@ -255,7 +255,7 @@
                     @if (c.signals.length > 0) {
                       <div [class]="dark ? 'border-t border-slate-800 pt-3 space-y-2' : 'border-t border-slate-200 pt-3 space-y-2'">
                         @for (s of c.signals; track s.signalId) {
-                          <ng-container *ngTemplateOutlet="advisory; context: { s: s }"></ng-container>
+                          <ng-container *ngTemplateOutlet="advisory; context: { s: s, domain: row.domain }"></ng-container>
                         }
                       </div>
                     }
@@ -341,7 +341,7 @@
 </div>
 
 <!-- One advisory, with what it means and what to do about it -->
-<ng-template #advisory let-s="s">
+<ng-template #advisory let-s="s" let-domain="domain">
   @let dark = theme() === 'dark';
   <div>
     <div class="flex items-center gap-2">
@@ -382,6 +382,13 @@
       <p [class]="dark ? 'text-[10px] font-mono text-slate-500 mt-1.5 break-all' : 'text-[10px] font-mono text-slate-500 mt-1.5 break-all'">
         Observed: {{ s.evidence }}
       </p>
+    }
+    @let findingKey = findingKeyFor(domain, s);
+    @if (findingKey) {
+      <button type="button" (click)="openFinding(findingKey)"
+        [class]="dark ? 'mt-1.5 text-[11px] font-semibold text-cyan-400 underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500' : 'mt-1.5 text-[11px] font-semibold text-cyan-800 underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600'">
+        View history and explanation
+      </button>
     }
     @if (s.references?.length) {
       <div class="flex flex-wrap gap-2 mt-1">
@@ -440,7 +447,7 @@
         @if (c.signals.length > 0) {
           <div [class]="dark ? 'border-t border-slate-800 pt-3 space-y-2' : 'border-t border-slate-200 pt-3 space-y-2'">
             @for (s of c.signals; track s.signalId) {
-              <ng-container *ngTemplateOutlet="advisory; context: { s: s }"></ng-container>
+              <ng-container *ngTemplateOutlet="advisory; context: { s: s, domain: domain }"></ng-container>
             }
           </div>
         } @else if (c.posture === 'compliant') {

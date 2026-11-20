@@ -1,0 +1,137 @@
+@let dark = theme() === 'dark';
+
+<section aria-labelledby="changes-heading" data-testid="changes-panel" [class]="dark ? 'bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden shadow-xl' : 'bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm'">
+  <div [class]="dark ? 'px-6 py-4 border-b border-slate-800 bg-slate-900' : 'px-6 py-4 border-b border-slate-200 bg-slate-50'">
+    <h2 id="changes-heading" [class]="dark ? 'text-sm font-bold text-slate-200 uppercase tracking-wider' : 'text-sm font-bold text-slate-800 uppercase tracking-wider'">Since the last scan</h2>
+  </div>
+
+  <div class="p-6 space-y-6">
+    @if (state() === 'error') {
+      <p role="alert" data-testid="changes-error" [class]="dark ? 'text-sm text-amber-300' : 'text-sm text-amber-900'">
+        Changes could not be loaded. The lists below, if any, may be out of date, and an empty list here is not evidence that nothing changed.
+      </p>
+    }
+
+    @if (changeSet(); as change) {
+      <ng-container *ngTemplateOutlet="result; context: { change: change, panel: 'latest' }"></ng-container>
+    } @else if (state() === 'loading') {
+      <p role="status" [class]="dark ? 'text-sm text-slate-400' : 'text-sm text-slate-600'">Loading changes.</p>
+    }
+
+    <!-- Compare scans -->
+    <div [class]="dark ? 'border-t border-slate-800 pt-5 space-y-3' : 'border-t border-slate-200 pt-5 space-y-3'">
+      <h3 id="compare-heading" [class]="dark ? 'text-xs font-bold uppercase tracking-wider text-slate-300' : 'text-xs font-bold uppercase tracking-wider text-slate-700'">Compare scans</h3>
+      <div role="group" aria-labelledby="compare-heading" class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+        @let selectClass = dark ? 'w-full text-xs bg-slate-800 border border-slate-700 text-slate-200 rounded-md py-1.5 px-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500' : 'w-full text-xs bg-white border border-slate-300 text-slate-700 rounded-md py-1.5 px-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600';
+        @let labelClass = dark ? 'block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1' : 'block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1';
+        <div>
+          <label for="compare-from" [class]="labelClass">Earlier scan</label>
+          <select id="compare-from" [value]="fromRun()" (change)="fromRun.set($any($event.target).value)" [class]="selectClass">
+            <option value="" [selected]="fromRun() === ''">Choose a scan</option>
+            @for (r of runs(); track r.id) {
+              <option [value]="r.id" [selected]="fromRun() === r.id">{{ runLabel(r) }}</option>
+            }
+          </select>
+        </div>
+        <div>
+          <label for="compare-to" [class]="labelClass">Later scan</label>
+          <select id="compare-to" [value]="toRun()" (change)="toRun.set($any($event.target).value)" [class]="selectClass">
+            <option value="" [selected]="toRun() === ''">Choose a scan</option>
+            @for (r of runs(); track r.id) {
+              <option [value]="r.id" [selected]="toRun() === r.id">{{ runLabel(r) }}</option>
+            }
+          </select>
+        </div>
+        <button type="button" data-testid="compare-button" (click)="compare()" [disabled]="compareBlocked() !== ''" [class]="dark ? 'px-3 py-1.5 rounded-lg bg-cyan-700 hover:bg-cyan-600 disabled:opacity-50 text-white text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-400' : 'px-3 py-1.5 rounded-lg bg-cyan-700 hover:bg-cyan-800 disabled:opacity-50 text-white text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600'">Compare</button>
+      </div>
+      @if (compareBlocked()) {
+        <p data-testid="compare-hint" [class]="dark ? 'text-xs text-slate-400' : 'text-xs text-slate-600'">{{ compareBlocked() }}</p>
+      }
+      @if (runs().length === 0 && wailsIpc.scanRunsState() === 'ready') {
+        <p [class]="dark ? 'text-xs text-slate-400' : 'text-xs text-slate-600'">No scans have been recorded yet.</p>
+      }
+      @if (wailsIpc.scanRunsState() === 'error') {
+        <p role="alert" [class]="dark ? 'text-xs text-amber-300' : 'text-xs text-amber-900'">The scan list could not be loaded, so scans cannot be compared.</p>
+      }
+
+      @switch (comparisonState()) {
+        @case ('loading') {
+          <p role="status" [class]="dark ? 'text-xs text-slate-400' : 'text-xs text-slate-600'">Comparing.</p>
+        }
+        @case ('error') {
+          <p role="alert" data-testid="comparison-error" [class]="dark ? 'text-xs text-amber-300' : 'text-xs text-amber-900'">The comparison could not be loaded ({{ comparisonError() }}).</p>
+        }
+        @case ('ready') {
+          @if (compared(); as cmp) {
+            <div data-testid="comparison" [class]="dark ? 'border border-slate-800 rounded-lg p-4' : 'border border-slate-200 rounded-lg p-4'">
+              <ng-container *ngTemplateOutlet="result; context: { change: cmp, panel: 'compare' }"></ng-container>
+            </div>
+          }
+        }
+      }
+    </div>
+  </div>
+</section>
+
+<ng-template #result let-change="change" let-panel="panel">
+  @let drop = coverageDropText(change);
+  <div class="space-y-4">
+    @if (!change.to) {
+      <p data-testid="no-runs" [class]="dark ? 'text-sm text-slate-300' : 'text-sm text-slate-700'">No scan has been recorded yet, so there is nothing to compare.</p>
+    } @else {
+      <div class="space-y-1">
+        <p data-testid="compared-line" [class]="dark ? 'text-sm font-semibold text-slate-200' : 'text-sm font-semibold text-slate-800'">{{ comparedLine(change) }}</p>
+        @if (change.from) {
+          <p [class]="dark ? 'text-xs font-mono text-slate-400' : 'text-xs font-mono text-slate-600'">Earlier scan: {{ coverageText(change.from.run) }}</p>
+        }
+        <p [class]="dark ? 'text-xs font-mono text-slate-400' : 'text-xs font-mono text-slate-600'">{{ change.from ? 'Later scan' : 'Scan' }}: {{ coverageText(change.to.run) }}</p>
+      </div>
+      @if (!change.from) {
+        <p data-testid="no-baseline" [class]="dark ? 'text-xs text-amber-300' : 'text-xs text-amber-900'">Only one scan is on record, so there is no earlier scan to compare it with. The lists below are not a change.</p>
+      }
+      @if (drop) {
+        <p data-testid="coverage-drop" [class]="dark ? 'text-xs text-amber-300 border border-dashed border-amber-500 rounded-md p-3' : 'text-xs text-amber-900 border border-dashed border-amber-600 rounded-md p-3 bg-amber-50'">{{ drop }}</p>
+      }
+      @if (change.note) {
+        <p data-testid="change-note" [class]="dark ? 'text-xs text-slate-300' : 'text-xs text-slate-700'">{{ change.note }}</p>
+      }
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        @for (b of buckets; track b.key) {
+          @let items = bucketItems(change, b.key);
+          <section [attr.aria-label]="b.label + ' findings'" [attr.data-bucket]="b.key" [class]="dark ? 'rounded-lg border border-slate-800 p-3' : 'rounded-lg border border-slate-200 p-3'">
+            <div class="flex items-baseline flex-wrap gap-2">
+              <h4 [class]="dark ? 'text-xs font-bold uppercase tracking-wider text-slate-300' : 'text-xs font-bold uppercase tracking-wider text-slate-700'">{{ b.label }}</h4>
+              <span data-testid="bucket-count" [class]="dark ? 'text-sm font-mono font-bold text-white' : 'text-sm font-mono font-bold text-slate-900'">{{ count(items.length) }}</span>
+              @if (drop) {
+                <span data-testid="bucket-coverage-drop" [class]="dark ? 'text-[10px] font-mono text-amber-300 border border-dashed border-amber-500 rounded px-1.5' : 'text-[10px] font-mono text-amber-900 border border-dashed border-amber-600 rounded px-1.5'">coverage fell</span>
+              }
+            </div>
+            @if (items.length === 0) {
+              <p [class]="dark ? 'mt-2 text-xs text-slate-400' : 'mt-2 text-xs text-slate-600'">None recorded between these scans.</p>
+            } @else {
+              <ul role="list" class="mt-2 space-y-1">
+                @for (item of shown(items, panel, b.key); track item.finding.key + item.event.id) {
+                  <li>
+                    <button type="button" (click)="open(item)" [attr.aria-label]="itemLabel(item, b.key)" [class]="(dark ? 'hover:bg-slate-800/60 ' : 'hover:bg-slate-50 ') + 'w-full text-left rounded px-2 py-1 flex flex-col gap-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500'">
+                      <span class="flex items-center gap-2">
+                        <span [class]="'px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase ' + severityClasses(item.finding.severity)">{{ item.finding.severity }}</span>
+                        <span [class]="dark ? 'text-xs font-semibold text-white' : 'text-xs font-semibold text-slate-900'">{{ item.finding.title }}</span>
+                      </span>
+                      <span [class]="dark ? 'text-[11px] font-mono text-slate-400' : 'text-[11px] font-mono text-slate-600'">{{ item.finding.assetValue || item.finding.assetId }} · {{ sourceLabel(item.finding.source) }}</span>
+                    </button>
+                  </li>
+                }
+              </ul>
+              @if (items.length > preview) {
+                <button type="button" (click)="toggle(panel, b.key)" [attr.aria-expanded]="isExpanded(panel, b.key)" [class]="dark ? 'mt-2 text-xs font-semibold text-cyan-400 underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500' : 'mt-2 text-xs font-semibold text-cyan-800 underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600'">
+                  {{ isExpanded(panel, b.key) ? 'Show fewer' : 'Show all ' + items.length }}
+                </button>
+              }
+            }
+          </section>
+        }
+      </div>
+    }
+  </div>
+</ng-template>

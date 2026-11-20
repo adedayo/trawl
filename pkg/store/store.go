@@ -135,6 +135,7 @@ type Finding struct {
 	AIAnnotation string              `json:"aiAnnotation,omitempty"`
 	FirstSeen    time.Time           `json:"firstSeen"`
 	LastSeen     time.Time           `json:"lastSeen"`
+	ResolvedAt   *time.Time          `json:"resolvedAt,omitempty"`
 	Enrichments  []FindingEnrichment `json:"enrichments,omitempty"`
 }
 
@@ -146,17 +147,40 @@ type FeedSnapshot struct {
 	RetrievedAt   time.Time `json:"retrievedAt"`
 	ContentDigest string    `json:"contentDigest"`
 	RecordCount   int       `json:"recordCount"`
+
+	// Records are the catalogue entries behind the snapshot. They are written
+	// with the snapshot, in one transaction, so a stored snapshot is never one
+	// whose content is missing. Reads of a snapshot do not populate them; use
+	// GetFeedRecords. Only catalogues small enough to keep whole are stored
+	// (CISA KEV); the snapshot row alone describes the others.
+	Records []FeedRecord `json:"-"`
+}
+
+// FeedRecord is one catalogue entry: what a feed said about one CVE.
+type FeedRecord struct {
+	CVE       string   `json:"cve"`
+	KEVListed *bool    `json:"kevListed,omitempty"`
+	EPSS      *float64 `json:"epss,omitempty"`
 }
 
 // FeedStatus records the current operational state of one external catalogue:
 // its latest valid snapshot (preserved across failed refreshes) alongside the
 // latest failure if the most recent attempt did not complete.
 type FeedStatus struct {
-	Feed          string        `json:"feed"`
-	Snapshot      *FeedSnapshot `json:"snapshot,omitempty"`
-	LastFailureAt *time.Time    `json:"lastFailureAt,omitempty"`
-	LastError     string        `json:"lastError,omitempty"`
-	Stale         bool          `json:"stale"`
+	Feed     string        `json:"feed"`
+	Snapshot *FeedSnapshot `json:"snapshot,omitempty"`
+	// LastCheckedAt is the last time the source was successfully consulted,
+	// whether or not its content had changed. Snapshot.RetrievedAt is when the
+	// content in force first arrived, which stops moving while the catalogue
+	// is unchanged; staleness is judged on this field, so a source that was
+	// reconfirmed an hour ago is not reported as two days old.
+	LastCheckedAt *time.Time `json:"lastCheckedAt,omitempty"`
+	// RecordsStored reports whether the snapshot's entries are held locally,
+	// and therefore whether findings can be re-evaluated without the network.
+	RecordsStored bool       `json:"recordsStored"`
+	LastFailureAt *time.Time `json:"lastFailureAt,omitempty"`
+	LastError     string     `json:"lastError,omitempty"`
+	Stale         bool       `json:"stale"`
 }
 
 // EnrichmentState describes what is known about a finding's external feed
@@ -202,6 +226,11 @@ type SecretFinding struct {
 	Verified    bool      `json:"verified"`
 	IsReused    bool      `json:"isReused"`
 	FirstSeen   time.Time `json:"firstSeen"`
+	LastSeen    time.Time `json:"lastSeen"`
+	// Status is open, resolved or reopened. A secret resolves only when a
+	// completed scan of its repository no longer finds it.
+	Status     FindingStatus `json:"status"`
+	ResolvedAt *time.Time    `json:"resolvedAt,omitempty"`
 }
 
 // Regression represents a confirmed posture degradation between checks.
@@ -248,6 +277,8 @@ type Store interface {
 	FeedStore
 	ExposureHistoryStore
 	CalibrationStore
+	HistoryStore
+	SoftwareStore
 
 	// Assets
 	GetAssets(ctx context.Context, status AssetStatus) ([]Asset, error)
@@ -291,7 +322,12 @@ type Store interface {
 	// FirstSeen. ReplaceSignalRegistry swaps the registry atomically so that
 	// no observation is ever mapped against a half-loaded registry.
 	SaveSignalObservation(ctx context.Context, obs *SignalObservation) error
+	// GetSignalObservations returns the live observations: those not resolved.
+	// Posture, scenario coverage and contact derivation read this, so a fixed
+	// weakness stops counting against its domain. GetAllSignalObservations
+	// includes resolved ones, for history and the findings list.
 	GetSignalObservations(ctx context.Context, assetID string) ([]SignalObservation, error)
+	GetAllSignalObservations(ctx context.Context, assetID string) ([]SignalObservation, error)
 	ReplaceSignalRegistry(ctx context.Context, entries []SignalRegistryEntry) error
 	GetSignalRegistry(ctx context.Context) ([]SignalRegistryEntry, error)
 	GetSignalRegistryEntry(ctx context.Context, signalID string) (*SignalRegistryEntry, error)

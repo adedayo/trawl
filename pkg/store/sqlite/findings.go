@@ -4,13 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
 
 	"github.com/adedayo/trawl/pkg/store"
 )
 
 func (s *SQLiteStore) GetFindings(ctx context.Context, assetID string) ([]store.Finding, error) {
-	query := `SELECT id, asset_id, title, COALESCE(description,''), severity, priority, COALESCE(cve,''), epss, kev_listed, COALESCE(status,'open'), category, COALESCE(proof,''), COALESCE(ai_annotation,''), first_seen, last_seen FROM findings`
+	query := `SELECT id, asset_id, title, COALESCE(description,''), severity, priority, COALESCE(cve,''), epss, kev_listed, COALESCE(status,'open'), category, COALESCE(proof,''), COALESCE(ai_annotation,''), first_seen, last_seen, resolved_at FROM findings`
 	var rows *sql.Rows
 	var err error
 
@@ -32,26 +31,96 @@ func (s *SQLiteStore) GetFindings(ctx context.Context, assetID string) ([]store.
 		var f store.Finding
 		var kevInt int
 		var firstSeen, lastSeen string
-		if err := rows.Scan(&f.ID, &f.AssetID, &f.Title, &f.Description, &f.Severity, &f.Priority, &f.CVE, &f.EPSS, &kevInt, &f.Status, &f.Category, &f.Proof, &f.AIAnnotation, &firstSeen, &lastSeen); err != nil {
+		var resolvedAt sql.NullString
+		if err := rows.Scan(&f.ID, &f.AssetID, &f.Title, &f.Description, &f.Severity, &f.Priority, &f.CVE, &f.EPSS, &kevInt, &f.Status, &f.Category, &f.Proof, &f.AIAnnotation, &firstSeen, &lastSeen, &resolvedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan finding: %w", err)
 		}
 		f.KEVListed = kevInt == 1
-		f.FirstSeen, _ = time.Parse(time.RFC3339, firstSeen)
-		f.LastSeen, _ = time.Parse(time.RFC3339, lastSeen)
-		f.Enrichments, err = s.GetFindingEnrichments(ctx, f.ID)
+		if f.FirstSeen, err = parseTS("finding first_seen", firstSeen); err != nil {
+			return nil, err
+		}
+		if f.LastSeen, err = parseTS("finding last_seen", lastSeen); err != nil {
+			return nil, err
+		}
+		if f.ResolvedAt, err = parseTSPtr("finding resolved_at", resolvedAt); err != nil {
+			return nil, err
+		}
+		findings = append(findings, f)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to read findings: %w", err)
+	}
+	// Enrichments are read after the first cursor is closed: a second query
+	// issued while it is open would hold a second connection for the whole
+	// listing.
+	rows.Close()
+	for i := range findings {
+		findings[i].Enrichments, err = s.GetFindingEnrichments(ctx, findings[i].ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query finding enrichments: %w", err)
 		}
-		findings = append(findings, f)
 	}
 
 	return findings, nil
 }
 
+// SaveFinding upserts a finding and, in the same transaction, records the
+// event the write amounts to: first seen, a change in severity or priority,
+// resolution, or reopening. This is the one write path, so the history and the
+// current state cannot disagree.
+//
+// A finding that was resolved and is saved again as open is reopened: the
+// stored status becomes "reopened", which stays until it is resolved again.
 func (s *SQLiteStore) SaveFinding(ctx context.Context, finding *store.Finding) error {
+	now := s.now()
+	if finding.FirstSeen.IsZero() {
+		finding.FirstSeen = now
+	}
+	if finding.Status == "" {
+		finding.Status = store.FindingOpen
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin finding save: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var prevStatus, prevSeverity, prevPriority string
+	err = tx.QueryRowContext(ctx, `SELECT COALESCE(status,'open'), severity, priority FROM findings WHERE id = ?`, finding.ID).
+		Scan(&prevStatus, &prevSeverity, &prevPriority)
+	exists := err == nil
+	if err != nil && err != sql.ErrNoRows {
+		return fmt.Errorf("failed to read finding %s: %w", finding.ID, err)
+	}
+
+	var evType store.EventType
+	var resolvedAt any
+	switch {
+	case !exists:
+		evType = store.EventFirstSeen
+	case prevStatus == string(store.FindingResolved) && finding.Status != store.FindingResolved:
+		evType = store.EventReopened
+		finding.Status = store.FindingReopened
+	case prevStatus != string(store.FindingResolved) && finding.Status == store.FindingResolved:
+		evType = store.EventResolved
+	case prevSeverity != string(finding.Severity):
+		evType = store.EventChanged
+	case prevPriority != finding.Priority && prevPriority != "" && finding.Priority != "":
+		evType = store.EventPriorityChanged
+	}
+	// A finding already reopened stays reopened until it is resolved again; a
+	// later save as plain open must not quietly clear that.
+	if exists && prevStatus == string(store.FindingReopened) && finding.Status == store.FindingOpen {
+		finding.Status = store.FindingReopened
+	}
+	if finding.Status == store.FindingResolved {
+		resolvedAt = formatTS(now)
+	}
+
 	query := `
-	INSERT INTO findings (id, asset_id, title, description, severity, priority, cve, epss, kev_listed, status, category, proof, ai_annotation, first_seen, last_seen)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	INSERT INTO findings (id, asset_id, title, description, severity, priority, cve, epss, kev_listed, status, category, proof, ai_annotation, first_seen, last_seen, resolved_at)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET
 		severity = excluded.severity,
 		priority = excluded.priority,
@@ -59,22 +128,14 @@ func (s *SQLiteStore) SaveFinding(ctx context.Context, finding *store.Finding) e
 		kev_listed = excluded.kev_listed,
 		status = excluded.status,
 		ai_annotation = excluded.ai_annotation,
-		last_seen = excluded.last_seen
+		last_seen = excluded.last_seen,
+		resolved_at = excluded.resolved_at
 	`
 	kevInt := 0
 	if finding.KEVListed {
 		kevInt = 1
 	}
-
-	nowStr := time.Now().Format(time.RFC3339)
-	if finding.FirstSeen.IsZero() {
-		finding.FirstSeen = time.Now()
-	}
-	if finding.Status == "" {
-		finding.Status = store.FindingOpen
-	}
-
-	_, err := s.db.ExecContext(ctx, query,
+	if _, err := tx.ExecContext(ctx, query,
 		finding.ID,
 		finding.AssetID,
 		finding.Title,
@@ -88,18 +149,35 @@ func (s *SQLiteStore) SaveFinding(ctx context.Context, finding *store.Finding) e
 		finding.Category,
 		finding.Proof,
 		finding.AIAnnotation,
-		finding.FirstSeen.Format(time.RFC3339),
-		nowStr,
-	)
-	if err != nil {
+		formatTS(finding.FirstSeen),
+		formatTS(now),
+		resolvedAt,
+	); err != nil {
 		return fmt.Errorf("failed to save finding: %w", err)
 	}
+
 	for _, feed := range []string{store.FeedKEV, store.FeedEPSS, store.FeedNVD} {
-		if _, err := s.db.ExecContext(ctx, `
+		if _, err := tx.ExecContext(ctx, `
 			INSERT OR IGNORE INTO finding_enrichments (finding_id, feed, cve, state)
 			VALUES (?, ?, ?, ?)`, finding.ID, feed, finding.CVE, store.EnrichmentNotChecked); err != nil {
 			return fmt.Errorf("failed to initialize finding enrichment: %w", err)
 		}
+	}
+
+	if evType != "" {
+		e := s.newEvent(ctx, store.SourceFinding, finding.ID, finding.AssetID, evType)
+		e.Severity = finding.Severity
+		e.Priority = finding.Priority
+		if exists {
+			e.PrevSeverity = store.FindingSeverity(prevSeverity)
+			e.PrevPriority = prevPriority
+		}
+		if err := appendEvent(ctx, tx, &e); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit finding %s: %w", finding.ID, err)
 	}
 	return nil
 }

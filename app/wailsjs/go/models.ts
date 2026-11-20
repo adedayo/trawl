@@ -236,6 +236,47 @@ export namespace contact {
 
 }
 
+export namespace narrative {
+	
+	export class Explanation {
+	    level: string;
+	    levelKey: string;
+	    version: string;
+	    whatWeFound: string;
+	    whyItMatters: string;
+	    howItCouldBeAbused: string;
+	    whatGoodLooksLike: string;
+	    whatToDo: string[];
+	    howRescanConfirms: string;
+	    references: string[];
+	    standards?: string[];
+	    exploitationStatus?: string;
+	    coverageNote?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Explanation(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.level = source["level"];
+	        this.levelKey = source["levelKey"];
+	        this.version = source["version"];
+	        this.whatWeFound = source["whatWeFound"];
+	        this.whyItMatters = source["whyItMatters"];
+	        this.howItCouldBeAbused = source["howItCouldBeAbused"];
+	        this.whatGoodLooksLike = source["whatGoodLooksLike"];
+	        this.whatToDo = source["whatToDo"];
+	        this.howRescanConfirms = source["howRescanConfirms"];
+	        this.references = source["references"];
+	        this.standards = source["standards"];
+	        this.exploitationStatus = source["exploitationStatus"];
+	        this.coverageNote = source["coverageNote"];
+	    }
+	}
+
+}
+
 export namespace service {
 	
 	export class AssessOptions {
@@ -276,6 +317,300 @@ export namespace service {
 	        this.reachability = source["reachability"];
 	        this.estimates = this.convertValues(source["estimates"], contact.ContactPriorEstimate);
 	        this.scopeStatement = source["scopeStatement"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class CandidateRefreshSummary {
+	    runId: string;
+	    snapshotId?: string;
+	    queried: number;
+	    cacheHits: number;
+	    candidates: number;
+	    resolved: number;
+	    skippedVersionUnknown: number;
+	    skippedUnmapped: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new CandidateRefreshSummary(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.runId = source["runId"];
+	        this.snapshotId = source["snapshotId"];
+	        this.queried = source["queried"];
+	        this.cacheHits = source["cacheHits"];
+	        this.candidates = source["candidates"];
+	        this.resolved = source["resolved"];
+	        this.skippedVersionUnknown = source["skippedVersionUnknown"];
+	        this.skippedUnmapped = source["skippedUnmapped"];
+	    }
+	}
+	export class FindingEventView {
+	    id: string;
+	    type: string;
+	    at: string;
+	    runId?: string;
+	    cause: string;
+	    prevSeverity?: string;
+	    severity?: string;
+	    prevPriority?: string;
+	    priority?: string;
+	    libraryVersion?: string;
+	    registryVersion?: string;
+	    snapshotId?: string;
+	    note?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new FindingEventView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.type = source["type"];
+	        this.at = source["at"];
+	        this.runId = source["runId"];
+	        this.cause = source["cause"];
+	        this.prevSeverity = source["prevSeverity"];
+	        this.severity = source["severity"];
+	        this.prevPriority = source["prevPriority"];
+	        this.priority = source["priority"];
+	        this.libraryVersion = source["libraryVersion"];
+	        this.registryVersion = source["registryVersion"];
+	        this.snapshotId = source["snapshotId"];
+	        this.note = source["note"];
+	    }
+	}
+	export class FindingSummary {
+	    key: string;
+	    source: string;
+	    assetId: string;
+	    assetValue: string;
+	    title: string;
+	    severity: string;
+	    priority: string;
+	    status: string;
+	    notReassessed: boolean;
+	    notReassessedReason?: string;
+	    signalId?: string;
+	    secretId?: string;
+	    category: string;
+	    cve?: string;
+	    kev: boolean;
+	    unconfirmed?: boolean;
+	    severitySource?: string;
+	    firstSeen: string;
+	    lastSeen: string;
+	    resolvedAt?: string;
+	    ageDays: number;
+	    lastChange: string;
+	    lastChangeType: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new FindingSummary(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.source = source["source"];
+	        this.assetId = source["assetId"];
+	        this.assetValue = source["assetValue"];
+	        this.title = source["title"];
+	        this.severity = source["severity"];
+	        this.priority = source["priority"];
+	        this.status = source["status"];
+	        this.notReassessed = source["notReassessed"];
+	        this.notReassessedReason = source["notReassessedReason"];
+	        this.signalId = source["signalId"];
+	        this.secretId = source["secretId"];
+	        this.category = source["category"];
+	        this.cve = source["cve"];
+	        this.kev = source["kev"];
+	        this.unconfirmed = source["unconfirmed"];
+	        this.severitySource = source["severitySource"];
+	        this.firstSeen = source["firstSeen"];
+	        this.lastSeen = source["lastSeen"];
+	        this.resolvedAt = source["resolvedAt"];
+	        this.ageDays = source["ageDays"];
+	        this.lastChange = source["lastChange"];
+	        this.lastChangeType = source["lastChangeType"];
+	    }
+	}
+	export class FindingChange {
+	    finding: FindingSummary;
+	    event: FindingEventView;
+	
+	    static createFrom(source: any = {}) {
+	        return new FindingChange(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.finding = this.convertValues(source["finding"], FindingSummary);
+	        this.event = this.convertValues(source["event"], FindingEventView);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ScanRunView {
+	    id: string;
+	    kind: string;
+	    assetId?: string;
+	    assetValue?: string;
+	    profile?: string;
+	    outcome: string;
+	    libraryVersion?: string;
+	    registryVersion?: string;
+	    startedAt: string;
+	    finishedAt: string;
+	    coverage: store.CoverageSummary;
+	    coverageFraction: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ScanRunView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.kind = source["kind"];
+	        this.assetId = source["assetId"];
+	        this.assetValue = source["assetValue"];
+	        this.profile = source["profile"];
+	        this.outcome = source["outcome"];
+	        this.libraryVersion = source["libraryVersion"];
+	        this.registryVersion = source["registryVersion"];
+	        this.startedAt = source["startedAt"];
+	        this.finishedAt = source["finishedAt"];
+	        this.coverage = this.convertValues(source["coverage"], store.CoverageSummary);
+	        this.coverageFraction = source["coverageFraction"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class HistoryPoint {
+	    run: ScanRunView;
+	    at: string;
+	    critical: number;
+	    high: number;
+	    medium: number;
+	    low: number;
+	    info: number;
+	    open: number;
+	    resolved: number;
+	    new: number;
+	    resolvedInRun: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new HistoryPoint(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.run = this.convertValues(source["run"], ScanRunView);
+	        this.at = source["at"];
+	        this.critical = source["critical"];
+	        this.high = source["high"];
+	        this.medium = source["medium"];
+	        this.low = source["low"];
+	        this.info = source["info"];
+	        this.open = source["open"];
+	        this.resolved = source["resolved"];
+	        this.new = source["new"];
+	        this.resolvedInRun = source["resolvedInRun"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ChangeSet {
+	    from?: HistoryPoint;
+	    to?: HistoryPoint;
+	    new: FindingChange[];
+	    resolved: FindingChange[];
+	    worsened: FindingChange[];
+	    improved: FindingChange[];
+	    note?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ChangeSet(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.from = this.convertValues(source["from"], HistoryPoint);
+	        this.to = this.convertValues(source["to"], HistoryPoint);
+	        this.new = this.convertValues(source["new"], FindingChange);
+	        this.resolved = this.convertValues(source["resolved"], FindingChange);
+	        this.worsened = this.convertValues(source["worsened"], FindingChange);
+	        this.improved = this.convertValues(source["improved"], FindingChange);
+	        this.note = source["note"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -400,6 +735,80 @@ export namespace service {
 		    return a;
 		}
 	}
+	export class DiscoveryOptions {
+	    depth: number;
+	    budget: number;
+	    maxSans: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new DiscoveryOptions(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.depth = source["depth"];
+	        this.budget = source["budget"];
+	        this.maxSans = source["maxSans"];
+	    }
+	}
+	export class ProposedDomain {
+	    domain: string;
+	    via: string;
+	    depth: number;
+	    hostnames: string[];
+	    issuer: string;
+	    discoveredAt: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProposedDomain(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.domain = source["domain"];
+	        this.via = source["via"];
+	        this.depth = source["depth"];
+	        this.hostnames = source["hostnames"];
+	        this.issuer = source["issuer"];
+	        this.discoveredAt = source["discoveredAt"];
+	    }
+	}
+	export class DiscoveryResult {
+	    proposals: ProposedDomain[];
+	    searched: string[];
+	    budgetExhausted: boolean;
+	    errors: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new DiscoveryResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.proposals = this.convertValues(source["proposals"], ProposedDomain);
+	        this.searched = source["searched"];
+	        this.budgetExhausted = source["budgetExhausted"];
+	        this.errors = source["errors"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class ScenarioView {
 	    scenario: string;
 	    coverage: store.CoverageSummary;
@@ -500,6 +909,177 @@ export namespace service {
 		    return a;
 		}
 	}
+	
+	export class FindingProvenance {
+	    runId?: string;
+	    libraryVersion?: string;
+	    registryVersion?: string;
+	    feedSnapshots?: store.FeedSnapshot[];
+	
+	    static createFrom(source: any = {}) {
+	        return new FindingProvenance(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.runId = source["runId"];
+	        this.libraryVersion = source["libraryVersion"];
+	        this.registryVersion = source["registryVersion"];
+	        this.feedSnapshots = this.convertValues(source["feedSnapshots"], store.FeedSnapshot);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class FindingDetail {
+	    key: string;
+	    source: string;
+	    assetId: string;
+	    assetValue: string;
+	    title: string;
+	    severity: string;
+	    priority: string;
+	    status: string;
+	    notReassessed: boolean;
+	    notReassessedReason?: string;
+	    signalId?: string;
+	    secretId?: string;
+	    category: string;
+	    cve?: string;
+	    kev: boolean;
+	    unconfirmed?: boolean;
+	    severitySource?: string;
+	    firstSeen: string;
+	    lastSeen: string;
+	    resolvedAt?: string;
+	    ageDays: number;
+	    lastChange: string;
+	    lastChangeType: string;
+	    description?: string;
+	    detail?: string;
+	    evidence?: string;
+	    checkId?: string;
+	    checkState?: string;
+	    checkReason?: string;
+	    observedString?: string;
+	    matchedVendor?: string;
+	    matchedProduct?: string;
+	    matchedVersion?: string;
+	    lookupSnapshotId?: string;
+	    lookupAt?: string;
+	    explanation: narrative.Explanation;
+	    narrativeVersion: string;
+	    timeline: FindingEventView[];
+	    regressions: store.Regression[];
+	    provenance: FindingProvenance;
+	
+	    static createFrom(source: any = {}) {
+	        return new FindingDetail(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.source = source["source"];
+	        this.assetId = source["assetId"];
+	        this.assetValue = source["assetValue"];
+	        this.title = source["title"];
+	        this.severity = source["severity"];
+	        this.priority = source["priority"];
+	        this.status = source["status"];
+	        this.notReassessed = source["notReassessed"];
+	        this.notReassessedReason = source["notReassessedReason"];
+	        this.signalId = source["signalId"];
+	        this.secretId = source["secretId"];
+	        this.category = source["category"];
+	        this.cve = source["cve"];
+	        this.kev = source["kev"];
+	        this.unconfirmed = source["unconfirmed"];
+	        this.severitySource = source["severitySource"];
+	        this.firstSeen = source["firstSeen"];
+	        this.lastSeen = source["lastSeen"];
+	        this.resolvedAt = source["resolvedAt"];
+	        this.ageDays = source["ageDays"];
+	        this.lastChange = source["lastChange"];
+	        this.lastChangeType = source["lastChangeType"];
+	        this.description = source["description"];
+	        this.detail = source["detail"];
+	        this.evidence = source["evidence"];
+	        this.checkId = source["checkId"];
+	        this.checkState = source["checkState"];
+	        this.checkReason = source["checkReason"];
+	        this.observedString = source["observedString"];
+	        this.matchedVendor = source["matchedVendor"];
+	        this.matchedProduct = source["matchedProduct"];
+	        this.matchedVersion = source["matchedVersion"];
+	        this.lookupSnapshotId = source["lookupSnapshotId"];
+	        this.lookupAt = source["lookupAt"];
+	        this.explanation = this.convertValues(source["explanation"], narrative.Explanation);
+	        this.narrativeVersion = source["narrativeVersion"];
+	        this.timeline = this.convertValues(source["timeline"], FindingEventView);
+	        this.regressions = this.convertValues(source["regressions"], store.Regression);
+	        this.provenance = this.convertValues(source["provenance"], FindingProvenance);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	export class FindingFilter {
+	    status?: string;
+	    severity?: string;
+	    source?: string;
+	    assetId?: string;
+	    changedSince?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new FindingFilter(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.status = source["status"];
+	        this.severity = source["severity"];
+	        this.source = source["source"];
+	        this.assetId = source["assetId"];
+	        this.changedSince = source["changedSince"];
+	    }
+	}
+	
+	
+	
+	
+	
 	
 
 }
@@ -634,6 +1214,69 @@ export namespace store {
 	        this.expectedBlindSeconds = source["expectedBlindSeconds"];
 	        this.worstBlindSeconds = source["worstBlindSeconds"];
 	    }
+	}
+	export class AssetSoftware {
+	    id: string;
+	    assetId: string;
+	    observedName: string;
+	    cpePart?: string;
+	    vendor?: string;
+	    product?: string;
+	    mappingState: string;
+	    mappingVersion?: string;
+	    version?: string;
+	    versionState: string;
+	    source: string;
+	    rawString: string;
+	    status: string;
+	    // Go type: time
+	    firstSeen: any;
+	    // Go type: time
+	    lastSeen: any;
+	    // Go type: time
+	    supersededAt?: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new AssetSoftware(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.assetId = source["assetId"];
+	        this.observedName = source["observedName"];
+	        this.cpePart = source["cpePart"];
+	        this.vendor = source["vendor"];
+	        this.product = source["product"];
+	        this.mappingState = source["mappingState"];
+	        this.mappingVersion = source["mappingVersion"];
+	        this.version = source["version"];
+	        this.versionState = source["versionState"];
+	        this.source = source["source"];
+	        this.rawString = source["rawString"];
+	        this.status = source["status"];
+	        this.firstSeen = this.convertValues(source["firstSeen"], null);
+	        this.lastSeen = this.convertValues(source["lastSeen"], null);
+	        this.supersededAt = this.convertValues(source["supersededAt"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class AttributionProvenance {
 	    assetId: string;
@@ -816,6 +1459,22 @@ export namespace store {
 		    return a;
 		}
 	}
+	export class FeedRecord {
+	    cve: string;
+	    kevListed?: boolean;
+	    epss?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new FeedRecord(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.cve = source["cve"];
+	        this.kevListed = source["kevListed"];
+	        this.epss = source["epss"];
+	    }
+	}
 	export class FeedSnapshot {
 	    id: string;
 	    feed: string;
@@ -861,6 +1520,9 @@ export namespace store {
 	    feed: string;
 	    snapshot?: FeedSnapshot;
 	    // Go type: time
+	    lastCheckedAt?: any;
+	    recordsStored: boolean;
+	    // Go type: time
 	    lastFailureAt?: any;
 	    lastError?: string;
 	    stale: boolean;
@@ -873,6 +1535,8 @@ export namespace store {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.feed = source["feed"];
 	        this.snapshot = this.convertValues(source["snapshot"], FeedSnapshot);
+	        this.lastCheckedAt = this.convertValues(source["lastCheckedAt"], null);
+	        this.recordsStored = source["recordsStored"];
 	        this.lastFailureAt = this.convertValues(source["lastFailureAt"], null);
 	        this.lastError = source["lastError"];
 	        this.stale = source["stale"];
@@ -961,6 +1625,8 @@ export namespace store {
 	    firstSeen: any;
 	    // Go type: time
 	    lastSeen: any;
+	    // Go type: time
+	    resolvedAt?: any;
 	    enrichments?: FindingEnrichment[];
 	
 	    static createFrom(source: any = {}) {
@@ -984,6 +1650,7 @@ export namespace store {
 	        this.aiAnnotation = source["aiAnnotation"];
 	        this.firstSeen = this.convertValues(source["firstSeen"], null);
 	        this.lastSeen = this.convertValues(source["lastSeen"], null);
+	        this.resolvedAt = this.convertValues(source["resolvedAt"], null);
 	        this.enrichments = this.convertValues(source["enrichments"], FindingEnrichment);
 	    }
 	
@@ -1062,6 +1729,11 @@ export namespace store {
 	    isReused: boolean;
 	    // Go type: time
 	    firstSeen: any;
+	    // Go type: time
+	    lastSeen: any;
+	    status: string;
+	    // Go type: time
+	    resolvedAt?: any;
 	
 	    static createFrom(source: any = {}) {
 	        return new SecretFinding(source);
@@ -1080,6 +1752,9 @@ export namespace store {
 	        this.verified = source["verified"];
 	        this.isReused = source["isReused"];
 	        this.firstSeen = this.convertValues(source["firstSeen"], null);
+	        this.lastSeen = this.convertValues(source["lastSeen"], null);
+	        this.status = source["status"];
+	        this.resolvedAt = this.convertValues(source["resolvedAt"], null);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -1160,6 +1835,28 @@ export namespace store {
 		    }
 		    return a;
 		}
+	}
+	export class SoftwareCoverage {
+	    assetId: string;
+	    state: string;
+	    identified: number;
+	    versionUnknown: number;
+	    unmapped: number;
+	    superseded: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new SoftwareCoverage(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.assetId = source["assetId"];
+	        this.state = source["state"];
+	        this.identified = source["identified"];
+	        this.versionUnknown = source["versionUnknown"];
+	        this.unmapped = source["unmapped"];
+	        this.superseded = source["superseded"];
+	    }
 	}
 
 }

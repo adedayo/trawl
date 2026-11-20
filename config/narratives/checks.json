@@ -1,0 +1,289 @@
+{
+  "version": "1.0.0",
+  "entries": [
+    {
+      "level": "check",
+      "key": "axfr",
+      "whyItMatters": "A zone transfer is a way for nameservers to copy a domain's full list of records from one to another. It is meant for your own secondary servers. If anyone on the internet can ask for it, they receive a complete list of your named systems in one request.",
+      "howItCouldBeAbused": "An attacker wants a full inventory of your systems, including ones that were never meant to be found. The consequence for the organization is that internal, test and management systems become easy to target.",
+      "whatGoodLooksLike": "Good looks like zone copies being refused to everyone except your own secondary servers, identified by address and, ideally, by a shared key.",
+      "whatToDo": [
+        "Ask your DNS administrator to restrict zone transfers to your secondary servers only.",
+        "Where possible, require a shared key on those transfers as well as an address check.",
+        "Review the records that were disclosed, and decide whether any name needs to be changed or retired."
+      ],
+      "howRescanConfirms": "The next scan asks each nameserver for a zone transfer again. The finding closes when every nameserver refuses the request. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "check",
+      "key": "bimi",
+      "whyItMatters": "BIMI (Brand Indicators for Message Identification) lets a company show its logo next to its email in supporting mailboxes. It only works when the domain already enforces strong email authentication, and some providers also want a verified certificate for the logo. It is a brand feature and not a core security control.",
+      "howItCouldBeAbused": "An attacker wants recipients to trust a message because it appears to carry your brand. The consequence for the organization is that a misconfigured logo record gives no benefit, and a missing policy behind it leaves the domain open to imitation.",
+      "whatGoodLooksLike": "Good looks like a logo record that is only published once the domain enforces a firm email policy, with the logo served over an encrypted link and a verified certificate where the mailbox provider asks for one.",
+      "whatToDo": [
+        "Ask your email administrator whether the brand logo is wanted in recipients' mailboxes.",
+        "If it is, make sure the domain enforces a reject or quarantine email policy first.",
+        "Publish the logo over an HTTPS link and, if required, obtain a verified mark certificate.",
+        "If it is not wanted, remove the record."
+      ],
+      "howRescanConfirms": "The next scan reads the logo record and the email policy again. The finding closes when the record, the policy and the certificate agree with each other. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "check",
+      "key": "caa",
+      "whyItMatters": "A certificate authority is a company that issues the certificates browsers trust. A CAA (Certification Authority Authorization) record is a published instruction naming which authorities may issue certificates for your domain. Without one, any authority may issue a certificate if it is asked.",
+      "howItCouldBeAbused": "An attacker wants a valid certificate for one of your names so that a fake site or an intercepted connection looks genuine. The consequence for the organization is misled customers and staff, and a harder job proving which certificates were legitimate.",
+      "whatGoodLooksLike": "Good looks like a short list of the certificate authorities you really use, applying to ordinary and wildcard certificates, with an address for reports of unexpected requests.",
+      "whatToDo": [
+        "Ask your web or platform team which authorities issue your certificates.",
+        "Ask your DNS administrator to publish CAA records that name only those authorities.",
+        "Add a reporting address so that unexpected requests reach the security team."
+      ],
+      "howRescanConfirms": "The next scan reads the CAA records again. The finding closes when the policy no longer has the gap that was flagged. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "check",
+      "key": "ct",
+      "whyItMatters": "Certificate transparency logs are public lists of every certificate issued for every name. They show which hostnames an organization has, including some that are not published in the Domain Name System (DNS). The logs are useful for oversight, and they are equally readable by anyone planning an attack.",
+      "howItCouldBeAbused": "An attacker wants to find names that are not advertised, such as internal or test systems. The consequence for the organization is that systems it considered hidden are listed publicly, and some may be unmonitored.",
+      "whatGoodLooksLike": "Good looks like public certificates being issued only for names the business wants to be known, with internal systems using a private authority, and a known owner for every public name.",
+      "whatToDo": [
+        "Ask your web or platform team who requested each certificate named in the finding.",
+        "Retire certificates for systems that no longer exist.",
+        "Use a private certificate authority for internal systems, so their names do not appear in public logs.",
+        "Check that each named host is known, owned and monitored."
+      ],
+      "howRescanConfirms": "The next scan reads the public logs again. The finding closes when the flagged names no longer appear in newly issued certificates, or when each one is confirmed as intended. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "check",
+      "key": "dangle",
+      "whyItMatters": "A cloud provider hands out addresses on a temporary basis. If your DNS still points at an address that has been released, the address may now belong to another customer. Your name then leads to a system you do not control.",
+      "howItCouldBeAbused": "An attacker wants to be handed an address your name points at, so that visitors reach their system under your name. The consequence for the organization is fake content on your domain, stolen logins and loss of trust.",
+      "whatGoodLooksLike": "Good looks like DNS records that point only at addresses you currently hold, and which are removed when a cloud resource is released.",
+      "whatToDo": [
+        "Ask your DNS administrator to remove or correct the record if the resource is gone.",
+        "Ask the cloud account owner to confirm whether the address is still assigned to you.",
+        "Where possible, use the provider's own alias record rather than a fixed address.",
+        "Add record removal to the checklist for releasing a cloud resource."
+      ],
+      "howRescanConfirms": "The next scan connects to the address and reads the certificate again. The finding closes when the record is removed or the address is confirmed as yours. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "check",
+      "key": "dkim",
+      "whyItMatters": "DKIM (DomainKeys Identified Mail) adds a digital signature to outgoing email. A published key lets receivers check that the message really came from your domain and was not changed. Missing, weak or broken keys mean that this proof is unavailable or can be forged.",
+      "howItCouldBeAbused": "An attacker wants to send mail that passes as yours, or to alter mail in transit. The consequence for the organization is fraudulent messages being trusted by customers and staff, and genuine mail being treated as suspect.",
+      "whatGoodLooksLike": "Good looks like every system that sends mail for you signing with a strong, current key that is published in DNS, with old and test keys retired.",
+      "whatToDo": [
+        "Ask your email administrator which systems send mail for the domain and whether each one signs it.",
+        "Publish the signing key that each provider gives you.",
+        "Replace short or revoked keys with strong ones, and remove test flags once signing works.",
+        "Rotate keys on a regular schedule."
+      ],
+      "howRescanConfirms": "The next scan looks for signing keys again. The finding closes when a valid, strong key is found where the check looks. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "check",
+      "key": "dmarc",
+      "whyItMatters": "DMARC (Domain-based Message Authentication, Reporting and Conformance) tells receiving mail systems what to do with mail that claims to be from your domain but fails authentication. It also sends you reports showing who is using your name. Without a working policy, receivers decide for themselves, and often deliver forged mail.",
+      "howItCouldBeAbused": "An attacker wants to send email that looks like it comes from your organization. The consequence is customers, partners and staff being tricked into paying fraudulent invoices, sharing data or opening harmful files, with your brand taking the blame.",
+      "whatGoodLooksLike": "Good looks like one valid published policy that rejects mail that fails authentication, applies to the whole domain and its subdomains, and sends reports to a mailbox someone reads.",
+      "whatToDo": [
+        "Ask your email administrator to publish a policy, starting in monitoring mode, with a reporting address.",
+        "Read the reports to find every legitimate sender and fix any that fail.",
+        "Move the policy to quarantine and then to reject, and apply it to all mail.",
+        "Keep reviewing the reports, and when you add a new sender."
+      ],
+      "howRescanConfirms": "The next scan reads the policy record again. The finding closes when the published policy is valid and no longer shows the weakness that was flagged. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "check",
+      "key": "dnssec",
+      "whyItMatters": "DNSSEC (Domain Name System Security Extensions) adds digital signatures to your domain's records, so that anyone looking them up can check they were not forged. It only works if the signed zone and the parent registry agree about the keys, and if signatures are renewed before they expire. A broken setup can make a domain unreachable for users whose providers check signatures.",
+      "howItCouldBeAbused": "An attacker wants to forge answers about your domain to redirect people or mail. A broken setup brings a different consequence for the organization: customers behind validating resolvers cannot reach you at all.",
+      "whatGoodLooksLike": "Good looks like a signed zone, a matching record at the registry, strong algorithms, and automatic renewal of signatures with monitoring that warns before they expire.",
+      "whatToDo": [
+        "Ask your DNS administrator and your registrar who owns signing and the registry record.",
+        "Make the registry record match the keys the zone currently publishes.",
+        "Turn on automatic signature renewal and add expiry monitoring.",
+        "Test from a resolver that checks signatures after every key change."
+      ],
+      "howRescanConfirms": "The next scan follows the chain of trust and checks signature dates again. The finding closes when the chain is complete and current. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "check",
+      "key": "mtasts",
+      "whyItMatters": "MTA-STS (Mail Transfer Agent Strict Transport Security) is a published policy that tells other mail servers to deliver to you only over encrypted connections, and only to the servers you name. Without it, mail to you can be downgraded to unencrypted delivery by someone on the network path.",
+      "howItCouldBeAbused": "An attacker wants to read or alter email on its way to you. The consequence for the organization is exposure of confidential messages, such as contracts, password resets and personal data, without anyone noticing.",
+      "whatGoodLooksLike": "Good looks like a policy file served over a valid certificate, in enforcing mode, naming exactly the mail servers you use, with a matching identifier in DNS and a long enough lifetime.",
+      "whatToDo": [
+        "Ask your email administrator to confirm that every mail server supports encrypted delivery with a valid certificate.",
+        "Publish or correct the policy file and its DNS record, starting in testing mode.",
+        "Switch to enforcing mode once reports show that delivery works.",
+        "Update the policy whenever your mail provider changes."
+      ],
+      "howRescanConfirms": "The next scan fetches the policy and reads its DNS record again. The finding closes when the policy is reachable, valid and covers your mail servers. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "check",
+      "key": "mx",
+      "whyItMatters": "Mail exchanger (MX) records tell senders which servers receive email for your domain. They need to point at working servers, in a form senders understand. Some domains never use email at all, and they should say so explicitly.",
+      "howItCouldBeAbused": "An attacker wants to disrupt your email or to pose as a domain that never sends any. The consequence for the organization is lost mail when a record is broken, and extra room for forged mail from a domain that should be silent.",
+      "whatGoodLooksLike": "Good looks like MX records that name working hosts directly, more than one of them and ideally from more than one provider, and a clear statement of no mail for domains that do not use it.",
+      "whatToDo": [
+        "Ask your email administrator which servers should receive mail for the domain.",
+        "Correct MX records that do not resolve, or that point at an alias.",
+        "Add a second server or provider if only one is used.",
+        "For domains that do not use email, publish the standard no-mail record."
+      ],
+      "howRescanConfirms": "The next scan reads and resolves the MX records again. The finding closes when the records match the condition the check looks for. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "check",
+      "key": "net",
+      "whyItMatters": "Every public system lives on a network run by some provider, in some country, and a few names point to addresses that cannot be reached from the internet at all. This check reports where public names lead. It highlights things to confirm, and some are only facts.",
+      "howItCouldBeAbused": "An attacker may use a public record that exposes internal addressing, which helps with planning an attack from inside. The larger risk for the organization is a system hosted somewhere nobody approved, which escapes agreed controls.",
+      "whatGoodLooksLike": "Good looks like public names that lead only to public addresses on providers and in places the business has approved, each with a named owner.",
+      "whatToDo": [
+        "Ask the owner of the name to confirm the provider and location are expected.",
+        "Remove public records that point into private address space, and keep them in an internal zone.",
+        "Record decisions about approved providers and locations so future reviews are quick."
+      ],
+      "howRescanConfirms": "The next scan resolves the same names and looks up their hosting again. The finding closes when the name no longer leads to the flagged location, or the location is recorded as expected. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "check",
+      "key": "ns",
+      "whyItMatters": "Nameservers are the servers that answer questions about your domain. They need to be several, on separate networks, in agreement with the registry, and each must answer for the domain. If they do not, the domain is fragile and, in some cases, open to abuse.",
+      "howItCouldBeAbused": "An attacker wants to disrupt the servers that answer for your domain, or to use one of them for attacks on others. The consequence for the organization is website and email outages and a damaged reputation.",
+      "whatGoodLooksLike": "Good looks like at least two nameservers on separate networks, ideally with separate providers, agreeing with the registry and with each other, answering for your domain only.",
+      "whatToDo": [
+        "Ask your DNS administrator to compare the nameservers at your registrar with the ones in your zone.",
+        "Remove or repair any nameserver that does not answer for the domain.",
+        "Add servers on different networks or providers where there is only one.",
+        "Stop authoritative servers from answering for other domains."
+      ],
+      "howRescanConfirms": "The next scan queries each nameserver again. The finding closes when the nameserver set no longer shows the fault that was flagged. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "check",
+      "key": "spf",
+      "whyItMatters": "SPF (Sender Policy Framework) is a published list of the servers allowed to send email for your domain. Receivers use it to spot forged mail. A missing, broken or too generous list means forged mail is accepted, and some faults are invisible to anyone who simply reads the record.",
+      "howItCouldBeAbused": "An attacker wants to send email that looks like it comes from your organization. The consequence is customers, partners and staff being tricked into paying fraudulent invoices, sharing data or opening harmful files, with your brand taking the blame.",
+      "whatGoodLooksLike": "Good looks like one valid record that lists exactly your senders, uses no more than the allowed number of lookups, and ends in a firm rule that rejects everything else.",
+      "whatToDo": [
+        "Ask your email administrator to list every system that sends mail for the domain.",
+        "Publish one record that covers exactly those senders and ends with a firm rejection rule.",
+        "Remove providers you no longer use, and keep the record within the lookup limits.",
+        "Review the list whenever you add or change a mail provider."
+      ],
+      "howRescanConfirms": "The next scan reads and evaluates the record again. The finding closes when the record is valid and no longer shows the problem that was flagged. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "check",
+      "key": "tko",
+      "whyItMatters": "Organizations often point a name at a service run by someone else. If the service is closed but the name is left behind, someone else may be able to claim it. The name then carries your brand but is no longer under your control.",
+      "howItCouldBeAbused": "An attacker wants to publish content under your own name. The consequence for the organization is fake pages that look genuine, stolen logins or cookies, convincing phishing, and reputational harm that is hard to undo.",
+      "whatGoodLooksLike": "Good looks like every alias and delegation pointing at a resource that exists and that you control, with records removed in the same change that retires the service.",
+      "whatToDo": [
+        "Ask your DNS administrator to remove the record now if the service is no longer needed.",
+        "If the service is still needed, have its owner reclaim the resource with the provider.",
+        "Check whether the name was relied on for logins, cookies or allow-lists, and review any recent use.",
+        "Add record removal to the checklist for retiring a service."
+      ],
+      "howRescanConfirms": "The next scan reads the record and checks the target again. The finding closes when the record is removed or points at a resource confirmed to exist and be yours. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "check",
+      "key": "tlsrpt",
+      "whyItMatters": "TLS-RPT (Transport Layer Security Reporting) is a published address where other mail servers send reports when they cannot deliver mail to you securely. Without it, a failure in encrypted delivery can go on for a long time with nobody being told.",
+      "howItCouldBeAbused": "An attacker may try to disrupt or downgrade encrypted mail to you, and a missing reporting address means nobody notices. The consequence for the organization is weaker mail protection for longer than necessary.",
+      "whatGoodLooksLike": "Good looks like a valid reporting record naming a mailbox or service that someone reads, paired with a mail transport policy.",
+      "whatToDo": [
+        "Ask your email administrator to choose a mailbox or reporting service to receive the reports.",
+        "Publish the record with that destination.",
+        "Assign someone to review the reports and act on failures."
+      ],
+      "howRescanConfirms": "The next scan reads the reporting record again. The finding closes when a valid record with a destination is found. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "check",
+      "key": "wild",
+      "whyItMatters": "A wildcard record answers for every name that has not been set up individually. That is sometimes intended, but it also makes mistyped, forgotten and invented names resolve as though they were real. Wildcards that point to a third party also hand that party control over every such name.",
+      "howItCouldBeAbused": "An attacker wants a convincing name under your domain that nobody is watching. The consequence for the organization is lookalike addresses that appear to be yours, and a wider area that has to be defended.",
+      "whatGoodLooksLike": "Good looks like explicit records for the names that are used, and a wildcard only where there is a clear need, pointing at something you control.",
+      "whatToDo": [
+        "Ask your DNS administrator why the wildcard exists and which names rely on it.",
+        "Replace it with explicit records for those names.",
+        "If a wildcard is needed, make sure it points at something you control."
+      ],
+      "howRescanConfirms": "The next scan looks for the wildcard again. The finding closes when the record is gone or no longer matches the condition flagged. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "check",
+      "key": "missing-hsts",
+      "whyItMatters": "HSTS (Hypertext Transfer Protocol Strict Transport Security) is a header in which a website tells browsers to use only encrypted connections to it. Without it, a browser can be tricked into using an unencrypted connection the first time, or after a link is altered.",
+      "howItCouldBeAbused": "An attacker wants to read or change what your visitors send and receive. The consequence for the organization is exposed sessions, altered pages and stolen logins for people on a shared or hostile network.",
+      "whatGoodLooksLike": "Good looks like the header being sent on every encrypted response, with a long lifetime, once every part of the site works over encryption.",
+      "whatToDo": [
+        "Ask the website owner to confirm that the whole site and its subdomains work over HTTPS (Hypertext Transfer Protocol Secure).",
+        "Add the strict transport header on the web server or content delivery service.",
+        "Start with a short lifetime and lengthen it once nothing breaks."
+      ],
+      "howRescanConfirms": "The next scan fetches the site again and looks for the header. The finding closes when the header is present. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "check",
+      "key": "weak-tls-version",
+      "whyItMatters": "Transport Layer Security (TLS) is the encryption that protects connections to a website. Old versions have known flaws and are no longer accepted by modern guidance. A site that still offers them can be pushed onto weaker encryption.",
+      "howItCouldBeAbused": "An attacker wants to read or alter traffic between your visitors and your site. The consequence for the organization is exposure of what users send, such as credentials and personal data.",
+      "whatGoodLooksLike": "Good looks like only current versions of the encryption standard being offered, with the older ones switched off.",
+      "whatToDo": [
+        "Ask the owner of the web service to switch off the obsolete encryption versions.",
+        "Check that any old client that depends on them is identified and upgraded first.",
+        "Keep the server software updated so that defaults stay current."
+      ],
+      "howRescanConfirms": "The next scan connects again and records which encryption versions are accepted. The finding closes when only current versions are accepted. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "check",
+      "key": "http-no-https-redirect",
+      "whyItMatters": "When a visitor types a plain web address, the first request is unencrypted. If the site does not send them on to the encrypted version, they stay on an unencrypted connection, and what they send can be read or changed on the way.",
+      "howItCouldBeAbused": "An attacker wants to read or alter traffic to your site. The consequence for the organization is exposed logins and sessions, and altered pages shown to visitors.",
+      "whatGoodLooksLike": "Good looks like every unencrypted request being sent straight to the encrypted address of the same page.",
+      "whatToDo": [
+        "Ask the website owner to redirect all plain web requests to the encrypted address.",
+        "Check that the encrypted address is the one your business treats as the real site.",
+        "Add the strict transport header once the redirect works."
+      ],
+      "howRescanConfirms": "The next scan requests the plain address again. The finding closes when it is redirected to the encrypted one. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "check",
+      "key": "expired-certificate",
+      "whyItMatters": "A website certificate is what lets browsers confirm they are talking to the right site. When it expires, browsers show a warning or refuse to load the site, and automated connections may fail. Expiry usually means that renewal was forgotten or broke.",
+      "howItCouldBeAbused": "An attacker benefits when users are used to clicking through certificate warnings. The consequence for the organization is lost access to the service, lost trust, and visitors trained to ignore warnings that may one day be genuine.",
+      "whatGoodLooksLike": "Good looks like certificates renewed automatically well before they run out, with monitoring that alerts the owner in advance.",
+      "whatToDo": [
+        "Ask the owner of the service to renew the certificate now.",
+        "Find out why renewal did not happen, and fix that cause.",
+        "Set up automatic renewal and an alert well before the next expiry."
+      ],
+      "howRescanConfirms": "The next scan connects again and reads the certificate dates. The finding closes when the certificate is current. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "check",
+      "key": "expiring-certificate",
+      "whyItMatters": "A website certificate is what lets browsers confirm they are talking to the right site. This one is close to its expiry date. If it is not renewed in time, browsers will show a warning or refuse to load the site.",
+      "howItCouldBeAbused": "An attacker benefits when users are used to clicking through certificate warnings. The consequence for the organization is a likely outage and lost trust if the certificate is allowed to run out.",
+      "whatGoodLooksLike": "Good looks like certificates renewed automatically well before they run out, with monitoring that alerts the owner in advance.",
+      "whatToDo": [
+        "Ask the owner of the service to renew the certificate before it expires.",
+        "Check that automatic renewal is set up and working.",
+        "Add an alert well before expiry so that this does not need a scan to notice."
+      ],
+      "howRescanConfirms": "The next scan connects again and reads the certificate dates. The finding closes when the certificate has a comfortable time left. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    }
+  ]
+}

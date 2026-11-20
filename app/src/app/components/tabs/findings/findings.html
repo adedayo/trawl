@@ -1,98 +1,151 @@
-<div [class]="theme() === 'dark' ? 'bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden shadow-xl' : 'bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm'">
-  <div [class]="theme() === 'dark' ? 'px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900' : 'px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50'">
-    <div class="flex items-center space-x-2">
-      <h2 [class]="theme() === 'dark' ? 'text-sm font-bold text-slate-200 uppercase tracking-wider' : 'text-sm font-bold text-slate-800 uppercase tracking-wider'">All External Exposure Findings</h2>
-      <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 text-xs font-mono' : 'px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 text-xs font-mono'">{{ findings().length }} Total</span>
-      @if (uncheckedKevCount() > 0) {
-        <span [class]="theme() === 'dark' ? 'px-2 py-0.5 rounded-full bg-amber-950/70 text-amber-300 border border-amber-900 text-xs font-mono' : 'px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-mono'">{{ uncheckedKevCount() }} KEV not checked</span>
-      }
+@let dark = theme() === 'dark';
+@if (selectedKey(); as key) {
+  <!-- Loaded on demand: the detail is only needed once a finding is opened -->
+  @defer (on immediate) {
+    <app-finding-detail [findingKey]="key" (closed)="closeDetail()"></app-finding-detail>
+  } @placeholder {
+    <p role="status" [class]="dark ? 'text-sm text-slate-400' : 'text-sm text-slate-600'">Loading this finding.</p>
+  }
+} @else {
+<div [class]="dark ? 'bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden shadow-xl' : 'bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm'">
+  <div [class]="dark ? 'px-6 py-4 border-b border-slate-800 bg-slate-900 space-y-4' : 'px-6 py-4 border-b border-slate-200 bg-slate-50 space-y-4'">
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <div class="flex items-center flex-wrap gap-2">
+        <h2 data-findings-heading tabindex="-1" [class]="dark ? 'text-sm font-bold text-slate-200 uppercase tracking-wider outline-none' : 'text-sm font-bold text-slate-800 uppercase tracking-wider outline-none'">External Exposure Findings</h2>
+        <span data-testid="findings-count" [class]="dark ? 'px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 text-xs font-mono' : 'px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-xs font-mono'">Showing {{ visible().length }} of {{ index().length }} recorded</span>
+        @if (uncheckedKevCount() > 0) {
+          <span [class]="dark ? 'px-2 py-0.5 rounded-full bg-amber-950/70 text-amber-300 border border-amber-900 text-xs font-mono' : 'px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-mono'">{{ uncheckedKevCount() }} CVE finding(s) with KEV status not checked</span>
+        }
+      </div>
+      <button
+        type="button"
+        data-testid="refresh-candidates-btn"
+        [disabled]="wailsIpc.isRefreshingCandidates()"
+        (click)="wailsIpc.refreshCandidates(false)"
+        [class]="dark ? 'px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 disabled:opacity-50 border border-slate-700 text-xs font-semibold text-cyan-300 transition' : 'px-3 py-1.5 rounded-md bg-white hover:bg-slate-100 disabled:opacity-50 border border-slate-300 text-xs font-semibold text-cyan-800 transition'">
+        {{ wailsIpc.isRefreshingCandidates() ? 'Checking NVD candidates...' : 'Check software candidates' }}
+      </button>
     </div>
-  </div>
+    @if (wailsIpc.candidateRefreshError()) {
+      <p role="alert" [class]="dark ? 'text-xs text-amber-300' : 'text-xs text-amber-900'">
+        Software candidate lookup failed: {{ wailsIpc.candidateRefreshError() }}
+      </p>
+    }
 
-  <div [class]="theme() === 'dark' ? 'divide-y divide-slate-800/80' : 'divide-y divide-slate-100'">
-    @for (finding of findings(); track finding.id) {
-      <div [class]="theme() === 'dark' ? 'p-6 hover:bg-slate-800/40 transition flex flex-col md:flex-row md:items-center justify-between gap-4' : 'p-6 hover:bg-slate-50 transition flex flex-col md:flex-row md:items-center justify-between gap-4'">
-        <div class="space-y-2 flex-1">
-          <div class="flex items-center space-x-3 flex-wrap gap-y-2">
-            <!-- Severity Badge -->
-            @if (finding.severity === 'critical') {
-              <span class="px-2.5 py-0.5 rounded-md bg-rose-600 text-white text-xs font-mono font-bold uppercase">CRITICAL</span>
-            } @else if (finding.severity === 'high') {
-              <span class="px-2.5 py-0.5 rounded-md bg-amber-500 text-slate-950 text-xs font-mono font-bold uppercase">HIGH</span>
-            } @else if (finding.severity === 'medium') {
-              <span class="px-2.5 py-0.5 rounded-md bg-blue-600 text-white text-xs font-mono font-bold uppercase">MEDIUM</span>
-            } @else if (finding.severity === 'low') {
-              <span class="px-2.5 py-0.5 rounded-md bg-slate-600 text-white text-xs font-mono font-bold uppercase">LOW</span>
-            } @else {
-              <span class="px-2.5 py-0.5 rounded-md bg-slate-500 text-white text-xs font-mono font-bold uppercase">INFO</span>
-            }
-
-            @if (finding.status === 'resolved') {
-              <span class="px-2.5 py-0.5 rounded-md bg-emerald-600 text-white text-xs font-mono font-bold uppercase">RESOLVED</span>
-            } @else {
-              <span class="px-2.5 py-0.5 rounded-md bg-slate-600 text-white text-xs font-mono font-bold uppercase">OPEN</span>
-            }
-
-            <!-- KEV Badge -->
-            @if (finding.kev) {
-              <span class="px-2.5 py-0.5 rounded-md bg-rose-700 text-white text-xs font-mono font-black tracking-wide uppercase flex items-center space-x-1 shadow-sm">
-                <span>CISA KEV EXPLOITED</span>
-              </span>
-            }
-            @if (finding.cveId) {
-              <span [class]="isFeedStale(finding, 'cisa-kev') ? 'text-[10px] font-mono text-amber-500 font-semibold' : 'text-[10px] font-mono text-slate-500'">KEV checked: {{ catalogueDate(finding, 'cisa-kev') }}</span>
-
-              <!-- CVE Tag -->
-              <span [class]="theme() === 'dark' ? 'text-xs font-mono font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-2 py-0.5 rounded' : 'text-xs font-mono font-bold text-cyan-800 bg-cyan-50 border border-cyan-200 px-2 py-0.5 rounded'">{{ finding.cveId }}</span>
-            }
-
-            <!-- Asset Name -->
-            <span [class]="theme() === 'dark' ? 'text-xs font-mono text-slate-300 bg-slate-800 px-2 py-0.5 rounded' : 'text-xs font-mono text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded'">{{ finding.assetValue }}</span>
-          </div>
-
-          <h3 [class]="theme() === 'dark' ? 'text-base font-bold text-white' : 'text-base font-bold text-slate-900'">{{ finding.title }}</h3>
-          @if (finding.description) {
-            <p [class]="theme() === 'dark' ? 'text-sm text-slate-300' : 'text-sm text-slate-700'">{{ finding.description }}</p>
+    <div role="group" aria-label="Filter findings" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      @let selectClass = dark ? 'w-full text-xs bg-slate-800 border border-slate-700 text-slate-200 rounded-md py-1.5 px-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500' : 'w-full text-xs bg-white border border-slate-300 text-slate-700 rounded-md py-1.5 px-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600';
+      @let labelClass = dark ? 'block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1' : 'block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1';
+      <div>
+        <label for="filter-status" [class]="labelClass">Status</label>
+        <select id="filter-status" [value]="filters().status" (change)="setFilter('status', $any($event.target).value)" [class]="selectClass">
+          @for (o of statusOptions; track o.value) {
+            <option [value]="o.value" [selected]="filters().status === o.value">{{ o.label }}</option>
           }
-          @if (finding.proof) {
-            <details class="text-xs">
-              <summary class="cursor-pointer text-cyan-600 font-semibold">Evidence</summary>
-              <pre class="mt-2 whitespace-pre-wrap break-all text-slate-500 font-mono">{{ finding.proof }}</pre>
-            </details>
-          }
-
-          <!-- AI Annotation Summary Box -->
-          @if (finding.aiAnnotation) {
-            <div [class]="theme() === 'dark' ? 'mt-2 p-3 rounded-lg bg-slate-950/80 border border-slate-800/80 text-xs space-y-1' : 'mt-2 p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-1'">
-              <div [class]="theme() === 'dark' ? 'flex items-center space-x-1.5 text-cyan-400 font-semibold' : 'flex items-center space-x-1.5 text-cyan-700 font-semibold'">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                <span>AI Triage Annotation (Advisory):</span>
-              </div>
-              <p [class]="theme() === 'dark' ? 'text-slate-300' : 'text-slate-700'">{{ finding.aiAnnotation.summary }}</p>
-              <p [class]="theme() === 'dark' ? 'text-slate-400' : 'text-slate-600'"><strong [class]="theme() === 'dark' ? 'text-slate-300' : 'text-slate-800'">Remediation:</strong> {{ finding.aiAnnotation.remediation }}</p>
-            </div>
-          }
-        </div>
-
-        <!-- Scores Column -->
-        <div [class]="theme() === 'dark' ? 'flex items-center space-x-6 border-t md:border-t-0 md:border-l border-slate-800 pt-3 md:pt-0 md:pl-6 text-right' : 'flex items-center space-x-6 border-t md:border-t-0 md:border-l border-slate-200 pt-3 md:pt-0 md:pl-6 text-right'">
-          <div>
-            <div [class]="theme() === 'dark' ? 'text-[10px] text-slate-400 uppercase font-mono' : 'text-[10px] text-slate-500 uppercase font-mono'">CVSS v3</div>
-            <div [class]="theme() === 'dark' ? 'text-sm font-extrabold text-white font-mono' : 'text-sm font-extrabold text-slate-900 font-mono'">{{ finding.cvssScore }}</div>
-          </div>
-          <div>
-            <div [class]="theme() === 'dark' ? 'text-[10px] text-slate-400 uppercase font-mono' : 'text-[10px] text-slate-500 uppercase font-mono'">EPSS Score</div>
-            <div [class]="theme() === 'dark' ? 'text-sm font-extrabold text-cyan-400 font-mono' : 'text-sm font-extrabold text-cyan-700 font-mono'">{{ (finding.epssScore * 100).toFixed(1) }}%</div>
-            <div [class]="isFeedStale(finding, 'epss') ? 'text-[10px] text-amber-500 font-mono font-semibold' : 'text-[10px] text-slate-500 font-mono'">EPSS checked: {{ catalogueDate(finding, 'epss') }}</div>
-          </div>
-        </div>
+        </select>
       </div>
-    } @empty {
-      <div [class]="theme() === 'dark' ? 'p-8 text-center text-slate-400' : 'p-8 text-center text-slate-500'">
-        <svg class="mx-auto h-12 w-12 text-emerald-500/50 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-        <p class="font-medium text-sm">No findings discovered.</p>
-        <p class="text-xs mt-1 opacity-75">Your external attack surface is currently clear of known exposures.</p>
+      <div>
+        <label for="filter-severity" [class]="labelClass">Severity</label>
+        <select id="filter-severity" [value]="filters().severity" (change)="setFilter('severity', $any($event.target).value)" [class]="selectClass">
+          @for (o of severityOptions; track o.value) {
+            <option [value]="o.value" [selected]="filters().severity === o.value">{{ o.label }}</option>
+          }
+        </select>
       </div>
+      <div>
+        <label for="filter-source" [class]="labelClass">Source</label>
+        <select id="filter-source" [value]="filters().source" (change)="setFilter('source', $any($event.target).value)" [class]="selectClass">
+          @for (o of sourceOptions; track o.value) {
+            <option [value]="o.value" [selected]="filters().source === o.value">{{ o.label }}</option>
+          }
+        </select>
+      </div>
+      <div>
+        <label for="filter-asset" [class]="labelClass">Asset</label>
+        <select id="filter-asset" [value]="filters().asset" (change)="setFilter('asset', $any($event.target).value)" [class]="selectClass">
+          <option value="all" [selected]="filters().asset === 'all'">All assets</option>
+          @for (a of assets(); track a.id) {
+            <option [value]="a.id" [selected]="filters().asset === a.id">{{ a.label }}</option>
+          }
+        </select>
+      </div>
+      <div>
+        <label for="filter-changed" [class]="labelClass">Changed since</label>
+        <select id="filter-changed" [value]="filters().changedSince" (change)="setFilter('changedSince', $any($event.target).value)" [class]="selectClass">
+          @for (o of changedOptions; track o.value) {
+            <option [value]="o.value" [selected]="filters().changedSince === o.value">{{ o.label }}</option>
+          }
+        </select>
+      </div>
+    </div>
+    @if (filtered()) {
+      <button type="button" (click)="resetFilters()" [class]="dark ? 'text-xs font-semibold text-cyan-400 underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500' : 'text-xs font-semibold text-cyan-800 underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600'">Reset filters</button>
     }
   </div>
+
+  @if (indexState() === 'error') {
+    <div role="alert" [class]="dark ? 'px-6 py-3 text-xs bg-amber-950/60 text-amber-200 border-b border-amber-900' : 'px-6 py-3 text-xs bg-amber-50 text-amber-900 border-b border-amber-200'">
+      The findings list could not be loaded{{ indexError() ? ' (' + indexError() + ')' : '' }}. What is shown may be out of date or empty, and that is not evidence that nothing was found.
+    </div>
+  }
+
+  <ul role="list" [class]="dark ? 'divide-y divide-slate-800/80' : 'divide-y divide-slate-100'">
+    @for (f of visible(); track f.key) {
+      <li>
+        <button
+          type="button"
+          [attr.data-finding-key]="f.key"
+          [attr.aria-label]="rowLabel(f)"
+          (click)="open(f)"
+          [class]="(dark ? 'hover:bg-slate-800/40 ' : 'hover:bg-slate-50 ') + 'w-full text-left px-6 py-4 flex flex-col gap-2 transition focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-cyan-500 ' + (f.notReassessed ? 'border-l-4 border-dashed border-amber-500' : 'border-l-4 border-transparent')">
+          <span class="flex items-center flex-wrap gap-2">
+            <span [class]="'px-2.5 py-0.5 rounded-md text-xs font-mono font-bold uppercase ' + severityClasses(f.severity)">{{ f.severity }}</span>
+            <span [class]="'px-2.5 py-0.5 rounded-md text-xs font-mono font-bold uppercase ' + statusClasses(f.status)">{{ statusLabel(f.status) }}</span>
+            @if (f.source === 'candidate' || f.unconfirmed) {
+              <span data-testid="unconfirmed-badge" [class]="dark ? 'px-2.5 py-0.5 rounded-md border border-violet-400 text-violet-200 bg-violet-950/70 text-xs font-mono font-bold uppercase' : 'px-2.5 py-0.5 rounded-md border border-violet-600 text-violet-900 bg-violet-50 text-xs font-mono font-bold uppercase'">Unconfirmed candidate</span>
+            }
+            @if (f.notReassessed) {
+              <span data-testid="not-reassessed" [class]="dark ? 'px-2.5 py-0.5 rounded-md border border-dashed border-amber-400 text-amber-300 bg-amber-950/60 text-xs font-mono font-bold uppercase' : 'px-2.5 py-0.5 rounded-md border border-dashed border-amber-600 text-amber-900 bg-amber-50 text-xs font-mono font-bold uppercase'">Not re-assessed</span>
+            }
+            @if (f.kev) {
+              <span class="px-2.5 py-0.5 rounded-md bg-rose-700 text-white text-xs font-mono font-black tracking-wide uppercase">CISA KEV EXPLOITED</span>
+            }
+            @if (f.cve) {
+              <span [class]="dark ? 'text-xs font-mono font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-2 py-0.5 rounded' : 'text-xs font-mono font-bold text-cyan-800 bg-cyan-50 border border-cyan-200 px-2 py-0.5 rounded'">{{ f.cve }}</span>
+            }
+          </span>
+          <span [class]="dark ? 'block text-base font-bold text-white' : 'block text-base font-bold text-slate-900'">{{ f.title }}</span>
+          @if (f.notReassessed) {
+            <span data-testid="not-reassessed-reason" [class]="dark ? 'block text-xs text-amber-300' : 'block text-xs text-amber-900'">
+              Still open, but the latest check could not conclude, so this has not been confirmed on the most recent run. {{ f.notReassessedReason || 'No reason was recorded.' }}
+            </span>
+          }
+          <span [class]="dark ? 'flex flex-wrap gap-x-4 gap-y-1 text-xs font-mono text-slate-400' : 'flex flex-wrap gap-x-4 gap-y-1 text-xs font-mono text-slate-600'">
+            <span>{{ f.assetValue || f.assetId }}</span>
+            <span>{{ sourceLabel(f.source) }}</span>
+            <span>First seen {{ formatDay(f.firstSeen) }}</span>
+            <span>Age: {{ ageText(f) }}</span>
+            <span>Last change: {{ lastChangeText(f) }}</span>
+          </span>
+        </button>
+      </li>
+    } @empty {
+      <li [class]="dark ? 'p-8 text-center text-slate-300' : 'p-8 text-center text-slate-700'">
+        @if (indexState() === 'loading' && index().length === 0) {
+          <p class="font-medium text-sm">Loading findings.</p>
+        } @else if (lastScanUnknown()) {
+          <p class="font-medium text-sm">No scan has been recorded, so "since the last scan" cannot be evaluated.</p>
+        } @else if (index().length === 0) {
+          <p class="font-medium text-sm">No findings have been recorded.</p>
+          <p class="text-xs mt-1 opacity-75">This list shows what scans have found. It does not show what has not been checked.</p>
+        } @else {
+          <p class="font-medium text-sm">No findings match these filters.</p>
+          <p class="text-xs mt-1 opacity-75">Filters hide findings from this list. They do not resolve them.</p>
+        }
+        @if (latestRun(); as run) {
+          <p class="text-xs mt-3 font-mono opacity-75">Latest recorded run, {{ formatTime(run.finishedAt || run.startedAt) }}: {{ coverageText(run) }}.</p>
+        }
+      </li>
+    }
+  </ul>
 </div>
+}

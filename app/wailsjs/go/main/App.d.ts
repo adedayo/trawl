@@ -9,17 +9,27 @@ export function AssessDomain(arg1:string):Promise<service.DomainAssessment>;
 
 export function AssessDomainWithOptions(arg1:string,arg2:service.AssessOptions):Promise<service.DomainAssessment>;
 
+export function AuthoriseProposedDomains(arg1:Array<string>):Promise<void>;
+
 export function CreateCalibrationExperiment(arg1:string):Promise<store.CalibrationExperiment>;
+
+export function DiscoverRelatedDomains(arg1:service.DiscoveryOptions):Promise<service.DiscoveryResult>;
+
+export function DismissProposedDomains(arg1:Array<string>):Promise<void>;
 
 export function EraseDiscoveredData():Promise<void>;
 
 export function GetAssetContactPanel(arg1:string,arg2:Array<string>):Promise<service.AssetContactPanel>;
+
+export function GetAssetSoftware(arg1:string):Promise<Array<store.AssetSoftware>>;
 
 export function GetAssets(arg1:store.AssetStatus):Promise<Array<store.Asset>>;
 
 export function GetCalibrationExperiments():Promise<Array<store.CalibrationExperiment>>;
 
 export function GetCalibrationReport(arg1:string,arg2:number):Promise<Array<contact.CalibrationReportRow>>;
+
+export function GetDismissedDomains():Promise<Array<string>>;
 
 export function GetDomainAssessment(arg1:string):Promise<service.DomainAssessment>;
 
@@ -29,13 +39,25 @@ export function GetEmailPostures():Promise<Array<store.EmailPosture>>;
 
 export function GetFeedStatuses():Promise<Array<store.FeedStatus>>;
 
+export function GetFindingChanges(arg1:string,arg2:string):Promise<service.ChangeSet>;
+
+export function GetFindingDetail(arg1:string):Promise<service.FindingDetail>;
+
+export function GetFindingIndex(arg1:service.FindingFilter):Promise<Array<service.FindingSummary>>;
+
 export function GetFindings(arg1:string):Promise<Array<store.Finding>>;
 
+export function GetHistorySummary(arg1:string):Promise<Array<service.HistoryPoint>>;
+
 export function GetRegressions():Promise<Array<store.Regression>>;
+
+export function GetScanRuns():Promise<Array<service.ScanRunView>>;
 
 export function GetSecretFindings(arg1:string):Promise<Array<store.SecretFinding>>;
 
 export function GetSetting(arg1:string):Promise<string>;
+
+export function GetSoftwareCoverage(arg1:string):Promise<Array<store.SoftwareCoverage>>;
 
 export function GetVersion():Promise<version.Info>;
 
@@ -43,9 +65,15 @@ export function GetWeaknessContactAggregations():Promise<Array<contact.InstanceA
 
 export function ProbeDiscoveredServices(arg1:string):Promise<void>;
 
+export function RefreshCandidates(arg1:boolean):Promise<service.CandidateRefreshSummary>;
+
+export function RefreshFeed(arg1:string,arg2:number):Promise<Array<store.FeedStatus>>;
+
 export function RefreshFeeds(arg1:number):Promise<Array<store.FeedStatus>>;
 
 export function RemoveAsset(arg1:string):Promise<void>;
+
+export function RestoreDismissedDomain(arg1:string):Promise<void>;
 
 export function SaveSetting(arg1:string,arg2:string):Promise<void>;
 

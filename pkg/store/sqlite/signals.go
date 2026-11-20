@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/adedayo/trawl/pkg/store"
@@ -17,13 +18,20 @@ import (
 var ErrInvalidCoverageState = errors.New("invalid coverage state")
 
 // SaveSignalObservation upserts an observation keyed on (asset, signal),
-// preserving the original first_seen.
+// preserving the original first_seen, and records in the same transaction the
+// event the write amounts to.
+//
+// An observation that was resolved and is raised again is reopened. A change in
+// severity is an event whose cause is the scanner library when the library
+// version differs from the one that recorded the previous severity, and the
+// estate otherwise, so an upgrade that re-rates a finding is not reported as
+// the estate having changed.
 func (s *SQLiteStore) SaveSignalObservation(ctx context.Context, obs *store.SignalObservation) error {
 	if !obs.State.Valid() {
 		return fmt.Errorf("%w: %q for signal %s", ErrInvalidCoverageState, obs.State, obs.SignalID)
 	}
 
-	now := time.Now()
+	now := s.now()
 	if obs.ObservedAt.IsZero() {
 		obs.ObservedAt = now
 	}
@@ -37,11 +45,51 @@ func (s *SQLiteStore) SaveSignalObservation(ctx context.Context, obs *store.Sign
 		obs.ID = fmt.Sprintf("sig-%s-%s", obs.AssetID, obs.SignalID)
 	}
 
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin observation save: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var prevID, prevStatus, prevSeverity, prevLibrary string
+	err = tx.QueryRowContext(ctx,
+		`SELECT id, COALESCE(status,'open'), severity, COALESCE(library_version,'') FROM signal_observations WHERE asset_id = ? AND signal_id = ?`,
+		obs.AssetID, obs.SignalID).Scan(&prevID, &prevStatus, &prevSeverity, &prevLibrary)
+	exists := err == nil
+	if err != nil && err != sql.ErrNoRows {
+		return fmt.Errorf("failed to read observation %s: %w", obs.SignalID, err)
+	}
+	// The row keeps the identifier it was first written under, so its events
+	// stay attached to it whatever the caller supplied this time.
+	if exists {
+		obs.ID = prevID
+	}
+
+	var evType store.EventType
+	status := store.FindingOpen
+	switch {
+	case !exists:
+		evType = store.EventFirstSeen
+	case prevStatus == string(store.FindingResolved):
+		evType = store.EventReopened
+		status = store.FindingReopened
+	case prevSeverity != string(obs.Severity):
+		evType = store.EventChanged
+		status = store.FindingStatus(prevStatus)
+	default:
+		status = store.FindingStatus(prevStatus)
+	}
+	obs.Status = status
+	obs.ResolvedAt = nil
+	assessed := now
+	obs.LastAssessedAt = &assessed
+
 	query := `
 	INSERT INTO signal_observations (
 		id, asset_id, signal_id, check_id, state, severity, evidence, detail, mapped,
-		registry_version, library_version, observed_at, first_seen, last_seen
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		registry_version, library_version, observed_at, first_seen, last_seen,
+		status, resolved_at, last_assessed_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
 	ON CONFLICT(asset_id, signal_id) DO UPDATE SET
 		check_id = excluded.check_id,
 		state = excluded.state,
@@ -52,28 +100,69 @@ func (s *SQLiteStore) SaveSignalObservation(ctx context.Context, obs *store.Sign
 		registry_version = excluded.registry_version,
 		library_version = excluded.library_version,
 		observed_at = excluded.observed_at,
-		last_seen = excluded.last_seen
+		last_seen = excluded.last_seen,
+		status = excluded.status,
+		resolved_at = NULL,
+		last_assessed_at = excluded.last_assessed_at
 	`
-	_, err := s.db.ExecContext(ctx, query,
+	if _, err := tx.ExecContext(ctx, query,
 		obs.ID, obs.AssetID, obs.SignalID, obs.CheckID, string(obs.State), string(obs.Severity),
 		obs.Evidence, obs.Detail, obs.Mapped, obs.RegistryVersion, obs.LibraryVersion,
-		obs.ObservedAt.Format(time.RFC3339), obs.FirstSeen.Format(time.RFC3339), obs.LastSeen.Format(time.RFC3339),
-	)
-	if err != nil {
+		formatTS(obs.ObservedAt), formatTS(obs.FirstSeen), formatTS(obs.LastSeen),
+		string(status), formatTS(assessed),
+	); err != nil {
 		return fmt.Errorf("failed to save signal observation %s: %w", obs.SignalID, err)
+	}
+
+	if evType != "" {
+		e := s.newEvent(ctx, store.SourceSignal, obs.ID, obs.AssetID, evType)
+		e.Severity = obs.Severity
+		e.LibraryVersion, e.RegistryVersion = obs.LibraryVersion, obs.RegistryVersion
+		if exists {
+			e.PrevSeverity = store.FindingSeverity(prevSeverity)
+			if evType == store.EventChanged && e.Cause == store.CauseEstate &&
+				prevLibrary != "" && obs.LibraryVersion != "" && prevLibrary != obs.LibraryVersion {
+				e.Cause = store.CauseLibrary
+				e.Note = "Scanner library changed from " + prevLibrary + " to " + obs.LibraryVersion + "."
+			}
+		}
+		if err := appendEvent(ctx, tx, &e); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit signal observation %s: %w", obs.SignalID, err)
 	}
 	return nil
 }
 
+// GetSignalObservations returns the live observations: those not resolved.
 func (s *SQLiteStore) GetSignalObservations(ctx context.Context, assetID string) ([]store.SignalObservation, error) {
+	return s.querySignalObservations(ctx, assetID, true)
+}
+
+// GetAllSignalObservations returns every observation, resolved ones included.
+func (s *SQLiteStore) GetAllSignalObservations(ctx context.Context, assetID string) ([]store.SignalObservation, error) {
+	return s.querySignalObservations(ctx, assetID, false)
+}
+
+func (s *SQLiteStore) querySignalObservations(ctx context.Context, assetID string, liveOnly bool) ([]store.SignalObservation, error) {
 	query := `
 	SELECT id, asset_id, signal_id, check_id, state, severity, evidence, detail, mapped,
-	       registry_version, library_version, observed_at, first_seen, last_seen
+	       registry_version, library_version, observed_at, first_seen, last_seen,
+	       COALESCE(status,'open'), resolved_at, last_assessed_at
 	FROM signal_observations`
+	var where []string
 	args := []any{}
 	if assetID != "" {
-		query += ` WHERE asset_id = ?`
+		where = append(where, `asset_id = ?`)
 		args = append(args, assetID)
+	}
+	if liveOnly {
+		where = append(where, `COALESCE(status,'open') != 'resolved'`)
+	}
+	if len(where) > 0 {
+		query += ` WHERE ` + strings.Join(where, ` AND `)
 	}
 	query += ` ORDER BY signal_id`
 
@@ -86,21 +175,35 @@ func (s *SQLiteStore) GetSignalObservations(ctx context.Context, assetID string)
 	observations := []store.SignalObservation{}
 	for rows.Next() {
 		var o store.SignalObservation
-		var state, severity, observedAt, firstSeen, lastSeen string
+		var state, severity, observedAt, firstSeen, lastSeen, status string
 		// Nullable: rows written before the column existed carry NULL, which
 		// is the same absence as a signal that names no particular item.
-		var evidence, detail sql.NullString
+		var evidence, detail, resolvedAt, assessedAt sql.NullString
 		if err := rows.Scan(&o.ID, &o.AssetID, &o.SignalID, &o.CheckID, &state, &severity, &evidence,
-			&detail, &o.Mapped, &o.RegistryVersion, &o.LibraryVersion, &observedAt, &firstSeen, &lastSeen); err != nil {
+			&detail, &o.Mapped, &o.RegistryVersion, &o.LibraryVersion, &observedAt, &firstSeen, &lastSeen,
+			&status, &resolvedAt, &assessedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan signal observation: %w", err)
 		}
 		o.State = store.CoverageState(state)
 		o.Severity = store.FindingSeverity(severity)
+		o.Status = store.FindingStatus(status)
 		o.Evidence = evidence.String
 		o.Detail = detail.String
-		o.ObservedAt, _ = time.Parse(time.RFC3339, observedAt)
-		o.FirstSeen, _ = time.Parse(time.RFC3339, firstSeen)
-		o.LastSeen, _ = time.Parse(time.RFC3339, lastSeen)
+		if o.ObservedAt, err = parseTS("observation observed_at", observedAt); err != nil {
+			return nil, err
+		}
+		if o.FirstSeen, err = parseTS("observation first_seen", firstSeen); err != nil {
+			return nil, err
+		}
+		if o.LastSeen, err = parseTS("observation last_seen", lastSeen); err != nil {
+			return nil, err
+		}
+		if o.ResolvedAt, err = parseTSPtr("observation resolved_at", resolvedAt); err != nil {
+			return nil, err
+		}
+		if o.LastAssessedAt, err = parseTSPtr("observation last_assessed_at", assessedAt); err != nil {
+			return nil, err
+		}
 		observations = append(observations, o)
 	}
 	return observations, rows.Err()

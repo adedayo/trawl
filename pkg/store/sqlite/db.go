@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	_ "modernc.org/sqlite"
 
@@ -38,7 +39,21 @@ func init() {
 
 type SQLiteStore struct {
 	db *sql.DB
+	// clock supplies the time every history write is stamped with. It is a
+	// field so that tests can fix it; production uses the wall clock in UTC.
+	clock func() time.Time
 }
+
+// now returns the current time in UTC.
+func (s *SQLiteStore) now() time.Time {
+	if s.clock != nil {
+		return s.clock().UTC()
+	}
+	return time.Now().UTC()
+}
+
+// SetClock replaces the clock history writes are stamped with. For tests.
+func (s *SQLiteStore) SetClock(clock func() time.Time) { s.clock = clock }
 
 // NewSQLiteStore initializes SQLite database with WAL mode pragmas and auto-migrations.
 //
@@ -65,6 +80,10 @@ func NewSQLiteStore(dbPath string) (*SQLiteStore, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open sqlite database at %s: %w", dbPath, err)
 	}
+	// SQLite permits only one writer at a time. Capping the pool to a single
+	// connection serialises concurrent goroutines cleanly inside database/sql
+	// instead of letting parallel scans fight over SQLITE_BUSY.
+	db.SetMaxOpenConns(1)
 
 	s := &SQLiteStore{db: db}
 	if err := s.migrate(context.Background()); err != nil {
@@ -105,7 +124,7 @@ func trimScheme(dsn string) string {
 // newer build and opened by an older one is accepted silently — every
 // individual query still succeeds, because the columns the old build knows
 // about are all still there — and the damage is discovered later, if at all.
-const schemaVersion = 8
+const schemaVersion = 11
 
 // ErrNewerSchema reports a database written by a build newer than this one.
 //
@@ -173,6 +192,25 @@ func (s *SQLiteStore) migrate(ctx context.Context) error {
 		retrieved_at DATETIME NOT NULL,
 		content_digest TEXT NOT NULL,
 		record_count INTEGER NOT NULL
+	);
+
+	-- The last successful consultation of each source, kept apart from the
+	-- snapshot because an unchanged catalogue produces no new snapshot.
+	CREATE TABLE IF NOT EXISTS feed_checks (
+		feed TEXT PRIMARY KEY,
+		checked_at DATETIME NOT NULL,
+		snapshot_id TEXT
+	);
+
+	-- The entries of the latest snapshot of a small catalogue (CISA KEV), so
+	-- findings can be evaluated against what was ingested without the network.
+	CREATE TABLE IF NOT EXISTS feed_records (
+		snapshot_id TEXT NOT NULL,
+		cve TEXT NOT NULL,
+		kev_listed INTEGER,
+		epss REAL,
+		PRIMARY KEY(snapshot_id, cve),
+		FOREIGN KEY(snapshot_id) REFERENCES feed_snapshots(id) ON DELETE CASCADE
 	);
 
 	CREATE TABLE IF NOT EXISTS feed_failures (
@@ -485,6 +523,165 @@ func (s *SQLiteStore) migrate(ctx context.Context) error {
 		fetched_at DATETIME NOT NULL
 	);
 
+	-- Append-only history (Change 025). Nothing in the engine updates or
+	-- deletes a row of finding_events; rows leave only when the asset they
+	-- concern is removed or discovered data is erased, both of which discard
+	-- the record by the operator's decision. seq, not the timestamp, is the
+	-- order: timestamps from different offsets or a clock step do not sort
+	-- reliably, insertion order does.
+	CREATE TABLE IF NOT EXISTS finding_events (
+		seq INTEGER PRIMARY KEY AUTOINCREMENT,
+		id TEXT NOT NULL UNIQUE,
+		finding_key TEXT NOT NULL,
+		source TEXT NOT NULL,
+		row_id TEXT NOT NULL,
+		asset_id TEXT NOT NULL,
+		type TEXT NOT NULL,
+		at DATETIME NOT NULL,
+		run_id TEXT NOT NULL DEFAULT '',
+		cause TEXT NOT NULL DEFAULT 'estate',
+		prev_severity TEXT NOT NULL DEFAULT '',
+		severity TEXT NOT NULL DEFAULT '',
+		prev_priority TEXT NOT NULL DEFAULT '',
+		priority TEXT NOT NULL DEFAULT '',
+		library_version TEXT NOT NULL DEFAULT '',
+		registry_version TEXT NOT NULL DEFAULT '',
+		snapshot_id TEXT NOT NULL DEFAULT '',
+		note TEXT NOT NULL DEFAULT '',
+		FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_finding_events_key ON finding_events(finding_key, seq);
+	CREATE INDEX IF NOT EXISTS idx_finding_events_run ON finding_events(run_id);
+	CREATE INDEX IF NOT EXISTS idx_finding_events_at ON finding_events(at);
+
+	-- The run ledger. Not keyed to assets by a foreign key: a run happened
+	-- whether or not the asset it assessed was later removed.
+	CREATE TABLE IF NOT EXISTS scan_runs (
+		id TEXT PRIMARY KEY,
+		kind TEXT NOT NULL,
+		asset_id TEXT NOT NULL DEFAULT '',
+		profile TEXT NOT NULL DEFAULT '',
+		outcome TEXT NOT NULL,
+		error TEXT NOT NULL DEFAULT '',
+		library_version TEXT NOT NULL DEFAULT '',
+		registry_version TEXT NOT NULL DEFAULT '',
+		started_at DATETIME NOT NULL,
+		finished_at DATETIME NOT NULL,
+		cov_total INTEGER NOT NULL DEFAULT 0,
+		cov_ok INTEGER NOT NULL DEFAULT 0,
+		cov_not_found INTEGER NOT NULL DEFAULT 0,
+		cov_not_checked INTEGER NOT NULL DEFAULT 0,
+		cov_check_failed INTEGER NOT NULL DEFAULT 0
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_scan_runs_finished ON scan_runs(finished_at);
+
+	-- Derived, and therefore prunable (history_summary_retention_days).
+	CREATE TABLE IF NOT EXISTS scan_summaries (
+		run_id TEXT PRIMARY KEY,
+		at DATETIME NOT NULL,
+		critical INTEGER NOT NULL,
+		high INTEGER NOT NULL,
+		medium INTEGER NOT NULL,
+		low INTEGER NOT NULL,
+		info INTEGER NOT NULL,
+		open_total INTEGER NOT NULL,
+		resolved_total INTEGER NOT NULL,
+		new_count INTEGER NOT NULL,
+		resolved_count INTEGER NOT NULL
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_scan_summaries_at ON scan_summaries(at);
+
+	-- Structured per-asset software inventory (Change 026).
+	-- Records what software was observed from scan data without inventing
+	-- versions or inferring CPE identities at runtime.
+	CREATE TABLE IF NOT EXISTS asset_software (
+		id TEXT PRIMARY KEY,
+		asset_id TEXT NOT NULL,
+		observed_name TEXT NOT NULL,
+		cpe_part TEXT NOT NULL DEFAULT '',
+		vendor TEXT NOT NULL DEFAULT '',
+		product TEXT NOT NULL DEFAULT '',
+		mapping_state TEXT NOT NULL,
+		mapping_version TEXT NOT NULL DEFAULT '',
+		version TEXT NOT NULL DEFAULT '',
+		version_state TEXT NOT NULL,
+		source TEXT NOT NULL,
+		raw_string TEXT NOT NULL,
+		status TEXT NOT NULL DEFAULT 'current',
+		first_seen DATETIME NOT NULL,
+		last_seen DATETIME NOT NULL,
+		superseded_at DATETIME,
+		FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_asset_software_asset ON asset_software(asset_id, status);
+	CREATE INDEX IF NOT EXISTS idx_asset_software_product ON asset_software(vendor, product, version);
+
+	-- Cached NVD product/version lookup answers, keyed by cpe_part:vendor:product:version.
+	CREATE TABLE IF NOT EXISTS software_lookup_cache (
+		id TEXT PRIMARY KEY,
+		cpe_part TEXT NOT NULL,
+		vendor TEXT NOT NULL,
+		product TEXT NOT NULL,
+		version TEXT NOT NULL,
+		snapshot_id TEXT NOT NULL,
+		fingerprint TEXT NOT NULL,
+		queried_at DATETIME NOT NULL,
+		cve_json TEXT NOT NULL,
+		FOREIGN KEY(snapshot_id) REFERENCES feed_snapshots(id) ON DELETE CASCADE
+	);
+
+	-- Unconfirmed software-matched candidate vulnerabilities, kept apart from
+	-- confirmed findings in both storage and executive counts.
+	CREATE TABLE IF NOT EXISTS candidate_findings (
+		id TEXT PRIMARY KEY,
+		asset_id TEXT NOT NULL,
+		software_id TEXT NOT NULL,
+		vendor TEXT NOT NULL,
+		product TEXT NOT NULL,
+		version TEXT NOT NULL,
+		raw_string TEXT NOT NULL,
+		cve TEXT NOT NULL,
+		title TEXT NOT NULL,
+		description TEXT,
+		severity TEXT NOT NULL,
+		severity_source TEXT NOT NULL DEFAULT 'nvd',
+		priority TEXT NOT NULL,
+		epss REAL DEFAULT 0,
+		kev_listed INTEGER DEFAULT 0,
+		status TEXT NOT NULL DEFAULT 'open',
+		not_reassessed INTEGER NOT NULL DEFAULT 0,
+		not_reassessed_reason TEXT NOT NULL DEFAULT '',
+		lookup_snapshot_id TEXT NOT NULL,
+		lookup_at DATETIME NOT NULL,
+		first_seen DATETIME NOT NULL,
+		last_seen DATETIME NOT NULL,
+		resolved_at DATETIME,
+		FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_candidate_findings_asset ON candidate_findings(asset_id, status);
+	CREATE INDEX IF NOT EXISTS idx_candidate_findings_cve ON candidate_findings(cve);
+
+	CREATE TABLE IF NOT EXISTS candidate_enrichments (
+		candidate_id TEXT NOT NULL,
+		feed TEXT NOT NULL,
+		cve TEXT NOT NULL,
+		state TEXT NOT NULL,
+		snapshot_id TEXT,
+		epss REAL,
+		kev_listed INTEGER,
+		checked_at DATETIME,
+		PRIMARY KEY(candidate_id, feed),
+		FOREIGN KEY(candidate_id) REFERENCES candidate_findings(id) ON DELETE CASCADE,
+		FOREIGN KEY(snapshot_id) REFERENCES feed_snapshots(id)
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_candidate_enrichments_cve ON candidate_enrichments(cve);
+
 	`
 
 	// The shape and the version it claims are set together, so a migration
@@ -502,6 +699,9 @@ func (s *SQLiteStore) migrate(ctx context.Context) error {
 		return err
 	}
 	if err := addColumns(ctx, tx); err != nil {
+		return err
+	}
+	if err := s.seedBaselineEvents(ctx, tx); err != nil {
 		return err
 	}
 	// PRAGMA user_version takes no bound parameter, so the value is
@@ -540,9 +740,20 @@ var addedColumns = map[string]map[string]string{
 	// with it rather than recomputed from a catalogue that does not know it.
 	"signal_observations": {
 		"detail": "TEXT",
+		// Change 025: resolution. Existing rows are open, which is what they
+		// were: nothing could resolve them before.
+		"status":           "TEXT NOT NULL DEFAULT 'open'",
+		"resolved_at":      "DATETIME",
+		"last_assessed_at": "DATETIME",
 	},
 	"findings": {
-		"status": "TEXT NOT NULL DEFAULT 'open'",
+		"status":      "TEXT NOT NULL DEFAULT 'open'",
+		"resolved_at": "DATETIME",
+	},
+	"secret_findings": {
+		"last_seen":   "DATETIME",
+		"status":      "TEXT NOT NULL DEFAULT 'open'",
+		"resolved_at": "DATETIME",
 	},
 }
 
@@ -636,6 +847,12 @@ func columnsOf(ctx context.Context, tx *sql.Tx, table string) (map[string]bool, 
 // neither is data this engine discovered, and neither is the operator's to
 // lose by pressing a button labelled "start over".
 var erasedTables = []string{
+	"finding_events",
+	"scan_summaries",
+	"scan_runs",
+	"candidate_enrichments",
+	"candidate_findings",
+	"asset_software",
 	"findings",
 	"secret_findings",
 	"asset_exposure_history",

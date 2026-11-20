@@ -78,6 +78,11 @@
             </td>
             <td [class]="theme() === 'dark' ? 'py-4 px-6 text-slate-400' : 'py-4 px-6 text-slate-500'">{{ asset.firstSeen }} / {{ asset.lastSeen }}</td>
             <td class="py-4 px-6 text-right space-x-2">
+              <button type="button" data-testid="toggle-software-btn" (click)="toggleSoftwarePanel(asset.id)"
+                [attr.aria-expanded]="softwareAssetId() === asset.id"
+                [class]="theme() === 'dark' ? 'px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-violet-300 font-medium transition' : 'px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 border border-slate-300 text-violet-800 font-medium transition'">
+                Software ({{ softwareCoverageLabel(softwareCoverageFor(asset.id)) }})
+              </button>
               <button type="button" (click)="toggleContactPanel(asset.id)"
                 [attr.aria-expanded]="contactAssetId() === asset.id"
                 [class]="theme() === 'dark' ? 'px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-cyan-300 font-medium transition' : 'px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 border border-slate-300 text-cyan-800 font-medium transition'">
@@ -135,6 +140,61 @@
                   <div [class]="theme() === 'dark' ? 'text-[10px] text-amber-400 mt-2 border-t border-slate-800 pt-2' : 'text-[10px] text-amber-700 mt-2 border-t border-slate-200 pt-2'">
                     No provider data recorded, so the age of this attribution is unknown.
                   </div>
+                }
+              </td>
+            </tr>
+          }
+          @if (softwareAssetId() === asset.id) {
+            @let swCov = softwareCoverageFor(asset.id);
+            @let swItems = softwareFor(asset.id);
+            <tr data-testid="asset-software-panel" [class]="theme() === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50/90'">
+              <td colspan="7" class="px-6 py-4 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span [class]="theme() === 'dark' ? 'text-xs font-bold uppercase tracking-wider text-violet-300' : 'text-xs font-bold uppercase tracking-wider text-violet-800'">
+                      Observed Software · {{ asset.value }}
+                    </span>
+                    <p [class]="theme() === 'dark' ? 'text-[11px] text-slate-400 mt-0.5' : 'text-[11px] text-slate-600 mt-0.5'">
+                      Coverage:
+                      @switch (swCov.state) {
+                        @case ('identified') {
+                          <strong>Identified</strong> ({{ swCov.identified }} identified, {{ swCov.versionUnknown }} version unknown, {{ swCov.unmapped }} unmapped)
+                        }
+                        @case ('version_unknown') {
+                          <strong>Version unknown</strong> ({{ swCov.versionUnknown }} mapped without version, {{ swCov.unmapped }} unmapped - not looked up in NVD)
+                        }
+                        @case ('seen_unmapped') {
+                          <strong>Software seen, unmapped</strong> ({{ swCov.unmapped }} observed without a curated product mapping - not looked up in NVD)
+                        }
+                        @default {
+                          <strong>Not assessed for software</strong> (no technology data recorded - this is not evidence of zero software vulnerabilities)
+                        }
+                      }
+                    </p>
+                  </div>
+                </div>
+                @if (swItems.length > 0) {
+                  <ul class="space-y-1.5 text-xs font-mono">
+                    @for (sw of swItems; track sw.id) {
+                      <li [class]="theme() === 'dark' ? 'flex flex-wrap items-center gap-2 text-slate-200' : 'flex flex-wrap items-center gap-2 text-slate-800'">
+                        <span class="font-bold">{{ sw.observedName }}</span>
+                        @if (sw.versionState === 'known' && sw.version) {
+                          <span [class]="theme() === 'dark' ? 'px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 text-[10px]' : 'px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-800 border border-cyan-200 text-[10px]'">{{ sw.version }}</span>
+                        } @else {
+                          <span [class]="theme() === 'dark' ? 'px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 text-[10px]' : 'px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 text-[10px]'">version unknown</span>
+                        }
+                        @if (sw.mappingState === 'mapped') {
+                          <span [class]="theme() === 'dark' ? 'text-[10px] text-slate-400' : 'text-[10px] text-slate-600'">mapped: {{ sw.vendor }}:{{ sw.product }}</span>
+                        } @else {
+                          <span [class]="theme() === 'dark' ? 'px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 text-[10px]' : 'px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 border border-slate-300 text-[10px]'">unmapped</span>
+                        }
+                        @if (sw.status === 'superseded') {
+                          <span [class]="theme() === 'dark' ? 'px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px] uppercase' : 'px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] uppercase'">superseded</span>
+                        }
+                        <span [class]="theme() === 'dark' ? 'text-[10px] text-slate-500' : 'text-[10px] text-slate-500'">raw: {{ sw.rawString }}</span>
+                      </li>
+                    }
+                  </ul>
                 }
               </td>
             </tr>

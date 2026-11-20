@@ -81,6 +81,32 @@ func (a *App) GetFindings(assetID string) ([]store.Finding, error) {
 	return a.core.Findings(a.ctx, assetID)
 }
 
+// GetFindingIndex lists findings across every source (Change 025).
+func (a *App) GetFindingIndex(filter service.FindingFilter) ([]service.FindingSummary, error) {
+	return a.core.FindingIndex(a.ctx, filter)
+}
+
+// GetFindingDetail returns the drill-down for one finding.
+func (a *App) GetFindingDetail(key string) (service.FindingDetail, error) {
+	return a.core.FindingDetail(a.ctx, key)
+}
+
+// GetFindingChanges reports what moved between two runs; empty ids mean the
+// latest run and the run before it.
+func (a *App) GetFindingChanges(from string, to string) (service.ChangeSet, error) {
+	return a.core.FindingChanges(a.ctx, from, to)
+}
+
+// GetScanRuns lists the run ledger, newest first.
+func (a *App) GetScanRuns() ([]service.ScanRunView, error) {
+	return a.core.ScanRuns(a.ctx)
+}
+
+// GetHistorySummary returns one point per recorded run from since (RFC 3339).
+func (a *App) GetHistorySummary(since string) ([]service.HistoryPoint, error) {
+	return a.core.HistorySummary(a.ctx, since)
+}
+
 func (a *App) GetSecretFindings(repoURL string) ([]store.SecretFinding, error) {
 	return a.core.SecretFindings(a.ctx, repoURL)
 }
@@ -150,6 +176,24 @@ func (a *App) RefreshFeeds(epssThreshold float64) ([]store.FeedStatus, error) {
 	return a.core.RefreshFeeds(a.ctx, nil, epssThreshold)
 }
 
+// RefreshFeed refreshes one catalogue (cisa-kev, epss or nvd) without
+// fetching the others.
+func (a *App) RefreshFeed(feedName string, epssThreshold float64) ([]store.FeedStatus, error) {
+	return a.core.RefreshNamedFeeds(a.ctx, []string{feedName}, nil, epssThreshold)
+}
+
+func (a *App) GetAssetSoftware(assetID string) ([]store.AssetSoftware, error) {
+	return a.core.AssetSoftware(a.ctx, assetID)
+}
+
+func (a *App) GetSoftwareCoverage(assetID string) ([]store.SoftwareCoverage, error) {
+	return a.core.SoftwareCoverage(a.ctx, assetID)
+}
+
+func (a *App) RefreshCandidates(force bool) (*service.CandidateRefreshSummary, error) {
+	return a.core.RefreshCandidates(a.ctx, nil, force)
+}
+
 func (a *App) GetAssetContactPanel(assetID string, excludedFactors []string) (service.AssetContactPanel, error) {
 	return a.core.AssetContactPanel(a.ctx, assetID, excludedFactors)
 }
@@ -175,6 +219,26 @@ func (a *App) SaveSetting(key string, value string) error {
 // remained.
 func (a *App) EraseDiscoveredData() error {
 	return a.core.EraseDiscoveredData(a.ctx)
+}
+
+func (a *App) DiscoverRelatedDomains(opts service.DiscoveryOptions) (service.DiscoveryResult, error) {
+	return a.core.DiscoverRelatedDomains(a.ctx, opts)
+}
+
+func (a *App) AuthoriseProposedDomains(domains []string) error {
+	return a.core.AuthoriseProposedDomains(a.ctx, domains)
+}
+
+func (a *App) DismissProposedDomains(domains []string) error {
+	return a.core.DismissProposedDomains(a.ctx, domains)
+}
+
+func (a *App) RestoreDismissedDomain(domain string) error {
+	return a.core.RestoreDismissedDomain(a.ctx, domain)
+}
+
+func (a *App) GetDismissedDomains() []string {
+	return a.core.DismissedDomains(a.ctx)
 }
 
 // TriggerScan starts a scan in the background and returns immediately, so the

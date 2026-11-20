@@ -1,0 +1,48 @@
+{
+  "version": "1.0.0",
+  "entries": [
+    {
+      "level": "candidate",
+      "key": "candidate",
+      "whyItMatters": "This is an unconfirmed candidate for {{cve}}. The observed software version appears to fall in the range listed as affected by NVD, but nothing has shown that the flaw is present or reachable on this asset. Distribution-packaged builds often carry backported fixes without changing the upstream version string, so version matching can over-report.",
+      "howItCouldBeAbused": "If the flaw is actually present and reachable, an attacker could target publicly documented behavior associated with {{cve}} to disrupt the service, read unintended data, or run unauthorized commands. The consequence for the organization would be service disruption or unauthorized access, so treat this as a prompt to verify the deployed package rather than proof of exposure.",
+      "whatGoodLooksLike": "Good looks like knowing the exact package version and patch level deployed on this asset, confirming whether the vendor or distribution has backported a fix for {{cve}}, and upgrading or mitigating where needed.",
+      "whatToDo": [
+        "Ask the system owner to confirm the exact software version running on this asset.",
+        "Check whether the operating system distribution or vendor package already includes a backported fix for {{cve}}.",
+        "If the deployed version is unpatched, upgrade to a fixed release or apply the vendor mitigation.",
+        "If an upgrade must wait, restrict network access to the service and record the owner and review date."
+      ],
+      "howRescanConfirms": "When a later scan observes an updated software version and candidates are refreshed, this candidate closes if NVD no longer matches the new version. If a later scan reports no technology data, this candidate stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "cve",
+      "key": "cve",
+      "whyItMatters": "{{cve}} is a publicly documented flaw in software. Because the details are public, anyone can learn which versions are affected, and attackers scan the internet for systems that have not been updated. Whether the flaw can be reached depends on how the system is set up.",
+      "howItCouldBeAbused": "An attacker's goal is usually to run their own commands on the affected system or to read the data it holds. The consequence for the organization is a break-in at that system, theft of data, or use of the system as a base for reaching others.",
+      "whatGoodLooksLike": "Good looks like the affected software being updated to a version that the vendor says fixes the flaw, or the system being removed from the internet, with a named owner who tracks updates.",
+      "whatToDo": [
+        "Ask the system owner to confirm the affected product and version.",
+        "Apply the vendor's update or recommended settings change.",
+        "If the update has to wait, restrict access to the system, for example behind a company gateway, until it can be applied.",
+        "Review the system's logs for unfamiliar activity from the time it was exposed.",
+        "If the fix has to wait, record the decision, the owner and the date it will be revisited."
+      ],
+      "howRescanConfirms": "The next scan checks the same system again. The finding closes when the vulnerable version or condition is no longer detected. If the scan cannot reach the system, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "generic",
+      "key": "generic",
+      "whyItMatters": "Trawl raises a finding when something seen from the internet matches a known pattern of weakness or exposure. Exposure that nobody has reviewed is hard to defend, because it is not clear who owns it or whether it is intended.",
+      "howItCouldBeAbused": "An attacker wants an easy way in or useful information about your systems. The consequence for the organization depends on what the finding shows. Treat it as a prompt to establish who owns the system and whether the exposure is intended.",
+      "whatGoodLooksLike": "Good looks like every exposed system having a named owner, a reason to be exposed, and settings that match the organization's standards.",
+      "whatToDo": [
+        "Find out who owns the system or record concerned.",
+        "Read the detail and evidence above, and decide whether the exposure is intended.",
+        "If it is not intended or is a weakness, ask the owner to correct it.",
+        "Record the decision and the owner."
+      ],
+      "howRescanConfirms": "The next scan examines the same asset again. The finding closes when it no longer shows what was flagged. If the scan cannot complete the check, the finding stays open and is marked as not re-assessed."
+    }
+  ]
+}

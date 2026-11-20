@@ -99,6 +99,10 @@ func EgressDocumentation(caps vaudit.Capabilities, policy EgressPolicy) (string,
 		}
 	}
 
+	b.WriteString("\n## Vulnerability feed and software candidate lookups\n\n")
+	b.WriteString("Vulnerability catalogues (`cisa-kev`, `epss`, `nvd`) are contacted through `pkg/feed` only on explicit operator refresh or by the scheduled feed worker, never silently at desktop startup or during scan ingest.\n\n")
+	b.WriteString("When software candidate lookup (`POST /api/v1/candidates/refresh`) is run, Trawl sends only the curated CPE `virtualMatchString` (`cpe:2.3:<part>:<vendor>:<product>:<version>`) to `services.nvd.nist.gov` (plus an optional `apiKey` header when the `nvd_api_key` setting is configured). No asset name, address, or identifier is sent. See `docs/feeds.md` for rate limits, caching, and offline operation.\n")
+
 	return b.String(), nil
 }
 

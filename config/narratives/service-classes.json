@@ -1,0 +1,132 @@
+{
+  "version": "1.0.0",
+  "entries": [
+    {
+      "level": "service-class",
+      "key": "web",
+      "label": "web service",
+      "whyItMatters": "A {{service}} answers from the internet. That is normal for a public website. It still matters, because every reachable service is a place where flaws in the software, its settings or its login can be found and used, and it needs an owner who keeps it updated. Findings of this kind also cover weaknesses in how the service encrypts traffic.",
+      "howItCouldBeAbused": "An attacker wants a way into the organization or into the data it holds, and a web service is the most visible door. The consequence for the organization is altered or stolen content, stolen logins, or a foothold in the systems behind the website.",
+      "whatGoodLooksLike": "Good looks like only the web services the business intends being reachable, each with a named owner, current software, and encryption settings that meet current guidance.",
+      "whatToDo": [
+        "Ask the owner of the host whether this {{service}} is meant to be reachable from the internet.",
+        "If it is not needed, ask the owner to close it.",
+        "If it is needed, ask the owner to confirm the software is up to date and the settings meet current guidance.",
+        "Where the finding names a specific setting, such as encryption versions, redirects or certificates, ask the owner to correct it.",
+        "Record the decision and the owner, so the next review does not have to start from scratch."
+      ],
+      "howRescanConfirms": "The next scan probes the same host and port again. The finding closes when the {{service}} no longer answers from the internet. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "service-class",
+      "key": "ssh",
+      "label": "Secure Shell (SSH) remote login service",
+      "whyItMatters": "A {{service}} lets administrators log in to a server from afar and run commands on it. One that is open to the whole internet is exposed to constant password guessing and to any flaw in the software. If someone gets in, they control the server.",
+      "howItCouldBeAbused": "An attacker wants to log in to a server as an administrator. The consequence for the organization is control of that machine, theft of the data on it, and a foothold for moving deeper into the network.",
+      "whatGoodLooksLike": "Good looks like remote login being reachable only from known networks or through a company gateway, using keys or multi-factor sign-in, with password logins turned off.",
+      "whatToDo": [
+        "Ask the owner of the host whether this {{service}} is meant to be reachable from the internet.",
+        "If it is not needed, ask the owner to close it.",
+        "If it is needed, ask the owner to limit access to known addresses, or to require a company gateway.",
+        "Ask the owner to turn off password logins and use keys or multi-factor sign-in, and to keep the software updated.",
+        "Record the decision and the owner, so the next review does not have to start from scratch."
+      ],
+      "howRescanConfirms": "The next scan probes the same host and port again. The finding closes when the {{service}} no longer answers from the internet. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "service-class",
+      "key": "rdp",
+      "label": "Remote Desktop Protocol (RDP) service",
+      "whyItMatters": "A {{service}} gives someone full graphical control of a Windows computer. One that is open to the whole internet is a well-known way in for criminals, who try stolen or guessed passwords against it around the clock.",
+      "howItCouldBeAbused": "An attacker wants to take over a computer as if sitting at it. The consequence for the organization is a break-in that commonly leads to ransomware, theft of data and disruption across the network.",
+      "whatGoodLooksLike": "Good looks like no remote desktop service being reachable from the internet. Staff reach it only through a company gateway with multi-factor sign-in.",
+      "whatToDo": [
+        "Ask the owner of the host whether this {{service}} is meant to be reachable from the internet.",
+        "Ask the owner to close the service to the internet as a priority, and to move access behind a company gateway with multi-factor sign-in.",
+        "Review the sign-in logs of the host for failed or unfamiliar logins from the period it was exposed.",
+        "Make sure the host has current updates and that network-level authentication is on.",
+        "Record the decision and the owner, so the next review does not have to start from scratch."
+      ],
+      "howRescanConfirms": "The next scan probes the same host and port again. The finding closes when the {{service}} no longer answers from the internet. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "service-class",
+      "key": "remote-admin",
+      "label": "remote access or administration service",
+      "whyItMatters": "A {{service}} answers from the internet. This kind of service is a doorway into the organization's network or into the management of its systems. A company gateway for remote staff is expected to be reachable. A management console is not.",
+      "howItCouldBeAbused": "An attacker wants to get inside the network or to take control of administration. The consequence for the organization is broad access to systems and data from a single successful login.",
+      "whatGoodLooksLike": "Good looks like only the intended company gateway being reachable, with multi-factor sign-in and current updates, and management consoles reachable only from internal networks.",
+      "whatToDo": [
+        "Ask the owner of the host whether this {{service}} is meant to be reachable from the internet.",
+        "If it is the company gateway, ask the owner to confirm multi-factor sign-in and that the software is up to date.",
+        "If it is a management console, ask the owner to move it behind internal access only.",
+        "Review the service's sign-in logs for unfamiliar activity.",
+        "Record the decision and the owner, so the next review does not have to start from scratch."
+      ],
+      "howRescanConfirms": "The next scan probes the same host and port again. The finding closes when the {{service}} no longer answers from the internet. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "service-class",
+      "key": "mail",
+      "label": "mail service",
+      "whyItMatters": "A {{service}} answers from the internet. A server that receives mail for the domain has to be public. Servers that let staff read or send mail often do not need to be open to everyone, and each one is a login target.",
+      "howItCouldBeAbused": "An attacker wants access to mailboxes, or a way to send mail in your name. The consequence for the organization is exposed confidential messages and fraudulent mail that appears to be yours.",
+      "whatGoodLooksLike": "Good looks like only the servers that receive mail for the domain being open to everyone, and staff mailbox access using modern sign-in with multi-factor checks, over encrypted connections.",
+      "whatToDo": [
+        "Ask the owner of the host whether this {{service}} is meant to be reachable from the internet.",
+        "If it is the server that receives your domain's mail, confirm that it is listed in your mail records and keep it updated.",
+        "If it is for staff mailbox access, ask the owner to require encrypted connections and multi-factor sign-in, or to limit it to known networks.",
+        "Turn off old sign-in methods that cannot use multi-factor checks.",
+        "Record the decision and the owner, so the next review does not have to start from scratch."
+      ],
+      "howRescanConfirms": "The next scan probes the same host and port again. The finding closes when the {{service}} no longer answers from the internet. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "service-class",
+      "key": "dns",
+      "label": "Domain Name System (DNS) service",
+      "whyItMatters": "A {{service}} answers from the internet. A server that answers for your own domain has to be public. A server that answers questions about any domain for anyone can be used to flood other people with traffic and its stored answers can be tampered with.",
+      "howItCouldBeAbused": "An attacker wants to use your server to attack someone else, or to give false answers to your users. The consequence for the organization is your infrastructure being used in attacks, and degraded or misdirected service.",
+      "whatGoodLooksLike": "Good looks like public DNS servers answering only for your own domains, and servers for your own users being open only to your own networks.",
+      "whatToDo": [
+        "Ask the owner of the host whether this {{service}} is meant to be reachable from the internet.",
+        "If it is an authoritative server for your domain, confirm it is listed at your registrar and that it refuses requests for other domains.",
+        "If it is a server for your own users, ask the owner to limit it to your networks.",
+        "Record the decision and the owner, so the next review does not have to start from scratch."
+      ],
+      "howRescanConfirms": "The next scan probes the same host and port again. The finding closes when the {{service}} no longer answers from the internet. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "service-class",
+      "key": "database",
+      "label": "database service",
+      "whyItMatters": "A {{service}} answers from the internet. Databases hold the organization's records and are meant to be reached by applications, not by the whole internet. Exposed databases are found and attacked within hours of appearing.",
+      "howItCouldBeAbused": "An attacker wants to read, copy, change or delete the data. The consequence for the organization is a data breach with notification duties, ransom demands, and the loss or corruption of records.",
+      "whatGoodLooksLike": "Good looks like databases being reachable only from the applications that use them, on private networks, with strong sign-in and encryption.",
+      "whatToDo": [
+        "Ask the owner of the host whether this {{service}} is meant to be reachable from the internet.",
+        "Ask the owner to close the service to the internet now, and limit it to the applications that need it.",
+        "Check that the database requires strong sign-in, and change the passwords if there is any doubt.",
+        "Review the database's logs for connections you do not recognize from the period it was exposed.",
+        "If data may have been read, tell the privacy and legal teams so that they can decide on next steps.",
+        "Record the decision and the owner, so the next review does not have to start from scratch."
+      ],
+      "howRescanConfirms": "The next scan probes the same host and port again. The finding closes when the {{service}} no longer answers from the internet. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "service-class",
+      "key": "other-tcp",
+      "label": "network service",
+      "whyItMatters": "A {{service}} that Trawl could not match to a known type answers from the internet. Services nobody can name are among the most likely to have been forgotten, and forgotten services are the ones that stop being updated.",
+      "howItCouldBeAbused": "An attacker wants any reachable service with a flaw or a weak login. The consequence for the organization is a way in that nobody is watching, because nobody remembers it.",
+      "whatGoodLooksLike": "Good looks like every reachable service being known, owned and intended, and nothing else being open.",
+      "whatToDo": [
+        "Ask the owner of the host whether this {{service}} is meant to be reachable from the internet.",
+        "If nobody can say what it is for, treat it as unintended and ask for it to be closed.",
+        "If it is needed, ask the owner to name it, record who looks after it, and limit access to the networks that need it.",
+        "Record the decision and the owner, so the next review does not have to start from scratch."
+      ],
+      "howRescanConfirms": "The next scan probes the same host and port again. The finding closes when the {{service}} no longer answers from the internet. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    }
+  ]
+}

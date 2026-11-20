@@ -77,3 +77,9 @@ every host not listed here. The list is derived from the checks that actually
 run, so consenting to a service whose checks are withheld opens nothing.
 
 _None. Only names within your authorised domains are contacted._
+
+## Vulnerability feed and software candidate lookups
+
+Vulnerability catalogues (`cisa-kev`, `epss`, `nvd`) are contacted through `pkg/feed` only on explicit operator refresh or by the scheduled feed worker, never silently at desktop startup or during scan ingest.
+
+When software candidate lookup (`POST /api/v1/candidates/refresh`) is run, Trawl sends only the curated CPE `virtualMatchString` (`cpe:2.3:<part>:<vendor>:<product>:<version>`) to `services.nvd.nist.gov` (plus an optional `apiKey` header when the `nvd_api_key` setting is configured). No asset name, address, or identifier is sent. See `docs/feeds.md` for rate limits, caching, and offline operation.

@@ -17,6 +17,19 @@
     </div>
   }
 
+  <!-- Loaded on demand to keep the first paint light -->
+  @defer (on immediate) {
+    <app-changes-panel></app-changes-panel>
+  } @placeholder {
+    <p role="status" class="text-sm text-slate-500">Loading changes.</p>
+  }
+
+  @defer (on immediate) {
+    <app-trend-chart></app-trend-chart>
+  } @placeholder {
+    <p role="status" class="text-sm text-slate-500">Loading history.</p>
+  }
+
   <div [class]="theme() === 'dark' ? 'bg-slate-900/80 border border-rose-900/70 rounded-xl overflow-hidden shadow-xl' : 'bg-white border border-rose-200 rounded-xl overflow-hidden shadow-sm'">
     <div [class]="theme() === 'dark' ? 'px-6 py-4 border-b border-rose-900/70 flex items-center justify-between bg-slate-900' : 'px-6 py-4 border-b border-rose-200 flex items-center justify-between bg-rose-50'">
       <div>

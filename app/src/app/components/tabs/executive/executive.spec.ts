@@ -4,6 +4,8 @@ import axe from 'axe-core';
 import { ExecutiveComponent } from './executive';
 import { WailsIpcService } from '../../../wails-ipc.service';
 import { DomainAssessment } from '../../../models/types';
+import { explanationText, unsupportedClaims } from '../../../dashboard/findings';
+import { detail } from '../../../dashboard/findings.fixtures';
 
 /**
  * The derivation is proven in dashboard/estate.spec.ts. What is proven here is
@@ -102,6 +104,53 @@ describe('ExecutiveComponent', () => {
     expect(text).not.toMatch(/[£$€]\s?[\d,]+/);
     expect(text).not.toMatch(/\d+(\.\d+)?\s?%\s*(likelihood|chance|probability|risk of)/i);
     expect(text).toContain('It states no expected loss and no probability of compromise');
+  });
+
+  /**
+   * Change 025 extends the same boundary to the finding explanation.
+   *
+   * The test above checks the executive view with two patterns written inline.
+   * The finding detail renders prose authored elsewhere, so the check lives in
+   * one shared detector, `unsupportedClaims`, and these assertions pin it
+   * against fixtures: it must pass clean text, and it must catch the claims
+   * the inline patterns catch, wherever in an explanation they appear.
+   */
+  describe('narrative boundary', () => {
+    it('finds nothing to object to in the executive view, under the shared detector', async () => {
+      ipc.assessments.set([
+        assessment({
+          coverage: { total: 10, ok: 9, notFound: 1, notChecked: 0, checkFailed: 0 }
+        } as unknown as Partial<DomainAssessment>)
+      ]);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(unsupportedClaims((fixture.nativeElement as HTMLElement).textContent ?? '')).toEqual([]);
+    });
+
+    it('passes the fixture explanation, whose prose names no figure', () => {
+      expect(unsupportedClaims(explanationText(detail().explanation))).toEqual([]);
+    });
+
+    it('catches every claim the executive view test is written to catch', () => {
+      for (const claim of ['Expected loss of $1,200', 'about £3,000', '€40,000 at stake', '35% chance of compromise', '12% likelihood of attack']) {
+        expect(unsupportedClaims(claim), claim).not.toEqual([]);
+      }
+    });
+
+    it('catches a claim planted in any section of an explanation', () => {
+      const base = detail().explanation;
+      const planted = 'Expect to lose $75,000, a 20% chance of compromise.';
+      const sections = [
+        'whatWeFound', 'whyItMatters', 'howItCouldBeAbused', 'whatGoodLooksLike',
+        'howRescanConfirms', 'exploitationStatus', 'coverageNote'
+      ] as const;
+      for (const section of sections) {
+        expect(unsupportedClaims(explanationText({ ...base, [section]: planted })), section).not.toEqual([]);
+      }
+      expect(unsupportedClaims(explanationText({ ...base, whatToDo: [planted] }))).not.toEqual([]);
+      expect(unsupportedClaims(explanationText({ ...base, references: [planted] }))).not.toEqual([]);
+    });
   });
 
   describe('four-state coverage', () => {
@@ -288,6 +337,51 @@ describe('ExecutiveComponent', () => {
     expect(text).toContain('What to deal with first');
     expect(text).toContain('What changed for the worse');
     expect(text).not.toMatch(/undefined|\[object Object\]/);
+  });
+
+  describe('candidate separation and boundary', () => {
+    it('excludes candidates from confirmed exposure counts and labels them separately without asserting vulnerability', async () => {
+      ipc.assessments.set([
+        assessment({
+          coverage: { total: 10, ok: 8, notFound: 1, notChecked: 1, checkFailed: 0 }
+        } as unknown as Partial<DomainAssessment>)
+      ]);
+      ipc.findings.set([]);
+      ipc.findingIndex.set([
+        {
+          key: 'cand-1',
+          source: 'candidate',
+          assetId: 'a-1',
+          assetValue: 'example.com',
+          title: 'CVE-2021-23017 (nginx 1.18.0, unconfirmed)',
+          severity: 'high',
+          priority: 'critical',
+          status: 'open',
+          notReassessed: false,
+          category: 'software-candidate',
+          cve: 'CVE-2021-23017',
+          kev: true,
+          unconfirmed: true,
+          firstSeen: '2026-11-20T00:00:00Z',
+          lastSeen: '2026-11-20T00:00:00Z',
+          ageDays: 0,
+          lastChange: '2026-11-20T00:00:00Z',
+          lastChangeType: 'first_seen'
+        }
+      ]);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(fixture.componentInstance.ranked()).toHaveLength(0);
+      expect(fixture.componentInstance.unconfirmedCandidates()).toHaveLength(1);
+      expect(fixture.componentInstance.unconfirmedKevCandidates()).toBe(1);
+
+      const card = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="unconfirmed-candidates-card"]');
+      const cardText = card?.textContent ?? '';
+      expect(cardText).toContain('Unconfirmed software candidates (excluded from confirmed exposure)');
+      expect(cardText).toContain('1 unconfirmed candidate (1 KEV-listed, unconfirmed)');
+      expect(cardText).not.toMatch(/[$£€¥]|probability|is vulnerable/i);
+    });
   });
 
   describe('accessibility', () => {

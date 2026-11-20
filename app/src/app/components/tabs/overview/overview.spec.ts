@@ -109,4 +109,16 @@ describe('Overview', () => {
 
     expect(component.priorityFindings().map(f => f.id)).toEqual(['f-high', 'f-low']);
   });
+
+  it('includes the change panel and the trend, loaded on demand', async () => {
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('app-changes-panel')).not.toBeNull();
+    expect(root.querySelector('app-trend-chart')).not.toBeNull();
+    expect(root.textContent).toContain('Since the last scan');
+    expect(root.textContent).toContain('Open findings over time');
+  });
 });

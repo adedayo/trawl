@@ -343,4 +343,19 @@ describe('Header', () => {
       expect(ipc.scanStatusTone()).toBe('warning');
     });
   });
+
+  it('returns to the findings list when the findings tab is chosen while a detail is open', async () => {
+    window.history.replaceState(null, '', window.location.pathname);
+    ipc.openFinding('k1');
+    fixture.detectChanges();
+
+    const tab = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find(b =>
+      b.textContent?.includes('Vulnerabilities')
+    )!;
+    tab.click();
+
+    expect(ipc.selectedFindingKey()).toBeNull();
+    expect(ipc.activeTab()).toBe('findings');
+    window.history.replaceState(null, '', window.location.pathname);
+  });
 });

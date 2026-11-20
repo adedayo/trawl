@@ -56,6 +56,14 @@ export interface FeedStatusUI {
     contentDigest: string;
     recordCount: number;
   };
+  /**
+   * The last time the source was successfully consulted, whether or not its
+   * content had changed. `snapshot.retrievedAt` is when the content in force
+   * first arrived, which stops moving while the catalogue is unchanged.
+   */
+  lastCheckedAt?: string;
+  /** Whether the catalogue's entries are held locally, not only its metadata. */
+  recordsStored?: boolean;
   lastFailureAt?: string;
   lastError?: string;
   stale: boolean;
@@ -460,4 +468,298 @@ export interface SecretFindingUI {
   firstSeen: string;
   lastSeen: string;
   detectedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Change 025: findings history, drill-down and explanation.
+//
+// These mirror pkg/service/findings_types.go and pkg/narrative/types.go field
+// for field. They are the wire contract, so a change on the Go side is a change
+// here. Optional fields are the Go `omitempty` ones.
+// ---------------------------------------------------------------------------
+
+/** Which table holds a finding's current state. */
+export type FindingSource = 'signal' | 'finding' | 'secret' | 'candidate';
+
+export type FindingSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
+
+/** The lifecycle status the engine records. `active` exists only as a filter. */
+export type FindingStatus = 'open' | 'resolved' | 'reopened';
+
+/** The filter the index endpoint accepts. Empty fields do not filter. */
+export interface FindingFilter {
+  /** `open`, `resolved`, `reopened`, or `active` (open and reopened). */
+  status?: string;
+  severity?: string;
+  source?: string;
+  assetId?: string;
+  /** RFC 3339. Only findings with an event at or after it are returned. */
+  changedSince?: string;
+}
+
+/** One row of the unified findings list. */
+export interface FindingSummary {
+  /** The stable, URL-safe address of the finding. */
+  key: string;
+  source: FindingSource;
+  assetId: string;
+  assetValue: string;
+  title: string;
+
+  severity: FindingSeverity;
+  priority: string;
+  status: FindingStatus;
+
+  /**
+   * True when the finding is open only because the check that raises it could
+   * not conclude on the latest run. Rendered distinctly from an open finding
+   * that was re-assessed and is still present.
+   */
+  notReassessed: boolean;
+  notReassessedReason?: string;
+  /** The source row's own id, for signal findings. Exact; prefer it to matching text. */
+  signalId?: string;
+  /** The source row's own id, for secret findings. */
+  secretId?: string;
+
+  category: string;
+  cve?: string;
+  kev: boolean;
+  /** True for software-matched candidates: unconfirmed until verified. */
+  unconfirmed?: boolean;
+  /** Rating origin for candidates (for example `nvd`). */
+  severitySource?: string;
+
+  firstSeen: string;
+  lastSeen: string;
+  resolvedAt?: string;
+  /** Whole days from first seen to now, or to resolution. */
+  ageDays: number;
+  lastChange: string;
+  lastChangeType: string;
+}
+
+export type FindingEventType =
+  | 'baseline'
+  | 'first_seen'
+  | 'changed'
+  | 'priority_changed'
+  | 'resolved'
+  | 'reopened';
+
+/**
+ * Why an event happened. `library` means the scanner changed between
+ * observations, which is not a change in the estate; `feed` cites a feed
+ * snapshot; `baseline` marks pre-history rows.
+ */
+export type FindingEventCause = 'estate' | 'library' | 'feed' | 'baseline';
+
+/** One entry in a finding's timeline. */
+export interface FindingEventView {
+  id: string;
+  type: FindingEventType | string;
+  at: string;
+  runId?: string;
+  cause: FindingEventCause | string;
+  prevSeverity?: string;
+  severity?: string;
+  prevPriority?: string;
+  priority?: string;
+  libraryVersion?: string;
+  registryVersion?: string;
+  /** Cites the feed snapshot behind a feed-caused change. */
+  snapshotId?: string;
+  note?: string;
+}
+
+/** A feed snapshot, as the store serialises it. */
+export interface FeedSnapshotUI {
+  id: string;
+  feed: string;
+  sourceUrl: string;
+  retrievedAt: string;
+  contentDigest: string;
+  recordCount: number;
+}
+
+/** What the finding's current state rests on. */
+export interface FindingProvenance {
+  runId?: string;
+  libraryVersion?: string;
+  registryVersion?: string;
+  feedSnapshots?: FeedSnapshotUI[];
+}
+
+/**
+ * The rendered, sectioned explanation of one finding (pkg/narrative).
+ *
+ * Curated, versioned and deterministic. It is distinct from any AI annotation,
+ * which is advisory and, in this change, not rendered at all.
+ */
+export interface Explanation {
+  /** Which narrative level supplied the wording: signal, weakness-class, ... */
+  level: string;
+  levelKey: string;
+  /** The narrative set the wording came from. */
+  version: string;
+
+  whatWeFound: string;
+  whyItMatters: string;
+  howItCouldBeAbused: string;
+  whatGoodLooksLike: string;
+  whatToDo: string[];
+  howRescanConfirms: string;
+  references: string[];
+  standards?: string[];
+
+  /** KEV/EPSS in words with the date checked, or that it could not be established. */
+  exploitationStatus?: string;
+  /** Set when the assessment behind the finding did not conclude. */
+  coverageNote?: string;
+}
+
+/** Everything the drill-down view shows. */
+export interface FindingDetail extends FindingSummary {
+  description?: string;
+  /** The occurrence-specific sentence; evidence is the measured value. */
+  detail?: string;
+  evidence?: string;
+
+  checkId?: string;
+  checkState?: CoverageState;
+  checkReason?: string;
+
+  // Candidate software-match evidence (populated when source === 'candidate').
+  observedString?: string;
+  matchedVendor?: string;
+  matchedProduct?: string;
+  matchedVersion?: string;
+  lookupSnapshotId?: string;
+  lookupAt?: string;
+
+  explanation: Explanation;
+  narrativeVersion: string;
+
+  timeline: FindingEventView[];
+  regressions: RegressionRecord[];
+  provenance: FindingProvenance;
+}
+
+/** A confirmed posture regression, as `store.Regression` serialises it. */
+export interface RegressionRecord {
+  id: string;
+  assetId: string;
+  attributeType: string;
+  previousValue: string;
+  currentValue: string;
+  consecutiveFails: number;
+  confirmedAt: string;
+}
+
+/** One run in the ledger, with the coverage of what it attempted. */
+export interface ScanRunView {
+  id: string;
+  /** assessment, service-probe, ingest-scan, secret-scan or feed-refresh. */
+  kind: string;
+  assetId?: string;
+  assetValue?: string;
+  profile?: string;
+  outcome: string;
+  libraryVersion?: string;
+  registryVersion?: string;
+  startedAt: string;
+  finishedAt: string;
+  coverage: CoverageSummary;
+  /** Concluded checks over intended checks, 0 to 1. Zero when none were intended. */
+  coverageFraction: number;
+}
+
+/**
+ * One run's summary: open findings by severity when the run finished, the
+ * transitions it caused, and its coverage. Trend lines are drawn from these
+ * and only these; nothing is interpolated between runs.
+ */
+export interface HistoryPoint {
+  run: ScanRunView;
+  at: string;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  info: number;
+  open: number;
+  resolved: number;
+  /** Transitions this run caused. */
+  new: number;
+  resolvedInRun: number;
+}
+
+/** One finding that moved between two points in time. */
+export interface FindingChange {
+  finding: FindingSummary;
+  event: FindingEventView;
+}
+
+/** The difference between two runs, or between a run and now. */
+export interface ChangeSet {
+  from?: HistoryPoint | null;
+  to?: HistoryPoint | null;
+  new: FindingChange[];
+  resolved: FindingChange[];
+  worsened: FindingChange[];
+  improved: FindingChange[];
+  /** Anything that limits how the comparison should be read, notably a coverage drop. */
+  note?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Change 026: software inventory and unconfirmed candidate vulnerabilities.
+// ---------------------------------------------------------------------------
+
+export type SoftwareMappingState = 'mapped' | 'unmapped';
+export type SoftwareVersionState = 'known' | 'unknown';
+export type SoftwareStatus = 'current' | 'superseded';
+export type SoftwareCoverageState =
+  | 'not_assessed'
+  | 'seen_unmapped'
+  | 'version_unknown'
+  | 'identified';
+
+export interface AssetSoftwareUI {
+  id: string;
+  assetId: string;
+  observedName: string;
+  cpePart?: string;
+  vendor?: string;
+  product?: string;
+  mappingState: SoftwareMappingState;
+  mappingVersion?: string;
+  version?: string;
+  versionState: SoftwareVersionState;
+  source: string;
+  rawString: string;
+  status: SoftwareStatus;
+  firstSeen: string;
+  lastSeen: string;
+  supersededAt?: string;
+}
+
+export interface SoftwareCoverageUI {
+  assetId: string;
+  state: SoftwareCoverageState;
+  identified: number;
+  versionUnknown: number;
+  unmapped: number;
+  superseded: number;
+}
+
+export interface CandidateRefreshSummaryUI {
+  runId: string;
+  snapshotId?: string;
+  queried: number;
+  cacheHits: number;
+  candidates: number;
+  resolved: number;
+  skippedVersionUnknown: number;
+  skippedUnmapped: number;
 }

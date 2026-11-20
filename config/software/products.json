@@ -1,0 +1,405 @@
+{
+  "version": "1.0.0",
+  "entries": [
+    {
+      "names": ["nginx", "nginx web server", "nginx plus"],
+      "cpePart": "a",
+      "vendor": "f5",
+      "product": "nginx"
+    },
+    {
+      "names": ["apache", "apache http server", "apache httpd", "httpd"],
+      "cpePart": "a",
+      "vendor": "apache",
+      "product": "http_server"
+    },
+    {
+      "names": ["apache tomcat", "tomcat"],
+      "cpePart": "a",
+      "vendor": "apache",
+      "product": "tomcat"
+    },
+    {
+      "names": ["apache traffic server"],
+      "cpePart": "a",
+      "vendor": "apache",
+      "product": "traffic_server"
+    },
+    {
+      "names": ["iis", "microsoft iis", "microsoft-iis", "internet information services"],
+      "cpePart": "a",
+      "vendor": "microsoft",
+      "product": "internet_information_services"
+    },
+    {
+      "names": ["caddy"],
+      "cpePart": "a",
+      "vendor": "caddyserver",
+      "product": "caddy"
+    },
+    {
+      "names": ["envoy", "envoy proxy"],
+      "cpePart": "a",
+      "vendor": "envoyproxy",
+      "product": "envoy"
+    },
+    {
+      "names": ["haproxy"],
+      "cpePart": "a",
+      "vendor": "haproxy",
+      "product": "haproxy"
+    },
+    {
+      "names": ["traefik"],
+      "cpePart": "a",
+      "vendor": "traefik",
+      "product": "traefik"
+    },
+    {
+      "names": ["lighttpd"],
+      "cpePart": "a",
+      "vendor": "lighttpd",
+      "product": "lighttpd"
+    },
+    {
+      "names": ["litespeed", "litespeed web server"],
+      "cpePart": "a",
+      "vendor": "litespeedtech",
+      "product": "litespeed_web_server"
+    },
+    {
+      "names": ["openresty"],
+      "cpePart": "a",
+      "vendor": "openresty",
+      "product": "openresty"
+    },
+    {
+      "names": ["varnish", "varnish cache"],
+      "cpePart": "a",
+      "vendor": "varnish_cache_project",
+      "product": "varnish_cache"
+    },
+    {
+      "names": ["php"],
+      "cpePart": "a",
+      "vendor": "php",
+      "product": "php"
+    },
+    {
+      "names": ["openssl"],
+      "cpePart": "a",
+      "vendor": "openssl",
+      "product": "openssl"
+    },
+    {
+      "names": ["openssh"],
+      "cpePart": "a",
+      "vendor": "openbsd",
+      "product": "openssh"
+    },
+    {
+      "names": ["wordpress"],
+      "cpePart": "a",
+      "vendor": "wordpress",
+      "product": "wordpress"
+    },
+    {
+      "names": ["drupal"],
+      "cpePart": "a",
+      "vendor": "drupal",
+      "product": "drupal"
+    },
+    {
+      "names": ["joomla", "joomla!"],
+      "cpePart": "a",
+      "vendor": "joomla",
+      "product": "joomla\\!"
+    },
+    {
+      "names": ["magento"],
+      "cpePart": "a",
+      "vendor": "adobe",
+      "product": "magento"
+    },
+    {
+      "names": ["jquery"],
+      "cpePart": "a",
+      "vendor": "jquery",
+      "product": "jquery"
+    },
+    {
+      "names": ["jquery ui"],
+      "cpePart": "a",
+      "vendor": "jquery",
+      "product": "jquery_ui"
+    },
+    {
+      "names": ["bootstrap"],
+      "cpePart": "a",
+      "vendor": "getbootstrap",
+      "product": "bootstrap"
+    },
+    {
+      "names": ["react"],
+      "cpePart": "a",
+      "vendor": "facebook",
+      "product": "react"
+    },
+    {
+      "names": ["angular", "angularjs"],
+      "cpePart": "a",
+      "vendor": "angularjs",
+      "product": "angular.js"
+    },
+    {
+      "names": ["vue.js", "vuejs", "vue"],
+      "cpePart": "a",
+      "vendor": "vuejs",
+      "product": "vue"
+    },
+    {
+      "names": ["next.js", "nextjs"],
+      "cpePart": "a",
+      "vendor": "vercel",
+      "product": "next.js"
+    },
+    {
+      "names": ["express", "expressjs"],
+      "cpePart": "a",
+      "vendor": "expressjs",
+      "product": "express"
+    },
+    {
+      "names": ["django"],
+      "cpePart": "a",
+      "vendor": "djangoproject",
+      "product": "django"
+    },
+    {
+      "names": ["flask"],
+      "cpePart": "a",
+      "vendor": "palletsprojects",
+      "product": "flask"
+    },
+    {
+      "names": ["ruby on rails", "rails"],
+      "cpePart": "a",
+      "vendor": "rubyonrails",
+      "product": "rails"
+    },
+    {
+      "names": ["laravel"],
+      "cpePart": "a",
+      "vendor": "laravel",
+      "product": "laravel"
+    },
+    {
+      "names": ["spring boot", "spring framework"],
+      "cpePart": "a",
+      "vendor": "vmware",
+      "product": "spring_boot"
+    },
+    {
+      "names": ["node.js", "nodejs"],
+      "cpePart": "a",
+      "vendor": "nodejs",
+      "product": "node.js"
+    },
+    {
+      "names": ["grafana"],
+      "cpePart": "a",
+      "vendor": "grafana",
+      "product": "grafana"
+    },
+    {
+      "names": ["jenkins"],
+      "cpePart": "a",
+      "vendor": "jenkins",
+      "product": "jenkins"
+    },
+    {
+      "names": ["gitlab"],
+      "cpePart": "a",
+      "vendor": "gitlab",
+      "product": "gitlab"
+    },
+    {
+      "names": ["jira", "atlassian jira"],
+      "cpePart": "a",
+      "vendor": "atlassian",
+      "product": "jira"
+    },
+    {
+      "names": ["confluence", "atlassian confluence"],
+      "cpePart": "a",
+      "vendor": "atlassian",
+      "product": "confluence"
+    },
+    {
+      "names": ["kibana"],
+      "cpePart": "a",
+      "vendor": "elastic",
+      "product": "kibana"
+    },
+    {
+      "names": ["elasticsearch"],
+      "cpePart": "a",
+      "vendor": "elastic",
+      "product": "elasticsearch"
+    },
+    {
+      "names": ["jetty", "eclipse jetty"],
+      "cpePart": "a",
+      "vendor": "eclipse",
+      "product": "jetty"
+    },
+    {
+      "names": ["gunicorn"],
+      "cpePart": "a",
+      "vendor": "gunicorn",
+      "product": "gunicorn"
+    },
+    {
+      "names": ["mod_ssl"],
+      "cpePart": "a",
+      "vendor": "modssl",
+      "product": "mod_ssl"
+    },
+    {
+      "names": ["ubuntu"],
+      "cpePart": "o",
+      "vendor": "canonical",
+      "product": "ubuntu_linux"
+    },
+    {
+      "names": ["debian"],
+      "cpePart": "o",
+      "vendor": "debian",
+      "product": "debian_linux"
+    },
+    {
+      "names": ["dropbear"],
+      "cpePart": "a",
+      "vendor": "dropbear_ssh_project",
+      "product": "dropbear_ssh"
+    },
+    {
+      "names": ["postfix"],
+      "cpePart": "a",
+      "vendor": "postfix",
+      "product": "postfix"
+    },
+    {
+      "names": ["exim"],
+      "cpePart": "a",
+      "vendor": "exim",
+      "product": "exim"
+    },
+    {
+      "names": ["sendmail"],
+      "cpePart": "a",
+      "vendor": "sendmail",
+      "product": "sendmail"
+    },
+    {
+      "names": ["dovecot"],
+      "cpePart": "a",
+      "vendor": "dovecot",
+      "product": "dovecot"
+    },
+    {
+      "names": ["cyrus imap", "cyrus"],
+      "cpePart": "a",
+      "vendor": "cyrus",
+      "product": "imap"
+    },
+    {
+      "names": ["vsftpd"],
+      "cpePart": "a",
+      "vendor": "vsftpd_project",
+      "product": "vsftpd"
+    },
+    {
+      "names": ["proftpd"],
+      "cpePart": "a",
+      "vendor": "proftpd",
+      "product": "proftpd"
+    },
+    {
+      "names": ["pure-ftpd"],
+      "cpePart": "a",
+      "vendor": "pureftpd",
+      "product": "pure-ftpd"
+    },
+    {
+      "names": ["mysql"],
+      "cpePart": "a",
+      "vendor": "oracle",
+      "product": "mysql"
+    },
+    {
+      "names": ["mariadb"],
+      "cpePart": "a",
+      "vendor": "mariadb",
+      "product": "mariadb"
+    },
+    {
+      "names": ["postgresql", "postgres"],
+      "cpePart": "a",
+      "vendor": "postgresql",
+      "product": "postgresql"
+    },
+    {
+      "names": ["redis"],
+      "cpePart": "a",
+      "vendor": "redis",
+      "product": "redis"
+    },
+    {
+      "names": ["mongodb"],
+      "cpePart": "a",
+      "vendor": "mongodb",
+      "product": "mongodb"
+    },
+    {
+      "names": ["memcached"],
+      "cpePart": "a",
+      "vendor": "memcached",
+      "product": "memcached"
+    },
+    {
+      "names": ["asp.net"],
+      "cpePart": "a",
+      "vendor": "microsoft",
+      "product": "asp.net"
+    },
+    {
+      "names": ["microsoft exchange", "microsoft esmtp mail service"],
+      "cpePart": "a",
+      "vendor": "microsoft",
+      "product": "exchange_server"
+    }
+  ],
+  "deliberatelyUnmapped": [
+    "hsts",
+    "http/3",
+    "http/2",
+    "cloudflare",
+    "cloudfront",
+    "amazon cloudfront",
+    "aws",
+    "amazon web services",
+    "akamai",
+    "fastly",
+    "google font api",
+    "google analytics",
+    "google tag manager",
+    "recaptcha",
+    "open graph",
+    "rss",
+    "pwa",
+    "webpack",
+    "vite",
+    "tailwind css"
+  ]
+}

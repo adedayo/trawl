@@ -557,4 +557,60 @@ describe('EmailPosture', () => {
       expect(text).not.toContain('Specifically,');
     });
   });
+
+  /**
+   * Each advisory can open the same finding detail as the Findings tab. The
+   * key comes from the findings index, and the link is hidden whenever no entry
+   * matches unambiguously: a link to the wrong finding is worse than none.
+   */
+  describe('link to the finding detail', () => {
+    const advisory = {
+      signalId: 'SURF-SPF-009',
+      checkId: 'spf',
+      condition: 'SPF include target publishes no usable record',
+      severity: 'medium',
+      state: 'ok',
+      evidence: 'spf.term=include:dead.example'
+    };
+
+    const open = async () => {
+      ipc.assessments.set([assessment([control('spf', 'deficient', [advisory])])]);
+      ipc.emailPostures.set([posture()]);
+      fixture.detectChanges();
+      component.toggleDomain('d.example');
+      component.toggle('d.example', 'spf');
+      fixture.detectChanges();
+      await fixture.whenStable();
+    };
+
+    const link = () =>
+      Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find(b =>
+        b.textContent?.includes('View history and explanation')
+      );
+
+    it('is offered when the index holds the matching finding, and opens it', async () => {
+      ipc.findingIndex.set([
+        {
+          key: 'sig.d.example.SURF-SPF-009', source: 'signal', assetId: 'a', assetValue: 'd.example',
+          title: 'SPF include target publishes no usable record', severity: 'medium', priority: 'medium',
+          status: 'open', notReassessed: false, category: 'spf', kev: false,
+          firstSeen: '2026-11-01T00:00:00Z', lastSeen: '2026-11-02T00:00:00Z', ageDays: 1,
+          lastChange: '2026-11-01T00:00:00Z', lastChangeType: 'first_seen'
+        }
+      ]);
+      await open();
+
+      expect(link()).toBeDefined();
+      link()!.click();
+      expect(ipc.selectedFindingKey()).toBe('sig.d.example.SURF-SPF-009');
+      expect(ipc.activeTab()).toBe('findings');
+      window.history.replaceState(null, '', window.location.pathname);
+    });
+
+    it('is hidden when the index has nothing that matches', async () => {
+      ipc.findingIndex.set([]);
+      await open();
+      expect(link()).toBeUndefined();
+    });
+  });
 });

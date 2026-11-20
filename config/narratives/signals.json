@@ -1,0 +1,343 @@
+{
+  "version": "1.0.0",
+  "entries": [
+    {
+      "level": "signal",
+      "key": "SURF-SPF-001",
+      "whyItMatters": "SPF (Sender Policy Framework) is a published list of the servers allowed to send email as your domain. A domain that publishes no list gives receiving mail systems nothing to check a message against, so mail that claims to come from it is not marked as suspicious on this basis.",
+      "howItCouldBeAbused": "An attacker wants to send email that appears to come from your organization. The consequence is customers, partners and staff being tricked into paying fraudulent invoices, sharing data or opening harmful files, with your brand taking the blame.",
+      "whatGoodLooksLike": "Good looks like one published record that lists exactly the systems that send mail for the domain and ends in a firm rule rejecting everything else.",
+      "whatToDo": [
+        "Ask your email administrator to list every system that legitimately sends mail as this domain, including marketing and billing tools.",
+        "Publish a single SPF record that covers those senders, starting with a softer ending while the list is confirmed.",
+        "Tighten the ending to a firm rejection once mail from the listed senders is seen to pass.",
+        "Publish a policy record as well (DMARC, Domain-based Message Authentication, Reporting and Conformance), so receivers know what to do with mail that fails."
+      ],
+      "howRescanConfirms": "The next scan reads the domain's SPF record again. The finding closes when a valid record with a terminal rule is found. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-SPF-004",
+      "whyItMatters": "SPF (Sender Policy Framework) is a published list of the servers allowed to send email as your domain. A record that ends with a rule allowing every server on the internet is worse than publishing nothing, because it tells receiving systems that forged mail in your name is permitted.",
+      "howItCouldBeAbused": "An attacker wants to send email that appears to come from your organization, and a record like this lets it pass the sender check. The consequence is customers, partners and staff being tricked into paying fraudulent invoices, sharing data or opening harmful files, with your brand taking the blame.",
+      "whatGoodLooksLike": "Good looks like a record that lists exactly the systems that send mail for the domain and ends in a firm rule rejecting everything else.",
+      "whatToDo": [
+        "Ask your email administrator to confirm today which systems legitimately send mail as this domain.",
+        "Replace the allow-everything ending with a firm rejection ending as soon as that list is confirmed.",
+        "Publish a policy record as well (DMARC, Domain-based Message Authentication, Reporting and Conformance), so receivers know what to do with mail that fails.",
+        "Find out how the record came to end this way, and fix the change process that allowed it."
+      ],
+      "howRescanConfirms": "The next scan reads the SPF record again. The finding closes when the record no longer ends by allowing all senders. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-SPF-006",
+      "whyItMatters": "SPF (Sender Policy Framework) is a published list of the servers allowed to send email as your domain. A record that needs more lookups than the standard permits is treated by receiving systems as broken, so the list is ignored. It looks correct to anyone who reads it, yet it does no work.",
+      "howItCouldBeAbused": "An attacker wants to send email that appears to come from your organization, and a broken sender list does not stop it. The consequence is fraudulent messages reaching customers and staff, and genuine mail from you failing checks, with nothing visible to explain either.",
+      "whatGoodLooksLike": "Good looks like a record that stays within the lookup limit, lists only the senders you use today, and is checked each time a provider is added.",
+      "whatToDo": [
+        "Ask your email administrator to list the providers named in the record and remove any no longer used.",
+        "Replace stable provider references with their address ranges where the provider allows it, to cut the number of lookups.",
+        "Re-test the record against the limit after each change.",
+        "Agree who checks the record whenever a new mail provider is added."
+      ],
+      "howRescanConfirms": "The next scan counts the lookups the record needs again. The finding closes when the count is within the limit. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-DMARC-001",
+      "whyItMatters": "DMARC (Domain-based Message Authentication, Reporting and Conformance) is the published instruction that tells receiving mail systems what to do with mail that claims to be from your domain but fails checks. Without one, receivers decide for themselves, and forged mail is often delivered. You also receive no reports about who is using your name.",
+      "howItCouldBeAbused": "An attacker wants to send email that appears to come from your organization. The consequence is customers, partners and staff being tricked into paying fraudulent invoices, sharing data or opening harmful files, with your brand taking the blame.",
+      "whatGoodLooksLike": "Good looks like a published policy that tells receivers to reject mail that fails authentication, with reports sent to a mailbox that someone reads.",
+      "whatToDo": [
+        "Ask your email administrator to publish a policy record in monitoring mode with a reporting address.",
+        "Read the reports for a few weeks to find every legitimate sender, and fix any that fail.",
+        "Move the policy to quarantine, then to reject, once legitimate mail passes.",
+        "Assign someone to keep reviewing the reports."
+      ],
+      "howRescanConfirms": "The next scan reads the policy record again. The finding closes when a valid policy is published. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-DMARC-002",
+      "whyItMatters": "DMARC (Domain-based Message Authentication, Reporting and Conformance) is the published instruction that tells receiving mail systems what to do with mail that fails checks. A policy set to monitoring only lets you see abuse in the reports, but tells receivers to do nothing about forged mail, so it is still delivered.",
+      "howItCouldBeAbused": "An attacker wants to send email that appears to come from your organization. The consequence is customers, partners and staff being tricked into paying fraudulent invoices, sharing data or opening harmful files, with your brand taking the blame.",
+      "whatGoodLooksLike": "Good looks like a policy that tells receivers to reject mail that fails checks, reached step by step once the reports show that all legitimate senders pass.",
+      "whatToDo": [
+        "Ask your email administrator to review the reports and list any legitimate sender that still fails.",
+        "Fix those senders, or retire them.",
+        "Raise the policy to quarantine and then to reject, and confirm it applies to all mail.",
+        "Keep reviewing the reports after each step."
+      ],
+      "howRescanConfirms": "The next scan reads the policy again. The finding closes when the policy is quarantine or reject. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-DMARC-008",
+      "whyItMatters": "DMARC (Domain-based Message Authentication, Reporting and Conformance) is the published instruction that tells receiving mail systems what to do with mail that fails checks. A record that is written wrongly cannot be read. Receivers ignore it, so the domain behaves as if it had no policy while looking as if it did.",
+      "howItCouldBeAbused": "An attacker wants to send email that appears to come from your organization, and an ignored policy does not stop it. The consequence is fraudulent messages reaching customers and staff, while the record gives a false impression that the issue has been dealt with.",
+      "whatGoodLooksLike": "Good looks like one correctly written record, checked by a validator each time it is changed.",
+      "whatToDo": [
+        "Ask your email administrator to compare the record with the standard format and correct it.",
+        "Check that only one such record exists.",
+        "Use a validator each time the record is changed.",
+        "Then follow the usual steps toward a policy that rejects forged mail."
+      ],
+      "howRescanConfirms": "The next scan reads and parses the record again. The finding closes when the record is valid. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-DMARC-009",
+      "whyItMatters": "DMARC (Domain-based Message Authentication, Reporting and Conformance) tells receiving mail systems what to do with forged mail. A name with no policy of its own uses the one published for the main domain. That is normal, and a finding of this kind is for information.",
+      "howItCouldBeAbused": "This finding on its own gives an attacker nothing. The risk for the organization is only that a change to the main domain's policy changes the name's policy too, without anyone intending it.",
+      "whatGoodLooksLike": "Good looks like a deliberate choice: either the inherited policy is intended and recorded, or the name publishes its own policy.",
+      "whatToDo": [
+        "Ask your email administrator whether the inherited policy is what you want for this name.",
+        "If it is, no action is needed beyond recording the decision.",
+        "If it is not, publish a policy for this name, or set a separate rule for subdomains on the main domain."
+      ],
+      "howRescanConfirms": "The next scan reads the policy records again. The finding closes when the name publishes its own policy. It may otherwise remain as an informational note."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-DKIM-001",
+      "whyItMatters": "DKIM (DomainKeys Identified Mail) adds a digital signature to outgoing email so that receivers can confirm it came from your domain. Trawl looks for signing keys under the names commonly used by mail providers. Not finding one can mean that mail is not signed, or that your provider uses a name Trawl does not try. It is a prompt to check, and not proof of a gap.",
+      "howItCouldBeAbused": "An attacker wants to send mail that passes as yours. If signing really is absent, the consequence is that mail from you cannot be proven genuine, and that forged mail is harder for receivers to tell apart.",
+      "whatGoodLooksLike": "Good looks like every system that sends mail for you signing with a strong key that is published in DNS, with the signing name recorded.",
+      "whatToDo": [
+        "Ask your email administrator whether your mail provider signs outgoing mail, and under which key name.",
+        "If it does not, enable signing and publish the key the provider supplies.",
+        "If it signs under an uncommon name, record that so a later scan can look for it.",
+        "Repeat for every system that sends mail as the domain."
+      ],
+      "howRescanConfirms": "The next scan looks for signing keys again. A scan that still finds none cannot tell whether signing is off or uses an unusual name, so this finding is not treated as fixed until a key is found."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-AXFR-001",
+      "whyItMatters": "A zone transfer is a way for nameservers to copy a domain's complete list of records. It is meant only for your own secondary servers. If a nameserver hands the entire list to an anonymous requester, the list names your systems, including ones that were never meant to be found.",
+      "howItCouldBeAbused": "An attacker wants a full inventory of your systems. The consequence for the organization is that internal, test and management systems become easy to find and target, and weeks of guesswork are saved for anyone who asks.",
+      "whatGoodLooksLike": "Good looks like zone copies being refused to everyone except your own secondary servers, identified by address and, ideally, by a shared key.",
+      "whatToDo": [
+        "Ask your Domain Name System (DNS) administrator to restrict zone transfers to your secondary servers only, today.",
+        "Where possible, require a shared key on those transfers as well as an address check.",
+        "Review the disclosed records and retire or rename any system that should not have been listed.",
+        "Treat the disclosed names as known to outsiders when you review exposure."
+      ],
+      "howRescanConfirms": "The next scan asks each nameserver for a zone transfer again. The finding closes when every nameserver refuses. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-TKO-001",
+      "whyItMatters": "A name that points at a service run by someone else, when the account or resource it points to no longer exists, can be claimed. On some services anyone can register that resource, and whoever does controls a page that sits under your own name.",
+      "howItCouldBeAbused": "An attacker wants to publish content under your domain. The consequence for the organization is fake pages that look genuine, stolen logins or cookies, convincing phishing, and reputational harm that is hard to undo.",
+      "whatGoodLooksLike": "Good looks like every name pointing at a resource that exists and that you control, with records removed when a service is retired.",
+      "whatToDo": [
+        "Ask your Domain Name System (DNS) administrator to delete the record today. Removal is immediate and costs nothing.",
+        "If the service is still needed, have its owner recreate the resource with the provider before restoring the record.",
+        "Check whether the name was used for logins, cookies or allow-lists, and review any recent use.",
+        "Add record removal to the checklist for retiring a service."
+      ],
+      "howRescanConfirms": "The next scan reads the record and checks the target again. The finding closes when the record is gone or points at a resource that exists and is yours. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-TKO-003",
+      "whyItMatters": "For some services, a DNS lookup cannot tell whether the account a name points to is still active. That is not evidence of a fault, and the service is probably in use. It is flagged because an abandoned name on such a service would look the same.",
+      "howItCouldBeAbused": "This finding on its own gives an attacker nothing. The risk for the organization is only that an abandoned name would go unnoticed, and then be claimed under your brand.",
+      "whatGoodLooksLike": "Good looks like each such name having a known owner who confirms the service is still in use.",
+      "whatToDo": [
+        "Ask your Domain Name System (DNS) administrator who owns the name.",
+        "Ask that owner to confirm the service is still in use.",
+        "If it is not, remove the record.",
+        "Record the confirmation so the next review does not repeat the question."
+      ],
+      "howRescanConfirms": "The next scan reads the record again. The finding closes when the record is removed. A confirmed, still-used service may remain listed as an item to verify."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-TKO-005",
+      "whyItMatters": "If a listed nameserver is a name that does not exist, whoever registers that name becomes one of the servers answering for your domain. That is a different and larger problem than a single abandoned page.",
+      "howItCouldBeAbused": "An attacker wants control of what your domain says. The consequence for the organization is redirected mail and websites, certificates issued for your names, and loss of control of the domain itself.",
+      "whatGoodLooksLike": "Good looks like every listed nameserver being a name you control that exists and answers for the domain.",
+      "whatToDo": [
+        "Ask your Domain Name System (DNS) administrator and your registrar to remove the nameserver from the domain's list at once.",
+        "Check whether the domain that held the nameserver has expired, and whether anyone else now holds it.",
+        "If someone else holds it, treat the domain as exposed and review recent changes to it.",
+        "Add a check of nameserver ownership to the process for retiring DNS services."
+      ],
+      "howRescanConfirms": "The next scan reads the nameserver list and looks each one up again. The finding closes when no listed nameserver is missing. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-DANGLE-001",
+      "whyItMatters": "Cloud addresses are handed out on a temporary basis. If a name points at an address that now presents a trusted certificate belonging to unrelated names, that strongly suggests the address has been given to another customer, and your name leads to a system someone else runs.",
+      "howItCouldBeAbused": "An attacker wants visitors who use your name to reach their system. The consequence for the organization is fake content under your domain, stolen logins or cookies, and loss of trust.",
+      "whatGoodLooksLike": "Good looks like DNS pointing only at addresses you currently hold, with records removed when the resource is released.",
+      "whatToDo": [
+        "Ask your Domain Name System (DNS) administrator to remove or correct the record today.",
+        "Ask the cloud account owner to confirm when the address was released and whether it is still yours.",
+        "Check whether the name was used for logins, cookies or allow-lists since then.",
+        "Add record removal to the checklist for releasing a cloud resource."
+      ],
+      "howRescanConfirms": "The next scan connects to the address and reads its certificate again. The finding closes when the record is removed or the address is confirmed to be yours. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-DANGLE-002",
+      "whyItMatters": "If a name points at a cloud address that shows an identity which does not match the name, the address may have been reassigned. It may present an untrusted certificate for unrelated names, or send plain web requests to an unrelated site. This does not prove who controls the address, but the answer should be checked.",
+      "howItCouldBeAbused": "An attacker wants visitors who use your name to reach their system. If the address has been reassigned, the consequence for the organization is fake content under your domain and stolen logins.",
+      "whatGoodLooksLike": "Good looks like DNS pointing only at addresses you currently hold, each of which answers with your own identity.",
+      "whatToDo": [
+        "Ask the cloud account owner to confirm whether the address is still assigned to you.",
+        "Ask your Domain Name System (DNS) administrator to remove or correct the record if it is not.",
+        "Check that the service behind the name is the one you expect before restoring any record."
+      ],
+      "howRescanConfirms": "The next scan connects to the address again. The finding closes when the record is removed or the address answers with an identity that matches your name. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-DANGLE-004",
+      "whyItMatters": "The addresses of a cloud load balancer change over time. A name that points at a fixed address for one can start pointing at the wrong place without anyone changing anything. This is a tidiness and reliability finding more than an urgent one.",
+      "howItCouldBeAbused": "An attacker gains nothing directly. The risk for the organization is that the name quietly stops working, or later points at an address someone else holds.",
+      "whatGoodLooksLike": "Good looks like the name using the provider's own alias record for the load balancer, which follows the changes automatically.",
+      "whatToDo": [
+        "Ask your Domain Name System (DNS) administrator to replace the fixed address with the alias record the provider supplies.",
+        "Ask the cloud account owner to confirm the service behind the name.",
+        "Check the service after the change."
+      ],
+      "howRescanConfirms": "The next scan resolves the name again. The finding closes when the name no longer uses a fixed address for a load balancer."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-DANGLE-005",
+      "whyItMatters": "A cloud address that refuses both plain and encrypted web connections may have been released and be waiting to be handed to someone else. It may equally be switched off or blocked on purpose, so it is something to check.",
+      "howItCouldBeAbused": "An attacker gains nothing directly from a refused connection. The risk for the organization is that a released address is later given to someone else while the name still points at it.",
+      "whatGoodLooksLike": "Good looks like every name pointing at an address that is assigned to you and that answers as expected, or having no record.",
+      "whatToDo": [
+        "Ask the cloud account owner whether the address is still assigned to you and the service is meant to be off.",
+        "If the resource was released or is no longer used, ask your Domain Name System (DNS) administrator to remove the record.",
+        "If the service is meant to be running, have its owner restore it."
+      ],
+      "howRescanConfirms": "The next scan connects to the address again. The finding closes when the record is removed or the address answers as expected."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-DNSSEC-002",
+      "whyItMatters": "DNSSEC (Domain Name System Security Extensions) adds digital signatures to your domain's records, but it only works if the registry above you holds a matching record. If that link is missing, nobody checks the signatures, and you carry the cost and effort of signing without getting its benefit.",
+      "howItCouldBeAbused": "An attacker wants to forge answers about your domain. Because the chain of trust is not set up, the signatures do not stop them. The consequence for the organization is a false sense that this protection is in place.",
+      "whatGoodLooksLike": "Good looks like a matching record at the registry, so that anyone checking signatures can follow the chain from the top of the internet down to your domain.",
+      "whatToDo": [
+        "Ask your Domain Name System (DNS) administrator for the key record that the registry needs.",
+        "Ask your registrar to publish that record at the parent domain.",
+        "Test from a resolver that checks signatures after the change."
+      ],
+      "howRescanConfirms": "The next scan follows the chain of trust again. The finding closes when the registry holds a record that matches your signing key. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-DNSSEC-003",
+      "whyItMatters": "DNSSEC (Domain Name System Security Extensions) signs your domain's records. If the registry above you names a signing key that the zone does not publish, the chain of trust is broken. People whose internet providers check signatures cannot reach your domain at all, while everyone else can. That is an outage, not only a weakness.",
+      "howItCouldBeAbused": "An attacker is not needed for harm here. The consequence for the organization is that customers and staff behind validating providers cannot reach your website or email, and the cause is hard to diagnose.",
+      "whatGoodLooksLike": "Good looks like the registry record matching the key the domain currently publishes, and key changes being done in an agreed order with both sides updated.",
+      "whatToDo": [
+        "Ask your Domain Name System (DNS) administrator and registrar to fix this today, as it is affecting users now.",
+        "Either restore the key the registry refers to, or update the registry record to match the current key.",
+        "Test from a resolver that checks signatures to confirm access is back.",
+        "Agree a written procedure for key changes, with an owner."
+      ],
+      "howRescanConfirms": "The next scan follows the chain of trust again. The finding closes when the registry record matches a published key. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-DNSSEC-006",
+      "whyItMatters": "DNSSEC (Domain Name System Security Extensions) signatures have an end date. Once one has passed, people whose internet providers check signatures receive errors instead of your domain's records. That is an outage, not only a weakness.",
+      "howItCouldBeAbused": "An attacker is not needed for harm here. The consequence for the organization is that customers and staff behind validating providers cannot reach the affected names, and the cause is hard to diagnose.",
+      "whatGoodLooksLike": "Good looks like signatures being renewed automatically well before they end, with monitoring that warns in advance.",
+      "whatToDo": [
+        "Ask your Domain Name System (DNS) administrator to re-sign the domain today, as it is affecting users now.",
+        "Find out why renewal did not happen, and restore the automatic process.",
+        "Add monitoring that warns well before a signature ends.",
+        "Test from a resolver that checks signatures to confirm access is back."
+      ],
+      "howRescanConfirms": "The next scan reads the signature dates again. The finding closes when all signatures are current. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-NS-007",
+      "whyItMatters": "A nameserver that answers questions about other domains for anyone who asks can be used to flood other people with traffic, and its stored answers can be tampered with.",
+      "howItCouldBeAbused": "An attacker wants to use your server to attack someone else, or to feed it false answers. The consequence for the organization is your infrastructure being used in attacks, a possible block by others, and degraded service.",
+      "whatGoodLooksLike": "Good looks like servers that answer for your domain only, and separate servers for your own users that answer only for them.",
+      "whatToDo": [
+        "Ask your Domain Name System (DNS) administrator to stop the server answering for other domains.",
+        "If the server also serves your own users, move that job to a separate server limited to your networks.",
+        "Check the server's configuration after software updates."
+      ],
+      "howRescanConfirms": "The next scan queries the server again with a name it is not responsible for. The finding closes when the server refuses. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-MX-002",
+      "whyItMatters": "Mail exchanger (MX) records tell senders where to deliver mail. A record that points at a name which is an alias for another name breaks the standards. Some senders cope, others do not, so mail may be delayed or lost for only some of your correspondents.",
+      "howItCouldBeAbused": "No attacker is needed for harm here. The consequence for the organization is mail that sometimes fails to arrive, in a way that is hard to reproduce.",
+      "whatGoodLooksLike": "Good looks like every MX record naming a host that has its own address directly.",
+      "whatToDo": [
+        "Ask your email administrator to point the MX record at the real host name, not at an alias.",
+        "Send test mail from several external providers afterwards."
+      ],
+      "howRescanConfirms": "The next scan reads the MX records again. The finding closes when none of them points at an alias. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-MX-003",
+      "whyItMatters": "A domain that never uses email should say so clearly in its records. If it publishes no mail servers but does not say that it takes no mail, senders keep trying for days, and forged mail from the domain is easier to pass off.",
+      "howItCouldBeAbused": "An attacker wants to use a domain that looks official but is not watched. The consequence for the organization is that an unused domain can still be used to send convincing forged mail.",
+      "whatGoodLooksLike": "Good looks like a clear no-mail statement in the records of every domain that does not use email, together with a firm sender list and policy.",
+      "whatToDo": [
+        "Ask your email administrator to confirm that the domain does not send or receive mail.",
+        "Publish the standard no-mail record.",
+        "Publish a sender list that allows nobody, and a policy that rejects mail that fails checks."
+      ],
+      "howRescanConfirms": "The next scan reads the MX records again. The finding closes when the no-mail record is published. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-NET-002",
+      "whyItMatters": "A name that is public in the Domain Name System (DNS) but leads to an address that only exists inside a private network tells outsiders something about how your internal network is laid out. It usually means an internal name has been published by mistake.",
+      "howItCouldBeAbused": "An attacker wants to understand the layout of your internal network, so that a later break-in can move faster. The consequence for the organization is that internal addressing becomes known to outsiders.",
+      "whatGoodLooksLike": "Good looks like internal names being kept in an internal DNS zone and not appearing in the public one.",
+      "whatToDo": [
+        "Ask your DNS administrator why the name is in the public zone.",
+        "Move internal names to an internal zone, and remove them from the public one.",
+        "If the name must be public, point it at a public address."
+      ],
+      "howRescanConfirms": "The next scan resolves the name again. The finding closes when it no longer leads to a private address. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-WILD-003",
+      "whyItMatters": "A wildcard record answers for every name under your domain that has not been set up separately. When it sends them all to a service run by someone else, any name under your domain, real or invented, leads to that service.",
+      "howItCouldBeAbused": "An attacker wants a convincing address under your domain. The consequence for the organization is that whoever controls the other service, or claims an unused part of it, can serve content under any name in your domain.",
+      "whatGoodLooksLike": "Good looks like explicit records for the names you use, each pointing at a service you control or have confirmed.",
+      "whatToDo": [
+        "Ask your Domain Name System (DNS) administrator why the wildcard exists and which names rely on it.",
+        "Replace it with explicit records for those names.",
+        "Remove each record when the service behind it is retired."
+      ],
+      "howRescanConfirms": "The next scan reads the wildcard record again. The finding closes when it is removed or no longer leads to a third party. If a later scan cannot complete this check, the finding stays open and is marked as not re-assessed."
+    },
+    {
+      "level": "signal",
+      "key": "SURF-BIMI-003",
+      "whyItMatters": "BIMI (Brand Indicators for Message Identification) shows your logo beside your email in supporting mailboxes. Some mailbox providers also need a verified certificate for the logo. Without one named in the record, the logo may simply not appear.",
+      "howItCouldBeAbused": "This finding gives an attacker nothing. The consequence for the organization is only a missed brand benefit, and it is an optional feature.",
+      "whatGoodLooksLike": "Good looks like either a verified certificate named in the record, or a decision not to use the feature, recorded.",
+      "whatToDo": [
+        "Ask your marketing and email teams whether the logo in mailboxes is wanted.",
+        "If it is, obtain a verified mark certificate and publish it in the record.",
+        "If it is not, remove the record."
+      ],
+      "howRescanConfirms": "The next scan reads the record again. The finding closes when a certificate is named or the record is removed."
+    }
+  ]
+}

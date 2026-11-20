@@ -39,12 +39,8 @@ export class App implements OnInit, OnDestroy {
   activeTab = this.wailsIpc.activeTab;
 
   ngOnInit() {
-    this.wailsIpc.refreshAssets();
     this.wailsIpc.loadSettings();
-    this.wailsIpc.refreshEmailPostures();
-    this.wailsIpc.refreshAssessments();
-    this.wailsIpc.refreshSecretFindings();
-    this.wailsIpc.refreshRegressions();
+    void this.wailsIpc.refreshAll();
   }
 
   ngOnDestroy() {

@@ -13,7 +13,12 @@
       <app-assets></app-assets>
     }
     @if (activeTab() === 'findings') {
-      <app-findings></app-findings>
+      <!-- The findings tab carries the list, filters and detail; it is fetched when first opened -->
+      @defer (on immediate) {
+        <app-findings></app-findings>
+      } @placeholder {
+        <p role="status" class="text-sm text-slate-500">Loading findings.</p>
+      }
     }
     @if (activeTab() === 'email') {
       <app-email-posture></app-email-posture>

@@ -1,4 +1,4 @@
-import { AssetContactPanelUI, DomainAssessment, EmailPostureUI, FeedStatusUI, InstanceAggregationUI } from '../models/types';
+import { AssetContactPanelUI, AssetSoftwareUI, CandidateRefreshSummaryUI, ChangeSet, DomainAssessment, EmailPostureUI, FeedStatusUI, FindingDetail, FindingFilter, FindingSummary, HistoryPoint, InstanceAggregationUI, ScanRunView, SoftwareCoverageUI } from '../models/types';
 
 /**
  * The scope is the operator's declared authorisation. It is the same record in
@@ -152,8 +152,44 @@ export interface TrawlTransport {
   createCalibrationExperiment(label: string): Promise<CalibrationExperiment>;
   getFeedStatuses(): Promise<FeedStatusUI[]>;
   refreshFeeds(epssThreshold?: number): Promise<FeedStatusUI[]>;
+  /** Refreshes one catalogue (cisa-kev, epss or nvd) without fetching the others. */
+  refreshFeed(feed: string, epssThreshold?: number): Promise<FeedStatusUI[]>;
+  getAssetSoftware(assetId?: string): Promise<AssetSoftwareUI[]>;
+  getSoftwareCoverage(assetId?: string): Promise<SoftwareCoverageUI[]>;
+  refreshCandidates(force?: boolean): Promise<CandidateRefreshSummaryUI | null>;
   getAssetContactPanel(assetId: string, excludedFactors?: string[]): Promise<AssetContactPanelUI | null>;
   getWeaknessContactAggregations(): Promise<InstanceAggregationUI[]>;
+
+  /**
+   * The unified findings list across every source (Change 025).
+   *
+   * Unlike the legacy `getFindings`, the read paths below reject when they
+   * cannot answer. An empty index and a failed request render identically as
+   * an empty list, and only one of them is a statement about the estate.
+   */
+  getFindingIndex(filter?: FindingFilter): Promise<FindingSummary[]>;
+
+  /**
+   * One finding with its explanation, timeline and provenance, or null when
+   * the key is unknown (the address may come from another installation, or the
+   * data may have been erased).
+   */
+  getFindingDetail(key: string): Promise<FindingDetail | null>;
+
+  /**
+   * What changed between two runs. Both are optional: an omitted `to` is the
+   * latest run and an omitted `from` is the run immediately before `to`.
+   */
+  getFindingChanges(from?: string, to?: string): Promise<ChangeSet>;
+
+  /** The run ledger, newest first. */
+  getScanRuns(): Promise<ScanRunView[]>;
+
+  /**
+   * Per-run summaries, oldest first, from `since` (RFC 3339) or from the
+   * beginning when empty. These are the only source for trend lines.
+   */
+  getHistorySummary(since?: string): Promise<HistoryPoint[]>;
 
   getAssessments(): Promise<DomainAssessment[]>;
   getAssessment(domain: string): Promise<DomainAssessment | null>;

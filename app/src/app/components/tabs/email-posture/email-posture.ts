@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { WailsIpcService } from '../../../wails-ipc.service';
 import { RegressionUI } from '../../../dashboard/estate';
+import { findSummaryForSignal } from '../../../dashboard/findings';
 import {
   ControlPosture,
   ControlView,
@@ -522,6 +523,26 @@ export class EmailPostureComponent {
   }
 
   // ─── Rows ──────────────────────────────────────────────────────────────────
+
+  /**
+   * The key of the finding that records this advisory, or null.
+   *
+   * Found by matching against the findings index, which is the source of truth
+   * for keys. When nothing matches unambiguously the link is hidden: a link to
+   * the wrong finding would be worse than no link.
+   */
+  findingKeyFor(domain: string, signal: SignalView): string | null {
+    const index = this.wailsIpc.findingIndex();
+    if (index.length === 0) {
+      return null;
+    }
+    const assetId = this.rows().find(r => r.domain === domain)?.assetId;
+    return findSummaryForSignal(index, { domain, assetId }, signal)?.key ?? null;
+  }
+
+  openFinding(key: string): void {
+    this.wailsIpc.openFinding(key);
+  }
 
   isExpanded(domain: string, control: string): boolean {
     return this.expanded().has(`${domain}::${control}`);

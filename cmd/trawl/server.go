@@ -178,6 +178,13 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/assets", s.handleGetAssets)
 	mux.HandleFunc("DELETE /api/v1/assets/{id}", s.authed(s.handleRemoveAsset))
 	mux.HandleFunc("GET /api/v1/findings", s.handleGetFindings)
+	// Change 025: the unified findings list, one finding's drill-down, and the
+	// history views. The literal paths are more specific than {key} and win.
+	mux.HandleFunc("GET /api/v1/findings/index", s.handleGetFindingIndex)
+	mux.HandleFunc("GET /api/v1/findings/changes", s.handleGetFindingChanges)
+	mux.HandleFunc("GET /api/v1/findings/{key}", s.handleGetFindingDetail)
+	mux.HandleFunc("GET /api/v1/scans", s.handleGetScanRuns)
+	mux.HandleFunc("GET /api/v1/history/summary", s.handleGetHistorySummary)
 	mux.HandleFunc("GET /api/v1/secret-findings", s.handleGetSecretFindings)
 	mux.HandleFunc("GET /api/v1/email-postures", s.handleGetEmailPostures)
 	// Triggering an email-posture scan reaches a third party's DNS, so it is
@@ -192,6 +199,9 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/feeds", s.handleGetFeedStatuses)
 	mux.HandleFunc("POST /api/v1/feeds/refresh", s.authed(s.handleRefreshFeeds))
 	mux.HandleFunc("POST /api/v1/feeds/snapshot", s.authed(s.handleIngestFeedSnapshot))
+	mux.HandleFunc("GET /api/v1/software", s.handleGetAssetSoftware)
+	mux.HandleFunc("GET /api/v1/software/coverage", s.handleGetSoftwareCoverage)
+	mux.HandleFunc("POST /api/v1/candidates/refresh", s.authed(s.handleRefreshCandidates))
 	mux.HandleFunc("GET /api/v1/contact/assets/{id}", s.handleGetAssetContactPanel)
 	mux.HandleFunc("GET /api/v1/contact/weaknesses", s.handleGetWeaknessContactAggregations)
 	mux.HandleFunc("GET /api/v1/jobs", s.handleGetJobs)
@@ -294,6 +304,63 @@ func (s *server) handleGetFindings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, findings)
 }
 
+func (s *server) handleGetFindingIndex(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	items, err := s.core.FindingIndex(r.Context(), service.FindingFilter{
+		Status:       q.Get("status"),
+		Severity:     q.Get("severity"),
+		Source:       q.Get("source"),
+		AssetID:      q.Get("assetId"),
+		ChangedSince: q.Get("changedSince"),
+	})
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+func (s *server) handleGetFindingDetail(w http.ResponseWriter, r *http.Request) {
+	detail, err := s.core.FindingDetail(r.Context(), r.PathValue("key"))
+	if errors.Is(err, service.ErrFindingNotFound) {
+		writeError(w, http.StatusNotFound, err)
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, detail)
+}
+
+func (s *server) handleGetFindingChanges(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	changes, err := s.core.FindingChanges(r.Context(), q.Get("from"), q.Get("to"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, changes)
+}
+
+func (s *server) handleGetScanRuns(w http.ResponseWriter, r *http.Request) {
+	runs, err := s.core.ScanRuns(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, runs)
+}
+
+func (s *server) handleGetHistorySummary(w http.ResponseWriter, r *http.Request) {
+	points, err := s.core.HistorySummary(r.Context(), r.URL.Query().Get("since"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, points)
+}
+
 func (s *server) handleGetSecretFindings(w http.ResponseWriter, r *http.Request) {
 	findings, err := s.core.SecretFindings(r.Context(), r.URL.Query().Get("repoUrl"))
 	if err != nil {
@@ -392,6 +459,8 @@ func (s *server) handleRefreshFeeds(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		EPSSThreshold float64           `json:"epssThreshold"`
 		Endpoints     map[string]string `json:"endpoints"`
+		// Feeds limits the refresh to the named feeds; empty means all.
+		Feeds []string `json:"feeds"`
 	}
 	if r.ContentLength > 0 {
 		if err := decodeJSON(r, &input); err != nil {
@@ -399,7 +468,11 @@ func (s *server) handleRefreshFeeds(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	statuses, err := s.core.RefreshFeeds(r.Context(), input.Endpoints, input.EPSSThreshold)
+	statuses, err := s.core.RefreshNamedFeeds(r.Context(), input.Feeds, input.Endpoints, input.EPSSThreshold)
+	if errors.Is(err, core.ErrUnknownFeed) {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
 	if err != nil && statuses == nil {
 		writeError(w, http.StatusBadGateway, err)
 		return
@@ -412,6 +485,48 @@ func (s *server) handleRefreshFeeds(w http.ResponseWriter, r *http.Request) {
 		"feeds": statuses,
 		"error": errorText(err),
 	})
+}
+
+func (s *server) handleGetAssetSoftware(w http.ResponseWriter, r *http.Request) {
+	assetID := r.URL.Query().Get("assetId")
+	items, err := s.core.AssetSoftware(r.Context(), assetID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+func (s *server) handleGetSoftwareCoverage(w http.ResponseWriter, r *http.Request) {
+	assetID := r.URL.Query().Get("assetId")
+	cov, err := s.core.SoftwareCoverage(r.Context(), assetID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, cov)
+}
+
+func (s *server) handleRefreshCandidates(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Force     bool              `json:"force"`
+		Endpoints map[string]string `json:"endpoints"`
+	}
+	if r.ContentLength > 0 {
+		if err := decodeJSON(r, &input); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+	}
+	if r.URL.Query().Get("force") == "true" {
+		input.Force = true
+	}
+	summary, err := s.core.RefreshCandidates(r.Context(), input.Endpoints, input.Force)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, summary)
 }
 
 func (s *server) handleIngestFeedSnapshot(w http.ResponseWriter, r *http.Request) {

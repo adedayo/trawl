@@ -129,7 +129,9 @@ func DeriveControlPostures(
 	deficient := map[string]bool{}
 	for _, o := range observations {
 		group, ok := groupOfSignal[o.SignalID]
-		if !ok || !o.State.Assessed() {
+		// A resolved observation is a weakness that was fixed. It remains in
+		// the history, but must not keep counting against the control.
+		if !ok || !o.State.Assessed() || !o.Live() {
 			continue
 		}
 		deficient[group] = true
@@ -183,7 +185,7 @@ func DeriveGroupSeverities(
 		// The same assessed-state test the posture derivation applies. An
 		// observation recorded at a non-assessed state is not evidence of
 		// anything, and must not raise a group's severity.
-		if !ok || !o.State.Assessed() {
+		if !ok || !o.State.Assessed() || !o.Live() {
 			continue
 		}
 		if o.Severity.Rank() > out[group].Rank() {

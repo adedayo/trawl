@@ -15,6 +15,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -25,6 +26,7 @@ import (
 	"github.com/adedayo/trawl/pkg/contact"
 	"github.com/adedayo/trawl/pkg/event"
 	"github.com/adedayo/trawl/pkg/feed"
+	"github.com/adedayo/trawl/pkg/narrative"
 	"github.com/adedayo/trawl/pkg/scanner"
 	vadapter "github.com/adedayo/trawl/pkg/scanner/vantage"
 	"github.com/adedayo/trawl/pkg/service"
@@ -32,6 +34,10 @@ import (
 	vprobe "github.com/adedayo/vantage/pkg/probe"
 	"github.com/google/uuid"
 )
+
+// NVDAPIKeySetting is the optional settings key holding an NVD 2.0 API key.
+// With a key, NVD raises the rate limit from 5 to 50 requests per 30 seconds.
+const NVDAPIKeySetting = "nvd_api_key"
 
 // ScopeSettingsKey is the settings key under which the authorisation record is
 // persisted. Both transports read the same key, so an operator who authorises
@@ -92,6 +98,8 @@ type Core struct {
 	emailScanner   *service.EmailScannerService
 	assessment     *service.AssessmentService
 	feedIngest     *service.FeedIngestService
+	feedMu         sync.Mutex
+	findings       *service.FindingsService
 }
 
 // New builds the application layer.
@@ -103,6 +111,13 @@ func New(s store.Store, bus event.Bus, registryJSON []byte) (*Core, error) {
 	if err != nil {
 		return nil, fmt.Errorf("core: %w", err)
 	}
+	// The explanation text ships inside the binary. One that fails to load is a
+	// build defect, so it stops start-up rather than leaving every finding
+	// unexplained.
+	explainer, err := narrative.Load()
+	if err != nil {
+		return nil, fmt.Errorf("core: loading the finding narratives: %w", err)
+	}
 	return &Core{
 		store:          s,
 		bus:            bus,
@@ -111,6 +126,7 @@ func New(s store.Store, bus event.Bus, registryJSON []byte) (*Core, error) {
 		emailScanner:   service.NewEmailScannerService(s),
 		assessment:     assessment,
 		feedIngest:     service.NewFeedIngestService(s),
+		findings:       service.NewFindingsService(s, explainer),
 	}, nil
 }
 
@@ -270,6 +286,41 @@ func (c *Core) ApplyFeedSnapshotBody(ctx context.Context, feedName, sourceURL st
 // succeeds. Failures on one feed are recorded against that feed without
 // blocking the others.
 func (c *Core) RefreshFeeds(ctx context.Context, rawEndpoints map[string]string, epssThreshold float64) ([]store.FeedStatus, error) {
+	return c.RefreshNamedFeeds(ctx, nil, rawEndpoints, epssThreshold)
+}
+
+// ErrUnknownFeed is returned for a feed name the engine does not ingest.
+var ErrUnknownFeed = errors.New("trawl: unknown feed")
+
+// RefreshNamedFeeds refreshes only the named feeds, or all of them when none
+// are named. An unknown name is refused rather than ignored, so a mistyped
+// feed is not reported as refreshed.
+//
+// Refreshes are serialised: the scheduler and an operator pressing the button
+// at the same moment would otherwise fetch the same catalogue twice and race
+// to apply it.
+func (c *Core) RefreshNamedFeeds(ctx context.Context, names []string, rawEndpoints map[string]string, epssThreshold float64) ([]store.FeedStatus, error) {
+	all := []feed.Name{feed.KEV, feed.EPSS, feed.NVD}
+	wanted := all
+	if len(names) > 0 {
+		wanted = nil
+		for _, n := range names {
+			var match feed.Name
+			for _, known := range all {
+				if string(known) == n {
+					match = known
+				}
+			}
+			if match == "" {
+				return nil, fmt.Errorf("%w: %q (want cisa-kev, epss or nvd)", ErrUnknownFeed, n)
+			}
+			wanted = append(wanted, match)
+		}
+	}
+
+	c.feedMu.Lock()
+	defer c.feedMu.Unlock()
+
 	var endpoints map[feed.Name]string
 	if len(rawEndpoints) > 0 {
 		endpoints = make(map[feed.Name]string, len(rawEndpoints))
@@ -284,9 +335,18 @@ func (c *Core) RefreshFeeds(ctx context.Context, rawEndpoints map[string]string,
 	if err != nil {
 		return nil, err
 	}
+	if key, err := c.store.GetSetting(ctx, NVDAPIKeySetting); err == nil && strings.TrimSpace(key) != "" {
+		client.SetNVDAPIKey(key)
+	}
 	var firstErr error
-	for _, name := range []feed.Name{feed.KEV, feed.EPSS, feed.NVD} {
-		if _, ok := endpoints[name]; !ok {
+	for _, name := range wanted {
+		_, ok := endpoints[name]
+		if name == feed.EPSS && !ok {
+			// EPSS is reachable through either its daily file or FIRST's
+			// per-CVE API.
+			_, ok = endpoints[feed.EPSSAPI]
+		}
+		if !ok {
 			continue
 		}
 		regs, applyErr := c.feedIngest.FetchAndApply(ctx, client, name, epssThreshold)
@@ -302,6 +362,75 @@ func (c *Core) RefreshFeeds(ctx context.Context, rawEndpoints map[string]string,
 		return nil, statusErr
 	}
 	return statuses, firstErr
+}
+
+// AssetSoftware returns observed software records for one asset, or across the
+// whole estate when assetID is empty.
+func (c *Core) AssetSoftware(ctx context.Context, assetID string) ([]store.AssetSoftware, error) {
+	return c.store.GetAssetSoftware(ctx, assetID)
+}
+
+// SoftwareCoverage returns software visibility for one asset, or for every
+// active asset when assetID is empty.
+func (c *Core) SoftwareCoverage(ctx context.Context, assetID string) ([]store.SoftwareCoverage, error) {
+	if assetID != "" {
+		cov, err := c.store.ComputeSoftwareCoverage(ctx, assetID)
+		if err != nil {
+			return nil, err
+		}
+		return []store.SoftwareCoverage{cov}, nil
+	}
+	assets, err := c.store.GetAssets(ctx, store.AssetStatusActive)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]store.SoftwareCoverage, 0, len(assets))
+	for _, a := range assets {
+		cov, err := c.store.ComputeSoftwareCoverage(ctx, a.ID)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, cov)
+	}
+	return out, nil
+}
+
+// RefreshCandidates queries NVD for mapped, versioned software observed on
+// active assets and reconciles unconfirmed candidate findings. It is only
+// invoked on explicit operator refresh or by a scheduled job, never at startup
+// or on ingest.
+func (c *Core) RefreshCandidates(ctx context.Context, rawEndpoints map[string]string, force bool) (*service.CandidateRefreshSummary, error) {
+	c.feedMu.Lock()
+	defer c.feedMu.Unlock()
+
+	var endpoints map[feed.Name]string
+	if len(rawEndpoints) > 0 {
+		endpoints = make(map[feed.Name]string, len(rawEndpoints))
+		for k, v := range rawEndpoints {
+			endpoints[feed.Name(k)] = v
+		}
+	}
+	if len(endpoints) == 0 {
+		endpoints = feed.DefaultEndpoints()
+	}
+	client, err := feed.NewClient(&http.Client{Timeout: 45 * time.Second}, endpoints)
+	if err != nil {
+		return nil, err
+	}
+	if key, err := c.store.GetSetting(ctx, NVDAPIKeySetting); err == nil && strings.TrimSpace(key) != "" {
+		client.SetNVDAPIKey(key)
+	}
+	svc := service.NewCandidateLookupService(c.store)
+	summary, err := svc.RefreshCandidates(ctx, client, force)
+	if err != nil {
+		return nil, err
+	}
+	c.bus.Publish(ctx, event.Event{
+		Type:      event.EventAssetUpdated,
+		Timestamp: time.Now().UTC(),
+		Payload:   summary,
+	})
+	return summary, nil
 }
 
 // RemoveAsset deletes an asset and everything recorded against it.
@@ -444,6 +573,10 @@ func (c *Core) AssessDomainWithOptions(ctx context.Context, domain string, opts 
 // DNS assessment because reachability is exposure evidence, not a control
 // finding or attacker-contact signal.
 func (c *Core) ProbeDiscoveredServices(ctx context.Context, profile vprobe.DiscoveryProfile) error {
+	return c.probeDiscoveredServices(ctx, profile, "")
+}
+
+func (c *Core) probeDiscoveredServices(ctx context.Context, profile vprobe.DiscoveryProfile, domainFilter string) error {
 	scope := c.Scope(ctx)
 	if !scope.Authorised() {
 		return fmt.Errorf("service probe: no signed authorisation is on record")
@@ -469,9 +602,13 @@ func (c *Core) ProbeDiscoveredServices(ctx context.Context, profile vprobe.Disco
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var failures []error
+	normDomain := service.NormaliseDomain(domainFilter)
 	targets := make([]store.Asset, 0, len(assets))
 	for _, asset := range assets {
 		if asset.Type != store.AssetTypeDomain && asset.Type != store.AssetTypeSubdomain {
+			continue
+		}
+		if normDomain != "" && !hostBelongsToDomain(asset.Value, normDomain) {
 			continue
 		}
 		if !guard.PermitsTarget(asset.Value) {
@@ -480,6 +617,9 @@ func (c *Core) ProbeDiscoveredServices(ctx context.Context, profile vprobe.Disco
 		targets = append(targets, asset)
 	}
 	total := len(targets)
+	started := time.Now().UTC()
+	sweepRunID := "run-" + uuid.NewString()
+	sweepCtx := store.WithRun(ctx, store.RunRef{ID: sweepRunID, Kind: store.RunServiceProbe})
 	c.bus.Publish(ctx, event.Event{Type: event.EventScanProgress, Payload: ServiceProbeProgress{
 		Phase: "service-probe-started", Profile: string(profile), Total: total,
 	}})
@@ -495,7 +635,7 @@ func (c *Core) ProbeDiscoveredServices(ctx context.Context, profile vprobe.Disco
 			case <-ctx.Done():
 				return
 			}
-			observations, err := c.assessment.ProbeServices(ctx, prober, vadapter.ServiceRequest{
+			observations, err := c.assessment.ProbeServices(sweepCtx, prober, vadapter.ServiceRequest{
 				AssetID: asset.ID, Host: asset.Value, Profile: profile,
 			})
 			exposed := 0
@@ -520,6 +660,33 @@ func (c *Core) ProbeDiscoveredServices(ctx context.Context, profile vprobe.Disco
 		}()
 	}
 	wg.Wait()
+	if total > 0 {
+		outcome := "completed"
+		errText := ""
+		if len(failures) > 0 {
+			outcome = "partial"
+			errText = failures[0].Error()
+		}
+		okCount := total - len(failures)
+		if okCount < 0 {
+			okCount = 0
+		}
+		_ = c.store.RecordScanRun(ctx, &store.ScanRun{
+			ID:         sweepRunID,
+			Kind:       store.RunServiceProbe,
+			AssetID:    normDomain,
+			Profile:    string(profile),
+			Outcome:    outcome,
+			Error:      errText,
+			StartedAt:  started,
+			FinishedAt: time.Now().UTC(),
+			Coverage: store.CoverageSummary{
+				Total:       total,
+				OK:          okCount,
+				CheckFailed: len(failures),
+			},
+		})
+	}
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -527,6 +694,11 @@ func (c *Core) ProbeDiscoveredServices(ctx context.Context, profile vprobe.Disco
 		return fmt.Errorf("service probe: %d assets failed (first: %w)", len(failures), failures[0])
 	}
 	return nil
+}
+
+func hostBelongsToDomain(host, normDomain string) bool {
+	h := service.NormaliseDomain(host)
+	return h == normDomain || strings.HasSuffix(h, "."+normDomain)
 }
 
 // ─── Orchestration ───────────────────────────────────────────────────────────
@@ -576,25 +748,33 @@ func (c *Core) RunScan(ctx context.Context, req ScanRequest) error {
 	}
 
 	if req.Domain != "" {
-		wg.Add(1)
+		// Run host discovery and domain assessment first so that every
+		// discovered domain and subdomain (from both subfinder and Vantage CT
+		// discovery) is in the asset store before service probing runs.
+		var discoverWG sync.WaitGroup
+		discoverWG.Add(2)
 		go func() {
-			defer wg.Done()
+			defer discoverWG.Done()
 			if err := c.networkScanner.DiscoverSubdomains(ctx, req.Domain); err != nil {
 				record(fmt.Errorf("discovery: %w", err))
 			}
-			if err := c.ProbeDiscoveredServices(ctx, vprobe.DiscoveryMostCommon); err != nil {
-				record(fmt.Errorf("service exposure: %w", err))
+		}()
+		go func() {
+			defer discoverWG.Done()
+			hasThirdParty := len(c.Scope(ctx).ConsentedEndpoints) > 0
+			if _, err := c.AssessDomainWithOptions(ctx, req.Domain, service.AssessOptions{
+				Discover: hasThirdParty,
+			}); err != nil {
+				record(fmt.Errorf("assessment: %w", err))
 			}
 		}()
 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			hasThirdParty := len(c.Scope(ctx).ConsentedEndpoints) > 0
-			if _, err := c.AssessDomainWithOptions(ctx, req.Domain, service.AssessOptions{
-				Discover: hasThirdParty,
-			}); err != nil {
-				record(fmt.Errorf("assessment: %w", err))
+			discoverWG.Wait()
+			if err := c.probeDiscoveredServices(ctx, vprobe.DiscoveryMostCommon, req.Domain); err != nil {
+				record(fmt.Errorf("service exposure: %w", err))
 			}
 		}()
 

@@ -1,0 +1,155 @@
+@let dark = theme() === 'dark';
+@let t = trend();
+
+<section aria-labelledby="trend-heading" data-testid="trend-chart" [class]="dark ? 'bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden shadow-xl' : 'bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm'">
+  <div [class]="dark ? 'px-6 py-4 border-b border-slate-800 bg-slate-900 flex flex-wrap items-center justify-between gap-3' : 'px-6 py-4 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-3'">
+    <div>
+      <h2 id="trend-heading" [class]="dark ? 'text-sm font-bold text-slate-200 uppercase tracking-wider' : 'text-sm font-bold text-slate-800 uppercase tracking-wider'">Open findings over time</h2>
+      <p [class]="dark ? 'text-xs text-slate-400 mt-1' : 'text-xs text-slate-600 mt-1'">One point per recorded scan. Nothing is drawn between scans that did not happen.</p>
+    </div>
+    <div>
+      <label for="trend-range" [class]="dark ? 'block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1' : 'block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1'">Range</label>
+      <select id="trend-range" [value]="range()" (change)="setRange($any($event.target).value)" [class]="dark ? 'text-xs bg-slate-800 border border-slate-700 text-slate-200 rounded-md py-1.5 px-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500' : 'text-xs bg-white border border-slate-300 text-slate-700 rounded-md py-1.5 px-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600'">
+        @for (r of ranges; track r.value) {
+          <option [value]="r.value" [selected]="range() === r.value">{{ r.label }}</option>
+        }
+      </select>
+    </div>
+  </div>
+
+  <div class="p-6 space-y-4">
+    @if (state() === 'error') {
+      <p role="alert" data-testid="trend-error" [class]="dark ? 'text-sm text-amber-300' : 'text-sm text-amber-900'">The history could not be loaded. Any chart shown may be out of date, and a flat or empty chart is not evidence that nothing changed.</p>
+    }
+
+    @if (t.points.length === 0) {
+      <p data-testid="trend-empty" [class]="dark ? 'text-sm text-slate-300' : 'text-sm text-slate-700'">
+        @if (state() === 'loading') { Loading history. } @else { No scan summaries are recorded for this range. A trend appears once scans have run. }
+      </p>
+    } @else {
+      @if (t.points.length === 1) {
+        <p [class]="dark ? 'text-xs text-slate-400' : 'text-xs text-slate-600'">Only one scan is recorded, so there is no trend yet.</p>
+      }
+
+      <svg [attr.viewBox]="viewBox" role="img" aria-labelledby="trend-svg-title trend-svg-desc" class="w-full h-auto">
+        <title id="trend-svg-title">Open findings by severity for each recorded scan</title>
+        <desc id="trend-svg-desc">{{ description() }}</desc>
+        <defs>
+          <pattern id="trend-gap-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="6" [attr.stroke]="dark ? '#64748b' : '#94a3b8'" stroke-width="1.5" />
+          </pattern>
+        </defs>
+
+        <!-- Gaps: no scan recorded. Drawn first so nothing is plotted over them. -->
+        @for (g of t.gaps; track g.fromIndex) {
+          <g data-testid="trend-gap">
+            <title>{{ gapLabel(g) }}</title>
+            <rect [attr.x]="x(g.fromT)" [attr.y]="plotTop" [attr.width]="x(g.toT) - x(g.fromT)" [attr.height]="covBottom - plotTop" fill="url(#trend-gap-hatch)" opacity="0.35" />
+            @if (x(g.toT) - x(g.fromT) > 90) {
+              <text [attr.x]="(x(g.fromT) + x(g.toT)) / 2" [attr.y]="plotTop + 12" text-anchor="middle" font-size="10" [attr.fill]="dark ? '#cbd5e1' : '#334155'">{{ gapLabel(g) }}</text>
+            }
+          </g>
+        }
+
+        <!-- Axes -->
+        @for (v of yTicks(); track v) {
+          <line [attr.x1]="plotLeft" [attr.x2]="plotRight" [attr.y1]="y(v)" [attr.y2]="y(v)" [attr.stroke]="dark ? '#334155' : '#e2e8f0'" stroke-width="1" />
+          <text [attr.x]="plotLeft - 6" [attr.y]="y(v) + 3" text-anchor="end" font-size="10" [attr.fill]="dark ? '#94a3b8' : '#475569'">{{ v }}</text>
+        }
+        <text x="12" [attr.y]="(plotTop + plotBottom) / 2" font-size="10" text-anchor="middle" [attr.transform]="'rotate(-90 12 ' + (plotTop + plotBottom) / 2 + ')'" [attr.fill]="dark ? '#94a3b8' : '#475569'">Open findings</text>
+
+        <!-- Series: a held step between joined scans, never across a gap -->
+        @for (s of paths(); track s.key) {
+          @for (d of s.d; track $index) {
+            <path [attr.d]="d" fill="none" stroke-width="1.5" stroke-linejoin="round" [class]="style[s.key].stroke" />
+          }
+        }
+
+        <!-- One marker per plotted scan per severity. Hollow means coverage fell. -->
+        @for (p of plottedPoints(); track p.index) {
+          <g [attr.data-run-index]="p.index">
+            <title>{{ pointSummary(p) }}</title>
+            @for (s of series; track s.key) {
+              @let m = point(p, s.key);
+              <path [attr.d]="m.d" stroke-width="1.5" [class]="style[s.key].stroke + ' ' + (m.hollow ? (dark ? 'fill-slate-900' : 'fill-white') : style[s.key].fill)" />
+            }
+            <rect [attr.x]="x(p.t) - 6" [attr.y]="plotTop" width="12" [attr.height]="covBottom - plotTop" fill="transparent" />
+          </g>
+        }
+
+        <!-- Coverage of each scan, on its own scale -->
+        <text [attr.x]="plotLeft - 6" [attr.y]="covTop + 3" text-anchor="end" font-size="10" [attr.fill]="dark ? '#94a3b8' : '#475569'">100%</text>
+        <text [attr.x]="plotLeft - 6" [attr.y]="covBottom + 3" text-anchor="end" font-size="10" [attr.fill]="dark ? '#94a3b8' : '#475569'">0%</text>
+        <text [attr.x]="plotLeft" [attr.y]="covTop - 6" font-size="10" [attr.fill]="dark ? '#94a3b8' : '#475569'">Coverage: share of attempted checks that concluded</text>
+        <line [attr.x1]="plotLeft" [attr.x2]="plotRight" [attr.y1]="covBottom" [attr.y2]="covBottom" [attr.stroke]="dark ? '#475569' : '#cbd5e1'" stroke-width="1" />
+        @for (p of plottedPoints(); track p.index) {
+          <rect data-testid="coverage-bar" [attr.data-thin]="p.thin" [attr.x]="x(p.t) - 3" [attr.y]="coverageY(p.coverageFraction)" width="6" [attr.height]="covBottom - coverageY(p.coverageFraction)" [attr.fill]="p.thin ? '#f59e0b' : (dark ? '#10b981' : '#059669')" />
+        }
+
+        <!-- Time axis: actual dates (or date + time when within 48 hours) -->
+        @for (tick of xTicks(); track tick; let i = $index; let n = $count) {
+          <text [attr.x]="x(tick)" [attr.y]="covBottom + 18" [attr.text-anchor]="tickAnchor(i, n)" font-size="10" [attr.fill]="dark ? '#94a3b8' : '#475569'">{{ tickLabel(tick) }}</text>
+        }
+      </svg>
+
+      <ul class="flex flex-wrap gap-x-5 gap-y-1 text-xs" aria-label="Legend">
+        @for (s of series; track s.key) {
+          <li class="flex items-center gap-1.5" [class]="dark ? 'text-slate-300' : 'text-slate-700'">
+            <span [class]="'inline-block w-3 h-3 rounded-sm ' + style[s.key].swatch" aria-hidden="true"></span>{{ s.label }} ({{ style[s.key].shape }} marker)
+          </li>
+        }
+      </ul>
+      @if (isDownsampled()) {
+        <p data-testid="downsampled-note" [class]="dark ? 'text-xs text-slate-400' : 'text-xs text-slate-600'">Showing {{ plottedPoints().length }} key points out of {{ t.points.length }} recorded scans (preserving all endpoints, coverage drops, and count changes).</p>
+      }
+      @if (hasThin()) {
+        <p data-testid="thin-note" [class]="dark ? 'text-xs text-amber-300' : 'text-xs text-amber-900'">Hollow markers and amber coverage bars mark a scan that concluded fewer checks than the one before it. A drop in findings at such a scan may reflect less being checked, not a better estate.</p>
+      }
+
+      <details>
+        <summary [class]="dark ? 'cursor-pointer text-xs font-semibold text-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500' : 'cursor-pointer text-xs font-semibold text-cyan-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600'">Show the data as a table</summary>
+        <div class="mt-3 overflow-x-auto">
+          <table data-testid="trend-table" [class]="dark ? 'w-full text-xs font-mono text-slate-300' : 'w-full text-xs font-mono text-slate-700'">
+            <caption class="sr-only">Open findings by severity for each recorded scan, with the coverage of each scan</caption>
+            <thead>
+              <tr [class]="dark ? 'text-left border-b border-slate-700' : 'text-left border-b border-slate-300'">
+                <th scope="col" class="py-1 pr-3">Scan finished</th>
+                <th scope="col" class="py-1 pr-3">Open</th>
+                <th scope="col" class="py-1 pr-3">Critical</th>
+                <th scope="col" class="py-1 pr-3">High</th>
+                <th scope="col" class="py-1 pr-3">Medium</th>
+                <th scope="col" class="py-1 pr-3">Low</th>
+                <th scope="col" class="py-1 pr-3">Info</th>
+                <th scope="col" class="py-1 pr-3">New in scan</th>
+                <th scope="col" class="py-1 pr-3">Resolved in scan</th>
+                <th scope="col" class="py-1">Coverage</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of visibleRows(); track $index) {
+                @if (row.kind === 'run' && row.point; as p) {
+                  <tr [class]="dark ? 'border-b border-slate-800' : 'border-b border-slate-100'">
+                    <th scope="row" class="py-1 pr-3 text-left font-normal">{{ formatTime(p.at) }}</th>
+                    <td class="py-1 pr-3">{{ p.open }}</td>
+                    <td class="py-1 pr-3">{{ p.counts.critical }}</td>
+                    <td class="py-1 pr-3">{{ p.counts.high }}</td>
+                    <td class="py-1 pr-3">{{ p.counts.medium }}</td>
+                    <td class="py-1 pr-3">{{ p.counts.low }}</td>
+                    <td class="py-1 pr-3">{{ p.counts.info }}</td>
+                    <td class="py-1 pr-3">{{ p.newInRun }}</td>
+                    <td class="py-1 pr-3">{{ p.resolvedInRun }}</td>
+                    <td class="py-1">{{ p.coverage }}@if (p.thin) { (lower than the previous scan) }</td>
+                  </tr>
+                } @else if (row.gap; as g) {
+                  <tr data-testid="trend-table-gap" [class]="dark ? 'border-b border-slate-800 text-amber-300' : 'border-b border-slate-100 text-amber-900'">
+                    <td colspan="10" class="py-1 italic">{{ gapLabel(g) }}</td>
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+      </details>
+    }
+  </div>
+</section>

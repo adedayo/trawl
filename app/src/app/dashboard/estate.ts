@@ -269,6 +269,13 @@ export interface KevAggregate {
   totalCveFindings: number;
   /** Retrieved timestamp of the active KEV snapshot, if any. */
   retrievedAt: string | null;
+  /**
+   * When the KEV source was last successfully consulted. Later than
+   * `retrievedAt` whenever a refresh found the catalogue unchanged.
+   */
+  lastCheckedAt: string | null;
+  /** Number of entries in the catalogue in force, when known. */
+  recordCount: number | null;
   /** True when the active snapshot exceeds the staleness threshold. */
   stale: boolean;
   /** Latest recorded fetch error when a refresh failed while leaving the prior snapshot in force. */
@@ -359,6 +366,8 @@ export function kevEnrichmentSummary(
     checkFailed,
     totalCveFindings,
     retrievedAt: snapshotRetrievedAt,
+    lastCheckedAt: kevStatus?.lastCheckedAt ?? snapshotRetrievedAt,
+    recordCount: kevStatus?.snapshot?.recordCount ?? null,
     stale,
     lastError: kevStatus?.lastError || null
   };

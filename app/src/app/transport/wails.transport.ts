@@ -1,4 +1,4 @@
-import { AssetContactPanelUI, DomainAssessment, EmailPostureUI, FeedStatusUI, InstanceAggregationUI } from '../models/types';
+import { AssetContactPanelUI, AssetSoftwareUI, CandidateRefreshSummaryUI, ChangeSet, DomainAssessment, EmailPostureUI, FeedStatusUI, FindingDetail, FindingFilter, FindingSummary, HistoryPoint, InstanceAggregationUI, ScanRunView, SoftwareCoverageUI } from '../models/types';
 import { AssessOptionsUI, BuildInfo, CalibrationExperiment, CalibrationReportRow, DiscoveryOptions, DiscoveryResult, Scope, TrawlTransport } from './trawl-transport';
 
 declare const window: any;
@@ -96,12 +96,67 @@ export class WailsTransport implements TrawlTransport {
     return this.callOrThrow<FeedStatusUI[]>('RefreshFeeds', epssThreshold);
   }
 
+  async refreshFeed(feed: string, epssThreshold = 0): Promise<FeedStatusUI[]> {
+    return this.callOrThrow<FeedStatusUI[]>('RefreshFeed', feed, epssThreshold);
+  }
+
+  getAssetSoftware(assetId = ''): Promise<AssetSoftwareUI[]> {
+    return this.call<AssetSoftwareUI[]>('GetAssetSoftware', [], assetId);
+  }
+
+  getSoftwareCoverage(assetId = ''): Promise<SoftwareCoverageUI[]> {
+    return this.call<SoftwareCoverageUI[]>('GetSoftwareCoverage', [], assetId);
+  }
+
+  async refreshCandidates(force = false): Promise<CandidateRefreshSummaryUI | null> {
+    return this.callOrThrow<CandidateRefreshSummaryUI | null>('RefreshCandidates', force);
+  }
+
   getAssetContactPanel(assetId: string, excludedFactors: string[] = []): Promise<AssetContactPanelUI | null> {
     return this.call<AssetContactPanelUI | null>('GetAssetContactPanel', null, assetId, excludedFactors);
   }
 
   getWeaknessContactAggregations(): Promise<InstanceAggregationUI[]> {
     return this.call<InstanceAggregationUI[]>('GetWeaknessContactAggregations', []);
+  }
+
+  /**
+   * The Change 025 read model. These reject when the binding is absent or the
+   * call fails, for the reason given on the interface: an empty answer and a
+   * failed one must not look alike. The generated bindings may predate these
+   * methods, which is why they are reached through the probed accessor rather
+   * than imported.
+   */
+  async getFindingIndex(filter: FindingFilter = {}): Promise<FindingSummary[]> {
+    return ((await this.callOrThrow('GetFindingIndex', filter)) as FindingSummary[]) ?? [];
+  }
+
+  async getFindingDetail(key: string): Promise<FindingDetail | null> {
+    try {
+      return ((await this.callOrThrow('GetFindingDetail', key)) as FindingDetail | null) ?? null;
+    } catch (error) {
+      // Wails delivers a Go error as a rejection carrying its message. An
+      // unknown key is a normal outcome of following an old address, not a
+      // fault, so it is reported as absence.
+      const message = error instanceof Error ? error.message : String(error ?? '');
+      if (/not found/i.test(message) && !/binding/i.test(message)) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  async getFindingChanges(from = '', to = ''): Promise<ChangeSet> {
+    const changes = (await this.callOrThrow('GetFindingChanges', from, to)) as ChangeSet | null;
+    return changes ?? { new: [], resolved: [], worsened: [], improved: [] };
+  }
+
+  async getScanRuns(): Promise<ScanRunView[]> {
+    return ((await this.callOrThrow('GetScanRuns')) as ScanRunView[]) ?? [];
+  }
+
+  async getHistorySummary(since = ''): Promise<HistoryPoint[]> {
+    return ((await this.callOrThrow('GetHistorySummary', since)) as HistoryPoint[]) ?? [];
   }
 
   getAssessments(): Promise<DomainAssessment[]> {

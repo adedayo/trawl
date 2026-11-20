@@ -294,3 +294,42 @@ func TestSeverityRankOrdersAndTreatsUnknownAsLowest(t *testing.T) {
 		t.Error("The significance threshold must sit at medium")
 	}
 }
+
+// TestAFixedWeaknessStopsCountingAsDeficient is the defect Change 025 fixes.
+// Nothing used to resolve an observation, so a domain that corrected its DMARC
+// policy kept being reported as deficient until its data was erased.
+func TestAFixedWeaknessStopsCountingAsDeficient(t *testing.T) {
+	registry := dmarcRegistry()
+	coverage := []AssessmentCoverage{{CheckID: "dmarc", State: CoverageOK}, {CheckID: "spf", State: CoverageOK}}
+	standing := SignalObservation{SignalID: "SURF-DMARC-002", CheckID: "dmarc", State: CoverageNotFound,
+		Severity: SeverityHigh, Status: FindingOpen}
+
+	if got := DeriveControlPostures(registry, coverage, []SignalObservation{standing})["dmarc:email-authentication"]; got != PostureDeficient {
+		t.Fatalf("an open observation: posture = %q, want deficient", got)
+	}
+
+	fixed := standing
+	fixed.Status = FindingResolved
+	obs := []SignalObservation{fixed}
+	if got := DeriveControlPostures(registry, coverage, obs)["dmarc:email-authentication"]; got != PostureCompliant {
+		t.Errorf("a resolved observation: posture = %q, want compliant", got)
+	}
+	if sev, ok := DeriveGroupSeverities(registry, obs)["dmarc:email-authentication"]; ok {
+		t.Errorf("a resolved observation still contributes severity %q", sev)
+	}
+
+	// Resolving must not turn silence into health when the check never ran.
+	if got := DeriveControlPostures(registry, nil, obs)["dmarc:email-authentication"]; got != PostureUnknown {
+		t.Errorf("resolved but never assessed: posture = %q, want unknown", got)
+	}
+}
+
+// A reopened observation is a standing weakness again.
+func TestAReopenedWeaknessCountsAgain(t *testing.T) {
+	o := SignalObservation{SignalID: "SURF-DMARC-002", CheckID: "dmarc", State: CoverageNotFound, Severity: SeverityHigh, Status: FindingReopened}
+	got := DeriveControlPostures(dmarcRegistry(), []AssessmentCoverage{{CheckID: "dmarc", State: CoverageOK}, {CheckID: "spf", State: CoverageOK}},
+		[]SignalObservation{o})["dmarc:email-authentication"]
+	if got != PostureDeficient {
+		t.Errorf("posture = %q, want deficient", got)
+	}
+}

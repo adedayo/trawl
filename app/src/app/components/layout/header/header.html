@@ -109,7 +109,7 @@
         <span>Assets</span>
         <span [class]="theme() === 'dark' ? 'px-1.5 py-0.5 rounded-full bg-slate-800 text-[10px] text-slate-300' : 'px-1.5 py-0.5 rounded-full bg-slate-200 text-[10px] text-slate-700'">{{ activeAssetCount() }}</span>
       </button>
-      <button (click)="wailsIpc.activeTab.set('findings')"
+      <button (click)="wailsIpc.closeFinding({ restoreTab: false }); wailsIpc.activeTab.set('findings')"
         [class]="activeTab() === 'findings' ? (theme() === 'dark' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-cyan-600 text-cyan-700 font-semibold') : (theme() === 'dark' ? 'border-transparent text-slate-400 hover:text-slate-200' : 'border-transparent text-slate-600 hover:text-slate-900')"
         class="py-3 px-1 border-b-2 text-xs uppercase tracking-wider transition flex items-center space-x-1.5">
         <span>Vulnerabilities</span>

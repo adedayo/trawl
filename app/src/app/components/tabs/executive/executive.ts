@@ -97,7 +97,48 @@ export class ExecutiveComponent {
     kevEnrichmentSummary(this.findings(), this.wailsIpc.feedStatuses())
   );
 
+  /**
+   * One row per external catalogue, for the "Vulnerability catalogues" list.
+   * "Last refreshed" is the last successful consultation of the source;
+   * "catalogue retrieved" is when the content in force arrived, and the two
+   * differ whenever a refresh found nothing new.
+   */
+  readonly feedRows = computed(() => {
+    const labels: Record<string, string> = {
+      'cisa-kev': 'CISA Known Exploited Vulnerabilities',
+      epss: 'EPSS exploit-likelihood scores',
+      nvd: 'NVD vulnerability details'
+    };
+    const statuses = this.wailsIpc.feedStatuses();
+    return ['cisa-kev', 'epss', 'nvd'].map(feed => {
+      const status = statuses.find(s => s.feed === feed);
+      return {
+        feed,
+        label: labels[feed],
+        hasSnapshot: !!status?.snapshot,
+        checkedAt: status?.lastCheckedAt ?? status?.snapshot?.retrievedAt ?? null,
+        retrievedAt: status?.snapshot?.retrievedAt ?? null,
+        entries: status?.snapshot?.recordCount ?? null,
+        entriesStored: status?.recordsStored ?? false,
+        stale: status?.stale ?? false,
+        error: status?.lastError ?? null
+      };
+    });
+  });
+
   readonly verifiedSecrets = computed(() => this.secretFindings().filter(s => s.verified).length);
+
+  /**
+   * Unconfirmed software-matched candidates, counted separately from confirmed
+   * exposure so version-based matches never inflate confirmed headline figures.
+   */
+  readonly unconfirmedCandidates = computed(() =>
+    this.wailsIpc.findingIndex().filter(f => f.source === 'candidate' && f.status !== 'resolved')
+  );
+
+  readonly unconfirmedKevCandidates = computed(() =>
+    this.unconfirmedCandidates().filter(f => f.kev).length
+  );
 
   /**
    * Regressions ordered by confirmation recency.
@@ -241,5 +282,9 @@ export class ExecutiveComponent {
 
   refreshFeeds(): void {
     void this.wailsIpc.refreshFeeds();
+  }
+
+  refreshFeed(feed: string): void {
+    void this.wailsIpc.refreshFeed(feed);
   }
 }

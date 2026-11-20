@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { WailsIpcService } from '../../../wails-ipc.service';
 import { ServiceObservation } from '../../../models/types';
 import { rankFindings } from '../../../dashboard/estate';
+import { ChangesPanelComponent } from './changes-panel/changes-panel';
+import { TrendChartComponent } from './trend-chart/trend-chart';
 
 export interface ServiceEvidenceSummary {
   facts: string[];
@@ -34,6 +36,8 @@ export function summariseServiceEvidence(observation: ServiceObservation): Servi
   const location = text(evidence['location']);
   const status = number(evidence['http_status']);
   const server = text(evidence['server']);
+  const poweredBy = text(evidence['powered_by']);
+  const banner = text(evidence['banner']);
 
   if (status) facts.push(`HTTP ${status}`);
   if (tlsVersion) facts.push(`Negotiated ${tlsVersion}${cipher ? ` · ${cipher}` : ''}`);
@@ -41,6 +45,8 @@ export function summariseServiceEvidence(observation: ServiceObservation): Servi
   if (hsts) facts.push(`HSTS enabled: ${hsts}`);
   if (location) facts.push(`Redirects to ${location}`);
   if (server) facts.push(`Server identifies as ${server}`);
+  if (poweredBy) facts.push(`Powered by ${poweredBy}`);
+  if (banner) facts.push(`Service banner: ${banner}`);
 
   if (observation.protocol.toLowerCase() === 'https' && !hsts) {
     issues.push('HSTS is not advertised.');
@@ -113,7 +119,7 @@ function formatDate(value: string): string {
 @Component({
   selector: 'app-overview',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ChangesPanelComponent, TrendChartComponent],
   templateUrl: './overview.html'
 })
 export class OverviewComponent {

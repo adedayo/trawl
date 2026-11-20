@@ -316,11 +316,19 @@
             }
             <span [class]="dark ? 'block text-[11px] text-slate-500 mt-1' : 'block text-[11px] text-slate-500 mt-1'">
               @if (kev.hasCatalogue) {
-                CISA KEV, retrieved {{ kev.retrievedAt }}
+                <span [attr.title]="'Catalogue retrieved ' + kev.retrievedAt + (kev.recordCount !== null ? ', ' + kev.recordCount + ' entries' : '')">
+                  CISA KEV, last refreshed {{ relativeTime(kev.lastCheckedAt) }}
+                </span>
               } @else {
                 no CISA KEV catalogue retrieved
               }
             </span>
+            @if (kev.lastError) {
+              <span [class]="dark ? 'block text-[10px] text-amber-400 mt-1' : 'block text-[10px] text-amber-700 mt-1'"
+                [attr.title]="kev.lastError">
+                The last refresh failed; showing the catalogue retrieved {{ relativeTime(kev.retrievedAt) }}.
+              </span>
+            }
             @if (kev.notChecked > 0 || kev.checkFailed > 0) {
               <span [class]="dark ? 'block text-[10px] text-amber-400 mt-1 font-mono' : 'block text-[10px] text-amber-700 mt-1 font-mono'">
                 @if (kev.notChecked > 0) { {{ kev.notChecked }} not checked }
@@ -328,12 +336,56 @@
               </span>
             }
           </button>
-          <button type="button" (click)="refreshFeeds()" [disabled]="wailsIpc.isRefreshingFeeds()"
+          <button type="button" (click)="refreshFeed('cisa-kev')"
+            [disabled]="wailsIpc.isRefreshingFeeds() || wailsIpc.refreshingFeed() !== null"
             [class]="dark
               ? 'mt-3 self-start text-[11px] font-semibold text-sky-400 hover:text-sky-300 disabled:opacity-50'
               : 'mt-3 self-start text-[11px] font-semibold text-sky-700 hover:text-sky-900 disabled:opacity-50'">
-            {{ wailsIpc.isRefreshingFeeds() ? 'Refreshing feeds…' : 'Refresh feeds' }}
+            {{ wailsIpc.refreshingFeed() === 'cisa-kev' ? 'Refreshing CISA KEV…' : 'Refresh CISA KEV' }}
           </button>
+          <details class="mt-3">
+            <summary [class]="dark
+              ? 'cursor-pointer text-[11px] font-semibold text-slate-400 hover:text-slate-300'
+              : 'cursor-pointer text-[11px] font-semibold text-slate-500 hover:text-slate-700'">
+              All vulnerability catalogues
+            </summary>
+            <ul class="mt-2 space-y-2" aria-label="Vulnerability catalogues">
+              @for (row of feedRows(); track row.feed) {
+                <li [class]="dark ? 'text-[11px] text-slate-300' : 'text-[11px] text-slate-700'">
+                  <span class="font-semibold">{{ row.label }}</span>
+                  @if (row.stale) {
+                    <span [class]="dark ? 'ml-1 text-[10px] font-bold uppercase text-amber-300' : 'ml-1 text-[10px] font-bold uppercase text-amber-800'">stale</span>
+                  }
+                  <span class="block text-slate-500">
+                    @if (row.hasSnapshot) {
+                      Last refreshed {{ relativeTime(row.checkedAt) }}
+                      @if (row.entries !== null) { · {{ row.entries }} entries{{ row.entriesStored ? ' held locally' : '' }} }
+                    } @else {
+                      Not retrieved yet
+                    }
+                  </span>
+                  @if (row.error) {
+                    <span class="block text-amber-600" [attr.title]="row.error">Last refresh failed</span>
+                  }
+                  <button type="button" (click)="refreshFeed(row.feed)"
+                    [disabled]="wailsIpc.isRefreshingFeeds() || wailsIpc.refreshingFeed() !== null"
+                    [attr.aria-label]="'Refresh ' + row.label"
+                    [class]="dark
+                      ? 'text-[11px] font-semibold text-sky-400 hover:text-sky-300 disabled:opacity-50'
+                      : 'text-[11px] font-semibold text-sky-700 hover:text-sky-900 disabled:opacity-50'">
+                    {{ wailsIpc.refreshingFeed() === row.feed ? 'Refreshing…' : 'Refresh' }}
+                  </button>
+                </li>
+              }
+            </ul>
+            <button type="button" (click)="refreshFeeds()"
+              [disabled]="wailsIpc.isRefreshingFeeds() || wailsIpc.refreshingFeed() !== null"
+              [class]="dark
+                ? 'mt-2 text-[11px] font-semibold text-sky-400 hover:text-sky-300 disabled:opacity-50'
+                : 'mt-2 text-[11px] font-semibold text-sky-700 hover:text-sky-900 disabled:opacity-50'">
+              {{ wailsIpc.isRefreshingFeeds() ? 'Refreshing all…' : 'Refresh all catalogues' }}
+            </button>
+          </details>
         </div>
 
         <button type="button" (click)="goToEmail()"
@@ -371,6 +423,29 @@
             still live in public history
           </span>
         </button>
+
+        <div data-testid="unconfirmed-candidates-card"
+          [class]="dark
+            ? 'col-span-2 md:col-span-4 rounded-xl bg-slate-900/70 border border-dashed border-violet-800/80 p-4 flex flex-wrap items-center justify-between gap-3'
+            : 'col-span-2 md:col-span-4 rounded-xl bg-violet-50/50 border border-dashed border-violet-300 p-4 flex flex-wrap items-center justify-between gap-3'">
+          <div>
+            <span [class]="dark ? 'text-[10px] font-bold uppercase tracking-wider text-violet-300' : 'text-[10px] font-bold uppercase tracking-wider text-violet-800'">
+              Unconfirmed software candidates (excluded from confirmed exposure)
+            </span>
+            <p data-testid="unconfirmed-candidates-count" [class]="dark ? 'text-sm font-bold text-slate-100 mt-1' : 'text-sm font-bold text-slate-900 mt-1'">
+              {{ unconfirmedCandidates().length }} unconfirmed {{ unconfirmedCandidates().length === 1 ? 'candidate' : 'candidates' }}@if (unconfirmedKevCandidates() > 0) { ({{ unconfirmedKevCandidates() }} KEV-listed, unconfirmed) }
+            </p>
+            <p [class]="dark ? 'text-[11px] text-slate-400 mt-0.5' : 'text-[11px] text-slate-600 mt-0.5'">
+              Matched from observed software versions against NVD. Nothing has shown these flaws are present or reachable.
+            </p>
+          </div>
+          <button type="button" (click)="goToFindings()"
+            [class]="dark
+              ? 'px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-violet-300'
+              : 'px-3 py-1.5 rounded-lg bg-white hover:bg-violet-50 border border-violet-300 text-xs font-semibold text-violet-800'">
+            Review candidates
+          </button>
+        </div>
       </div>
     </div>
 

@@ -105,6 +105,8 @@ Per-change counts and the outstanding-ledger notes live in
 | 022 | Spec lifecycle automation | Phase 1 landed: `cmd/specledger` generates the STATUS.md counts and reports structural failures. Promoting accepted requirements into `openspec/specs/` remains. |
 | 023 | spartan/ui adoption | **Decided: adopt.** Settles the oldest open decision in the project. Dependencies installed and the suite is unchanged by them; no surface migrated yet. Sequence with 014's accessibility work. |
 | 024 | Vantage service reachability | Phases 0-4 and structured TLS migration landed; wires explicit responding observations into exposure history and 007's contact prior. |
+| 025 | Findings history and explanation | Proposed, not scheduled. Stable finding identity, append-only history, resolution that respects coverage, drill-down, and a deterministic executive narrative. |
+| 026 | Software inventory and candidate vulnerabilities | **Complete — archived.** Structured per-asset software inventory from data already collected, NVD 2.0 lookup by product and version with caching/rate pacing, and unconfirmed candidate vulnerabilities kept apart from confirmed findings. |
 
 Suggested build order: **006 and 019 have landed and drop out of the queue.** **008** (signed model packs carrying reviewed `contactBaseRates`, `weaknessClassPriors` and `measuredStateSignals`) is next to promote `007`'s literature priors into signed pack data, followed by **009 → 010 → 011 → 012**.
 

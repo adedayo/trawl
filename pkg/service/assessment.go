@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/adedayo/trawl/pkg/contact"
 	"github.com/adedayo/trawl/pkg/event"
 	vadapter "github.com/adedayo/trawl/pkg/scanner/vantage"
+	"github.com/adedayo/trawl/pkg/software"
 	"github.com/adedayo/trawl/pkg/store"
 )
 
@@ -128,6 +130,14 @@ func (svc *AssessmentService) SyncRegistry(ctx context.Context) error {
 // not infer attacker contact or derive exposure history; those are separate
 // consumers of the timestamped evidence.
 func (svc *AssessmentService) ProbeServices(ctx context.Context, prober vprobe.Prober, request vadapter.ServiceRequest) ([]store.ServiceObservation, error) {
+	started := time.Now().UTC()
+	parentRun := store.RunFrom(ctx)
+	runID := parentRun.ID
+	ownRun := runID == ""
+	if ownRun {
+		runID = newRunID()
+		ctx = store.WithRun(ctx, store.RunRef{ID: runID, Kind: store.RunServiceProbe})
+	}
 	observations, err := vadapter.ProbeServices(ctx, prober, request)
 	if err != nil {
 		return nil, fmt.Errorf("service probe: %w", err)
@@ -137,6 +147,7 @@ func (svc *AssessmentService) ProbeServices(ctx context.Context, prober vprobe.P
 			return nil, fmt.Errorf("service probe: saving %s:%d: %w", observations[i].Host, observations[i].Port, err)
 		}
 	}
+	svc.recordServiceProbeSoftware(ctx, request.AssetID, observations, time.Now().UTC())
 	if err := vadapter.ServiceAdvisories(ctx, func(finding *store.Finding) error {
 		return svc.store.SaveFinding(ctx, finding)
 	}, observations, time.Now().UTC()); err != nil {
@@ -153,7 +164,82 @@ func (svc *AssessmentService) ProbeServices(ctx context.Context, prober vprobe.P
 	if err := svc.UpdateServiceExposureHistory(ctx, request.AssetID, time.Now().UTC(), 24*time.Hour); err != nil {
 		return nil, err
 	}
+	if ownRun {
+		if err := svc.recordScanRun(ctx, runID, store.AssessmentRun{
+			AssetID: request.AssetID, Outcome: "completed", StartedAt: started, FinishedAt: time.Now().UTC(),
+		}, nil, store.RunServiceProbe); err != nil {
+			return nil, err
+		}
+	}
 	return observations, nil
+}
+
+// recordServiceProbeSoftware extracts structured software inventory entries
+// from HTTP headers (Server, X-Powered-By) and non-HTTP service banners
+// (SSH, SMTP, FTP, IMAP, POP3, etc.) collected by Vantage's ServiceProber.
+// It sends no additional traffic and never invents a version or CPE mapping.
+func (svc *AssessmentService) recordServiceProbeSoftware(ctx context.Context, assetID string, observations []store.ServiceObservation, now time.Time) {
+	pm, err := software.LoadMap()
+	if err != nil {
+		return
+	}
+	sawResponding := false
+	recordedAny := false
+	saveParsed := func(list []software.ParsedTech) {
+		for _, parsed := range list {
+			sw := store.AssetSoftware{
+				AssetID:      assetID,
+				ObservedName: parsed.Name,
+				Version:      parsed.Version,
+				VersionState: store.SoftwareVersionUnknown,
+				MappingState: store.SoftwareUnmapped,
+				Source:       "vantage-probe",
+				RawString:    parsed.Raw,
+				Status:       store.SoftwareCurrent,
+				FirstSeen:    now,
+				LastSeen:     now,
+			}
+			if parsed.VersionKnown {
+				sw.VersionState = store.SoftwareVersionKnown
+			}
+			if id, ok := pm.Lookup(parsed.Name); ok {
+				sw.CPEPart = id.CPEPart
+				sw.Vendor = id.Vendor
+				sw.Product = id.Product
+				sw.MappingState = store.SoftwareMapped
+				sw.MappingVersion = id.MappingVersion
+			}
+			if err := svc.store.SaveAssetSoftware(ctx, &sw); err == nil {
+				recordedAny = true
+			}
+		}
+	}
+
+	for _, obs := range observations {
+		if !obs.Coverage.Assessed() || obs.State != "responding" {
+			continue
+		}
+		sawResponding = true
+		if obs.Evidence == "" {
+			continue
+		}
+		var ev map[string]any
+		if err := json.Unmarshal([]byte(obs.Evidence), &ev); err != nil {
+			continue
+		}
+		if server, _ := ev["server"].(string); strings.TrimSpace(server) != "" {
+			saveParsed(software.ParseServerHeader(server))
+		}
+		if poweredBy, _ := ev["powered_by"].(string); strings.TrimSpace(poweredBy) != "" {
+			saveParsed(software.ParseServerHeader(poweredBy))
+		}
+		if banner, _ := ev["banner"].(string); strings.TrimSpace(banner) != "" {
+			saveParsed(software.ParseServiceBanner(obs.Protocol, banner))
+		}
+	}
+	if sawResponding && !recordedAny {
+		_ = svc.store.MarkAssetCandidatesNotReassessed(ctx, assetID, "Latest service probe reported no software headers or service banners; software could not be re-assessed.")
+	}
 }
 
 func (svc *AssessmentService) resolveServiceFindings(ctx context.Context, assetID string, active map[string]bool, assessedPrefixes []string) error {
@@ -377,6 +463,11 @@ func (svc *AssessmentService) AssessWithOptions(
 
 	started := time.Now().UTC()
 
+	// Every write beneath this context belongs to one run, so that the events
+	// it causes are stamped with it and the run ledger can say what it did.
+	runID := newRunID()
+	ctx = store.WithRun(ctx, store.RunRef{ID: runID, Kind: store.RunAssessment})
+
 	// The asset is registered before anything is queried — before the scope
 	// guard, even — so that a refusal has somewhere to attach. Registering a
 	// domain in the local inventory contacts nothing, so doing it ahead of the
@@ -416,13 +507,17 @@ func (svc *AssessmentService) AssessWithOptions(
 		// Recorded, not merely returned. A refusal that leaves no trace is
 		// indistinguishable from an assessment that was never requested.
 		reason := fmt.Sprintf("%q is outside the authorised scope", domain)
-		if err := svc.recordRun(ctx, store.AssessmentRun{
+		refused := store.AssessmentRun{
 			AssetID:    assetID,
 			Outcome:    string(vadapter.OutcomeRefused),
 			Error:      reason,
 			StartedAt:  started,
 			FinishedAt: time.Now().UTC(),
-		}); err != nil {
+		}
+		if err := svc.recordRun(ctx, refused); err != nil {
+			return DomainAssessment{}, err
+		}
+		if err := svc.recordScanRun(ctx, runID, refused, nil); err != nil {
 			return DomainAssessment{}, err
 		}
 		return DomainAssessment{
@@ -503,6 +598,9 @@ func (svc *AssessmentService) AssessWithOptions(
 	if err := svc.recordRun(ctx, run); err != nil {
 		return DomainAssessment{}, err
 	}
+	if err := svc.recordScanRun(ctx, runID, run, res.Coverage); err != nil {
+		return DomainAssessment{}, err
+	}
 
 	view, err := svc.View(ctx, assetID)
 	if err != nil {
@@ -547,6 +645,15 @@ func (svc *AssessmentService) persist(ctx context.Context, res vadapter.Result) 
 	for i := range res.Observations {
 		if err := svc.store.SaveSignalObservation(ctx, &res.Observations[i]); err != nil {
 			return fmt.Errorf("assessment: saving observation %s: %w", res.Observations[i].SignalID, err)
+		}
+	}
+
+	// A weakness is fixed when a check that concluded no longer raises it.
+	// Observations of checks that did not conclude are left exactly as they
+	// were: an outage must not read as a fix.
+	if assetID := assessedAssetID(res); assetID != "" {
+		if _, err := svc.store.ResolveSignalObservations(ctx, assetID, ConcludedChecks(res), RaisedSignals(res)); err != nil {
+			return fmt.Errorf("assessment: resolving fixed weaknesses for %s: %w", assetID, err)
 		}
 	}
 
@@ -709,12 +816,49 @@ func (svc *AssessmentService) viewWithDomain(ctx context.Context, assetID, domai
 	if err != nil {
 		return DomainAssessment{}, fmt.Errorf("assessment: reading service observations: %w", err)
 	}
+	serviceObservations = latestServiceObservations(serviceObservations)
 
 	if domain == "" {
 		domain = svc.domainOfAsset(ctx)[assetID]
 	}
 	return svc.assemble(assetID, domain, registry, coverage, observations, run,
 		attributionBundle{rows: attribution, provenance: provenance}, exposures, serviceObservations), nil
+}
+
+// latestServiceObservations keeps only the most recent observation per
+// (assetId, host, port, layer) for the dashboard read model. The raw
+// append-only history remains in SQLite for exposure-duration calculations.
+func latestServiceObservations(all []store.ServiceObservation) []store.ServiceObservation {
+	if len(all) <= 1 {
+		return all
+	}
+	type obsKey struct {
+		assetID string
+		host    string
+		port    uint16
+		layer   string
+	}
+	latest := make(map[obsKey]store.ServiceObservation, len(all))
+	for _, o := range all {
+		k := obsKey{assetID: o.AssetID, host: o.Host, port: o.Port, layer: o.Layer}
+		if prev, exists := latest[k]; !exists || o.ObservedAt.After(prev.ObservedAt) {
+			latest[k] = o
+		}
+	}
+	out := make([]store.ServiceObservation, 0, len(latest))
+	for _, o := range latest {
+		out = append(out, o)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Host != out[j].Host {
+			return out[i].Host < out[j].Host
+		}
+		if out[i].Port != out[j].Port {
+			return out[i].Port < out[j].Port
+		}
+		return out[i].Layer < out[j].Layer
+	})
+	return out
 }
 
 // attributionBundle keeps an asset's attribution together with the basis it
@@ -786,6 +930,7 @@ func (svc *AssessmentService) Views(ctx context.Context) ([]DomainAssessment, er
 	if err != nil {
 		return nil, fmt.Errorf("assessment: reading service observations: %w", err)
 	}
+	serviceObservations = latestServiceObservations(serviceObservations)
 
 	observationsOf := map[string][]store.SignalObservation{}
 	for _, o := range observations {

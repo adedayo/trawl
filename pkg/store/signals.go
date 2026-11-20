@@ -90,7 +90,20 @@ type SignalObservation struct {
 	ObservedAt time.Time `json:"observedAt"`
 	FirstSeen  time.Time `json:"firstSeen"`
 	LastSeen   time.Time `json:"lastSeen"`
+
+	// Status is open, resolved or reopened. An observation resolves only when
+	// a later run concluded the check that raises it and did not raise it
+	// again; a run in which the check could not conclude leaves it as it was.
+	Status FindingStatus `json:"status,omitempty"`
+	// ResolvedAt is set while Status is resolved.
+	ResolvedAt *time.Time `json:"resolvedAt,omitempty"`
+	// LastAssessedAt is when a run last concluded the check behind this
+	// observation, whether or not it raised it.
+	LastAssessedAt *time.Time `json:"lastAssessedAt,omitempty"`
 }
+
+// Live reports whether the observation still counts as a standing weakness.
+func (o SignalObservation) Live() bool { return o.Status != FindingResolved }
 
 // SignalRegistryEntry maps a finding identifier to what it bears on. The
 // registry is versioned data, loaded from config/signals/vantage-<major>.json,

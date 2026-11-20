@@ -10,8 +10,20 @@ export function AssessDomainWithOptions(arg1, arg2) {
   return window['go']['main']['App']['AssessDomainWithOptions'](arg1, arg2);
 }
 
+export function AuthoriseProposedDomains(arg1) {
+  return window['go']['main']['App']['AuthoriseProposedDomains'](arg1);
+}
+
 export function CreateCalibrationExperiment(arg1) {
   return window['go']['main']['App']['CreateCalibrationExperiment'](arg1);
+}
+
+export function DiscoverRelatedDomains(arg1) {
+  return window['go']['main']['App']['DiscoverRelatedDomains'](arg1);
+}
+
+export function DismissProposedDomains(arg1) {
+  return window['go']['main']['App']['DismissProposedDomains'](arg1);
 }
 
 export function EraseDiscoveredData() {
@@ -20,6 +32,10 @@ export function EraseDiscoveredData() {
 
 export function GetAssetContactPanel(arg1, arg2) {
   return window['go']['main']['App']['GetAssetContactPanel'](arg1, arg2);
+}
+
+export function GetAssetSoftware(arg1) {
+  return window['go']['main']['App']['GetAssetSoftware'](arg1);
 }
 
 export function GetAssets(arg1) {
@@ -32,6 +48,10 @@ export function GetCalibrationExperiments() {
 
 export function GetCalibrationReport(arg1, arg2) {
   return window['go']['main']['App']['GetCalibrationReport'](arg1, arg2);
+}
+
+export function GetDismissedDomains() {
+  return window['go']['main']['App']['GetDismissedDomains']();
 }
 
 export function GetDomainAssessment(arg1) {
@@ -50,12 +70,32 @@ export function GetFeedStatuses() {
   return window['go']['main']['App']['GetFeedStatuses']();
 }
 
+export function GetFindingChanges(arg1, arg2) {
+  return window['go']['main']['App']['GetFindingChanges'](arg1, arg2);
+}
+
+export function GetFindingDetail(arg1) {
+  return window['go']['main']['App']['GetFindingDetail'](arg1);
+}
+
+export function GetFindingIndex(arg1) {
+  return window['go']['main']['App']['GetFindingIndex'](arg1);
+}
+
 export function GetFindings(arg1) {
   return window['go']['main']['App']['GetFindings'](arg1);
 }
 
+export function GetHistorySummary(arg1) {
+  return window['go']['main']['App']['GetHistorySummary'](arg1);
+}
+
 export function GetRegressions() {
   return window['go']['main']['App']['GetRegressions']();
+}
+
+export function GetScanRuns() {
+  return window['go']['main']['App']['GetScanRuns']();
 }
 
 export function GetSecretFindings(arg1) {
@@ -64,6 +104,10 @@ export function GetSecretFindings(arg1) {
 
 export function GetSetting(arg1) {
   return window['go']['main']['App']['GetSetting'](arg1);
+}
+
+export function GetSoftwareCoverage(arg1) {
+  return window['go']['main']['App']['GetSoftwareCoverage'](arg1);
 }
 
 export function GetVersion() {
@@ -78,12 +122,24 @@ export function ProbeDiscoveredServices(arg1) {
   return window['go']['main']['App']['ProbeDiscoveredServices'](arg1);
 }
 
+export function RefreshCandidates(arg1) {
+  return window['go']['main']['App']['RefreshCandidates'](arg1);
+}
+
+export function RefreshFeed(arg1, arg2) {
+  return window['go']['main']['App']['RefreshFeed'](arg1, arg2);
+}
+
 export function RefreshFeeds(arg1) {
   return window['go']['main']['App']['RefreshFeeds'](arg1);
 }
 
 export function RemoveAsset(arg1) {
   return window['go']['main']['App']['RemoveAsset'](arg1);
+}
+
+export function RestoreDismissedDomain(arg1) {
+  return window['go']['main']['App']['RestoreDismissedDomain'](arg1);
 }
 
 export function SaveSetting(arg1, arg2) {

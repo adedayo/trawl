@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/adedayo/trawl/pkg/event"
+	"github.com/adedayo/trawl/pkg/software"
 	"github.com/adedayo/trawl/pkg/store"
 )
 
@@ -135,6 +136,13 @@ func (c *Core) CorrelateIngest(ctx context.Context, kind IngestKind, raw []byte)
 
 	now := time.Now().UTC()
 
+	// A scan payload is a run: the findings it records are stamped with it and
+	// it is entered in the ledger. Discovery payloads add assets, not findings.
+	runID := "run-" + uuid.NewString()
+	if kind == IngestScan {
+		ctx = store.WithRun(ctx, store.RunRef{ID: runID, Kind: store.RunIngestScan})
+	}
+
 	switch kind {
 	case IngestDiscovery:
 		c.correlateHosts(ctx, payload.Hosts, guard, now, &summary)
@@ -153,6 +161,15 @@ func (c *Core) CorrelateIngest(ctx context.Context, kind IngestKind, raw []byte)
 	}
 
 	summary.Refused = guard.refused()
+
+	if kind == IngestScan {
+		if err := c.store.RecordScanRun(ctx, &store.ScanRun{
+			ID: runID, Kind: store.RunIngestScan, Outcome: "completed",
+			StartedAt: now, FinishedAt: time.Now().UTC(),
+		}); err != nil {
+			return summary, fmt.Errorf("core: recording the scan in the run ledger: %w", err)
+		}
+	}
 
 	if summary.Assets > 0 || summary.Findings > 0 {
 		c.bus.Publish(ctx, event.Event{
@@ -256,10 +273,71 @@ func (c *Core) correlateHTTPX(ctx context.Context, recs []httpxRecord, guard *sc
 		if scheme := schemeOf(r.URL, r.Scheme); scheme != "" {
 			_, _ = c.store.RecordPostureObservation(ctx, asset.ID, "http_scheme", scheme)
 		}
+
+		c.recordHTTPXSoftware(ctx, asset.ID, r.Tech, now)
 	}
 }
 
+func (c *Core) recordHTTPXSoftware(ctx context.Context, assetID string, tech []string, now time.Time) {
+	if len(tech) == 0 {
+		// No technology data in this scan: leave any open candidates open and
+		// mark them not re-assessed rather than treating absence as fixed.
+		_ = c.store.MarkAssetCandidatesNotReassessed(ctx, assetID, "Latest HTTP scan reported no technology data; software could not be re-assessed.")
+		return
+	}
+	pm, err := software.LoadMap()
+	if err != nil {
+		return
+	}
+	for _, raw := range tech {
+		for _, parsed := range software.ParseTech(raw) {
+			sw := store.AssetSoftware{
+				AssetID:      assetID,
+				ObservedName: parsed.Name,
+				Version:      parsed.Version,
+				VersionState: store.SoftwareVersionUnknown,
+				MappingState: store.SoftwareUnmapped,
+				Source:       "httpx",
+				RawString:    parsed.Raw,
+				Status:       store.SoftwareCurrent,
+				FirstSeen:    now,
+				LastSeen:     now,
+			}
+			if parsed.VersionKnown {
+				sw.VersionState = store.SoftwareVersionKnown
+			}
+			if id, ok := pm.Lookup(parsed.Name); ok {
+				sw.CPEPart = id.CPEPart
+				sw.Vendor = id.Vendor
+				sw.Product = id.Product
+				sw.MappingState = store.SoftwareMapped
+				sw.MappingVersion = id.MappingVersion
+			}
+			_ = c.store.SaveAssetSoftware(ctx, &sw)
+		}
+	}
+}
+
+// knownFindingIDs returns the identifiers of an asset's findings, read once per
+// asset per payload.
+func (c *Core) knownFindingIDs(ctx context.Context, assetID string, cache map[string]map[string]bool) (map[string]bool, error) {
+	if ids, ok := cache[assetID]; ok {
+		return ids, nil
+	}
+	existing, err := c.store.GetFindings(ctx, assetID)
+	if err != nil {
+		return nil, err
+	}
+	ids := make(map[string]bool, len(existing))
+	for _, f := range existing {
+		ids[f.ID] = true
+	}
+	cache[assetID] = ids
+	return ids, nil
+}
+
 func (c *Core) correlateNuclei(ctx context.Context, recs []nucleiRecord, guard *scopeFilter, now time.Time, sum *IngestSummary) {
+	seen := map[string]map[string]bool{}
 	for _, r := range recs {
 		host := firstNonEmpty(hostOf(r.MatchedAt), hostOf(r.Host), r.Host)
 		if host == "" || r.TemplateID == "" {
@@ -278,8 +356,13 @@ func (c *Core) correlateNuclei(ctx context.Context, recs []nucleiRecord, guard *
 			continue
 		}
 
+		// The identity is what the finding asserts, not a fresh random value:
+		// the same template matching the same place on the same asset is the
+		// same finding on every scan. A random identifier here meant every scan
+		// created a new row, so nothing could be compared and nothing could
+		// ever be marked resolved.
 		finding := store.Finding{
-			ID:          uuid.NewString(),
+			ID:          store.ScanFindingID(asset.ID, r.TemplateID, firstNonEmpty(r.MatchedAt, r.Host)),
 			AssetID:     asset.ID,
 			Title:       firstNonEmpty(r.Info.Name, r.TemplateID),
 			Description: r.Info.Description,
@@ -297,13 +380,24 @@ func (c *Core) correlateNuclei(ctx context.Context, recs []nucleiRecord, guard *
 		// of KEV and EPSS enrichment computed elsewhere, and a transport-side
 		// guess would be a second, contradictory source for a number the whole
 		// model requires to be reproducible.
+		// Only a finding not seen before is announced as new. Nothing is
+		// resolved here: a worker payload does not say which templates were
+		// run, so a template's absence is not evidence that it was re-assessed.
+		known, err := c.knownFindingIDs(ctx, asset.ID, seen)
+		if err != nil {
+			continue
+		}
+		isNew := !known[finding.ID]
 		if err := c.store.SaveFinding(ctx, &finding); err == nil {
 			sum.Findings++
-			c.bus.Publish(ctx, event.Event{
-				Type:      event.EventFindingNew,
-				Timestamp: now,
-				Payload:   finding,
-			})
+			known[finding.ID] = true
+			if isNew {
+				c.bus.Publish(ctx, event.Event{
+					Type:      event.EventFindingNew,
+					Timestamp: now,
+					Payload:   finding,
+				})
+			}
 		}
 	}
 }

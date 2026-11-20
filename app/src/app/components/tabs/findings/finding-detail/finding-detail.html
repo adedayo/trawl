@@ -1,0 +1,252 @@
+@let dark = theme() === 'dark';
+@let d = detail();
+<section aria-labelledby="finding-heading" [class]="dark ? 'bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden shadow-xl' : 'bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm'">
+  <div [class]="dark ? 'px-6 py-4 border-b border-slate-800 bg-slate-900 space-y-3' : 'px-6 py-4 border-b border-slate-200 bg-slate-50 space-y-3'">
+    <button type="button" data-testid="back" (click)="close()" [class]="dark ? 'text-xs font-semibold text-cyan-400 underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500' : 'text-xs font-semibold text-cyan-800 underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600'">Back</button>
+    <h2 #heading id="finding-heading" tabindex="-1" [class]="dark ? 'text-xl font-bold text-white outline-none' : 'text-xl font-bold text-slate-900 outline-none'">{{ title() }}</h2>
+
+    @if (d) {
+      <div class="flex items-center flex-wrap gap-2">
+        <span [class]="'px-2.5 py-0.5 rounded-md text-xs font-mono font-bold uppercase ' + severityClasses(d.severity)">{{ d.severity }}</span>
+        @if (d.priority) {
+          <span [class]="dark ? 'px-2.5 py-0.5 rounded-md border border-slate-600 text-slate-200 text-xs font-mono uppercase' : 'px-2.5 py-0.5 rounded-md border border-slate-400 text-slate-700 text-xs font-mono uppercase'">Priority: {{ d.priority }}</span>
+        }
+        <span [class]="'px-2.5 py-0.5 rounded-md text-xs font-mono font-bold uppercase ' + statusClasses(d.status)">{{ statusLabel(d.status) }}</span>
+        @if (d.source === 'candidate' || d.unconfirmed) {
+          <span data-testid="detail-unconfirmed-badge" [class]="dark ? 'px-2.5 py-0.5 rounded-md border border-violet-400 text-violet-200 bg-violet-950/70 text-xs font-mono font-bold uppercase' : 'px-2.5 py-0.5 rounded-md border border-violet-600 text-violet-900 bg-violet-50 text-xs font-mono font-bold uppercase'">Unconfirmed candidate</span>
+        }
+        @if (d.severitySource === 'nvd') {
+          <span [class]="dark ? 'px-2 py-0.5 rounded-md border border-slate-700 text-slate-300 text-xs font-mono' : 'px-2 py-0.5 rounded-md border border-slate-300 text-slate-700 text-xs font-mono'">Severity from NVD</span>
+        }
+        @if (d.notReassessed) {
+          <span [class]="dark ? 'px-2.5 py-0.5 rounded-md border border-dashed border-amber-400 text-amber-300 bg-amber-950/60 text-xs font-mono font-bold uppercase' : 'px-2.5 py-0.5 rounded-md border border-dashed border-amber-600 text-amber-900 bg-amber-50 text-xs font-mono font-bold uppercase'">Not re-assessed</span>
+        }
+        @if (d.kev) {
+          <span class="px-2.5 py-0.5 rounded-md bg-rose-700 text-white text-xs font-mono font-black tracking-wide uppercase">CISA KEV EXPLOITED</span>
+        }
+        @if (d.cve) {
+          <span [class]="dark ? 'text-xs font-mono font-bold text-cyan-400' : 'text-xs font-mono font-bold text-cyan-800'">{{ d.cve }}</span>
+        }
+      </div>
+
+      <dl [class]="dark ? 'grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2 text-xs text-slate-300' : 'grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2 text-xs text-slate-700'">
+        <div><dt class="text-[10px] uppercase font-bold tracking-wider opacity-70">Asset</dt><dd class="font-mono break-all">{{ d.assetValue || d.assetId }}</dd></div>
+        <div><dt class="text-[10px] uppercase font-bold tracking-wider opacity-70">Source</dt><dd>{{ sourceLabel(d.source) }}@if (d.category) { · {{ d.category }} }</dd></div>
+        <div><dt class="text-[10px] uppercase font-bold tracking-wider opacity-70">First seen</dt><dd><time [attr.datetime]="d.firstSeen">{{ formatTime(d.firstSeen) }}</time></dd></div>
+        <div><dt class="text-[10px] uppercase font-bold tracking-wider opacity-70">Last seen</dt><dd><time [attr.datetime]="d.lastSeen">{{ formatTime(d.lastSeen) }}</time></dd></div>
+      </dl>
+      <p data-testid="age-line" [class]="dark ? 'text-sm text-slate-200' : 'text-sm text-slate-800'">{{ ageLine(d) }}.</p>
+
+      @if (d.notReassessed) {
+        <p data-testid="not-reassessed-note" [class]="dark ? 'text-xs text-amber-300 border border-dashed border-amber-500 rounded-md p-3' : 'text-xs text-amber-900 border border-dashed border-amber-600 rounded-md p-3 bg-amber-50'">
+          This finding is still open, but the latest check could not conclude, so it has not been confirmed on the most recent run. {{ d.notReassessedReason || 'No reason was recorded.' }}
+        </p>
+      }
+    }
+  </div>
+
+  <div class="p-6 space-y-8">
+    @switch (state()) {
+      @case ('loading') {
+        <p role="status" [class]="dark ? 'text-sm text-slate-400' : 'text-sm text-slate-600'">Loading this finding.</p>
+      }
+      @case ('notfound') {
+        <p role="alert" data-testid="notfound" [class]="dark ? 'text-sm text-slate-200' : 'text-sm text-slate-800'">
+          This finding was not found. The address may come from another installation, or the data it refers to may have been erased. Use Back to return to the list.
+        </p>
+      }
+      @case ('error') {
+        <p role="alert" data-testid="load-error" [class]="dark ? 'text-sm text-amber-300' : 'text-sm text-amber-900'">
+          This finding could not be loaded{{ errorMessage() ? ' (' + errorMessage() + ')' : '' }}. That does not mean it is resolved.
+        </p>
+      }
+      @case ('ready') {
+        @if (d) {
+          <!-- Executive summary: the engine's deterministic wording, in a fixed order -->
+          <section aria-labelledby="exec-heading" data-testid="executive-summary" [class]="dark ? 'rounded-lg border border-slate-700 bg-slate-950/60 p-5 space-y-5' : 'rounded-lg border border-slate-200 bg-slate-50 p-5 space-y-5'">
+            <h3 id="exec-heading" [class]="dark ? 'text-sm font-bold uppercase tracking-wider text-slate-200' : 'text-sm font-bold uppercase tracking-wider text-slate-800'">Executive summary</h3>
+
+            @if (d.explanation.coverageNote) {
+              <p data-testid="coverage-note" [class]="dark ? 'text-sm text-amber-300 border border-dashed border-amber-500 rounded-md p-3' : 'text-sm text-amber-900 border border-dashed border-amber-600 rounded-md p-3 bg-amber-50'">
+                <strong>Assessment coverage.</strong> {{ d.explanation.coverageNote }}
+              </p>
+            }
+            @if (d.explanation.exploitationStatus) {
+              <p data-testid="exploitation-status" [class]="dark ? 'text-sm text-slate-200' : 'text-sm text-slate-800'">
+                <strong>Exploitation status.</strong> {{ d.explanation.exploitationStatus }}
+              </p>
+            }
+
+            <div>
+              <h4 [class]="dark ? 'text-xs font-bold uppercase tracking-wider text-slate-400 mb-1' : 'text-xs font-bold uppercase tracking-wider text-slate-600 mb-1'">What we found</h4>
+              <p [class]="dark ? 'text-sm text-slate-200 leading-relaxed' : 'text-sm text-slate-800 leading-relaxed'">{{ d.explanation.whatWeFound }}</p>
+            </div>
+            <div>
+              <h4 [class]="dark ? 'text-xs font-bold uppercase tracking-wider text-slate-400 mb-1' : 'text-xs font-bold uppercase tracking-wider text-slate-600 mb-1'">Why it matters</h4>
+              <p [class]="dark ? 'text-sm text-slate-200 leading-relaxed' : 'text-sm text-slate-800 leading-relaxed'">{{ d.explanation.whyItMatters }}</p>
+            </div>
+            <div>
+              <h4 [class]="dark ? 'text-xs font-bold uppercase tracking-wider text-slate-400 mb-1' : 'text-xs font-bold uppercase tracking-wider text-slate-600 mb-1'">How it could be abused</h4>
+              <p [class]="dark ? 'text-sm text-slate-200 leading-relaxed' : 'text-sm text-slate-800 leading-relaxed'">{{ d.explanation.howItCouldBeAbused }}</p>
+            </div>
+            <div>
+              <h4 [class]="dark ? 'text-xs font-bold uppercase tracking-wider text-slate-400 mb-1' : 'text-xs font-bold uppercase tracking-wider text-slate-600 mb-1'">What good looks like</h4>
+              <p [class]="dark ? 'text-sm text-slate-200 leading-relaxed' : 'text-sm text-slate-800 leading-relaxed'">{{ d.explanation.whatGoodLooksLike }}</p>
+            </div>
+            <div>
+              <h4 [class]="dark ? 'text-xs font-bold uppercase tracking-wider text-slate-400 mb-1' : 'text-xs font-bold uppercase tracking-wider text-slate-600 mb-1'">What to do</h4>
+              <ol [class]="dark ? 'list-decimal pl-5 space-y-1 text-sm text-slate-200' : 'list-decimal pl-5 space-y-1 text-sm text-slate-800'">
+                @for (step of d.explanation.whatToDo; track $index) {
+                  <li>{{ step }}</li>
+                }
+              </ol>
+            </div>
+            <div>
+              <h4 [class]="dark ? 'text-xs font-bold uppercase tracking-wider text-slate-400 mb-1' : 'text-xs font-bold uppercase tracking-wider text-slate-600 mb-1'">How a re-scan confirms the fix</h4>
+              <p [class]="dark ? 'text-sm text-slate-200 leading-relaxed' : 'text-sm text-slate-800 leading-relaxed'">{{ d.explanation.howRescanConfirms }}</p>
+            </div>
+            @if (d.explanation.references.length > 0 || (d.explanation.standards ?? []).length > 0) {
+              <div>
+                <h4 [class]="dark ? 'text-xs font-bold uppercase tracking-wider text-slate-400 mb-1' : 'text-xs font-bold uppercase tracking-wider text-slate-600 mb-1'">References and standards</h4>
+                @if (d.explanation.references.length > 0) {
+                  <ul class="space-y-1 text-xs">
+                    @for (ref of d.explanation.references; track ref) {
+                      <li class="break-all">
+                        @if (isHttpLink(ref)) {
+                          <a [href]="ref" target="_blank" rel="noopener noreferrer" [class]="dark ? 'text-sky-400 underline' : 'text-sky-700 underline'">{{ ref }}</a>
+                        } @else {
+                          <span class="font-mono">{{ ref }}</span>
+                        }
+                      </li>
+                    }
+                  </ul>
+                }
+                @if ((d.explanation.standards ?? []).length > 0) {
+                  <p [class]="dark ? 'mt-2 text-xs font-mono text-slate-400' : 'mt-2 text-xs font-mono text-slate-600'">{{ (d.explanation.standards ?? []).join(' · ') }}</p>
+                }
+              </div>
+            }
+
+            <p data-testid="narrative-provenance" [class]="dark ? 'text-[11px] text-slate-400 border-t border-slate-700 pt-3' : 'text-[11px] text-slate-600 border-t border-slate-200 pt-3'">
+              @if (levelLine()) { <span data-testid="level-line">{{ levelLine() }} </span> }
+              @if (narrativeVersion()) { Narrative version {{ narrativeVersion() }}. } @else { Narrative version not recorded. }
+              This wording is written and reviewed by the project, not generated for this finding.
+            </p>
+          </section>
+
+          <!-- Evidence -->
+          <section aria-labelledby="evidence-heading">
+            <h3 id="evidence-heading" [class]="dark ? 'text-sm font-bold uppercase tracking-wider text-slate-200 mb-2' : 'text-sm font-bold uppercase tracking-wider text-slate-800 mb-2'">Evidence</h3>
+            @if (d.source === 'candidate') {
+              <dl data-testid="candidate-match-evidence" [class]="dark ? 'grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 p-3 rounded-md border border-violet-900/70 bg-violet-950/30 text-xs text-slate-200' : 'grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 p-3 rounded-md border border-violet-200 bg-violet-50/70 text-xs text-slate-800'">
+                <div>
+                  <dt class="text-[10px] uppercase font-bold tracking-wider opacity-70">Observed string</dt>
+                  <dd class="font-mono mt-0.5">{{ d.observedString || 'Not recorded' }}</dd>
+                </div>
+                <div>
+                  <dt class="text-[10px] uppercase font-bold tracking-wider opacity-70">Matched product and version</dt>
+                  <dd class="font-mono mt-0.5">{{ d.matchedVendor ? d.matchedVendor + ':' : '' }}{{ d.matchedProduct || 'Unknown' }} {{ d.matchedVersion || '' }}</dd>
+                </div>
+                <div>
+                  <dt class="text-[10px] uppercase font-bold tracking-wider opacity-70">Lookup snapshot</dt>
+                  <dd class="font-mono mt-0.5">
+                    {{ d.lookupSnapshotId || 'Not recorded' }}
+                    @if (d.lookupAt) {
+                      <span class="block text-[11px] opacity-80">Checked {{ formatTime(d.lookupAt) }}</span>
+                    }
+                  </dd>
+                </div>
+              </dl>
+            }
+            @if (d.checkState) {
+              <p data-testid="check-state" [class]="dark ? 'text-xs text-slate-300 mb-2' : 'text-xs text-slate-700 mb-2'">
+                Latest check{{ d.checkId ? ' (' + d.checkId + ')' : '' }}: {{ checkStateLabel(d.checkState) || d.checkState }}.@if (d.checkReason) { {{ d.checkReason }} }
+              </p>
+            }
+            @if (d.evidence) {
+              <pre data-testid="evidence" [class]="dark ? 'whitespace-pre-wrap break-all text-xs font-mono text-slate-300 bg-slate-950 border border-slate-800 rounded-md p-3' : 'whitespace-pre-wrap break-all text-xs font-mono text-slate-700 bg-slate-50 border border-slate-200 rounded-md p-3'">{{ d.evidence }}</pre>
+            } @else {
+              <p [class]="dark ? 'text-xs text-slate-400' : 'text-xs text-slate-600'">No evidence value was recorded for this finding.</p>
+            }
+            @if (d.description) {
+              <details class="mt-3 text-xs">
+                <summary [class]="dark ? 'cursor-pointer text-cyan-400 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500' : 'cursor-pointer text-cyan-800 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600'">Technical description</summary>
+                <p [class]="dark ? 'mt-2 text-slate-300' : 'mt-2 text-slate-700'">{{ d.description }}</p>
+              </details>
+            }
+          </section>
+
+          <!-- Timeline -->
+          <section aria-labelledby="timeline-heading">
+            <h3 id="timeline-heading" [class]="dark ? 'text-sm font-bold uppercase tracking-wider text-slate-200 mb-2' : 'text-sm font-bold uppercase tracking-wider text-slate-800 mb-2'">Timeline</h3>
+            @if (timeline().length === 0) {
+              <p [class]="dark ? 'text-xs text-slate-400' : 'text-xs text-slate-600'">No events have been recorded for this finding.</p>
+            } @else {
+              <ol data-testid="timeline" [class]="dark ? 'space-y-3 border-l border-slate-700 pl-4' : 'space-y-3 border-l border-slate-300 pl-4'">
+                @for (e of timeline(); track e.id) {
+                  <li data-testid="timeline-event">
+                    <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <span [class]="dark ? 'text-sm font-semibold text-white' : 'text-sm font-semibold text-slate-900'">{{ eventTypeLabel(e.type) }}</span>
+                      <time [attr.datetime]="e.at" [class]="dark ? 'text-xs font-mono text-slate-400' : 'text-xs font-mono text-slate-600'">{{ formatTime(e.at) }}</time>
+                      @if (e.runId) {
+                        <span [class]="dark ? 'text-xs font-mono text-slate-400' : 'text-xs font-mono text-slate-600'">run {{ e.runId }}</span>
+                      }
+                    </div>
+                    <div [class]="dark ? 'text-xs text-slate-300' : 'text-xs text-slate-700'">
+                      <span data-testid="cause">Cause: {{ causeLabel(e) }}</span>
+                      @if (isNotEstateChange(e) && e.type !== 'baseline') {
+                        <span> (not a change in the estate)</span>
+                      }
+                    </div>
+                    @if (severityChange(e)) {
+                      <div [class]="dark ? 'text-xs font-mono text-slate-300' : 'text-xs font-mono text-slate-700'">Severity: {{ severityChange(e) }}</div>
+                    }
+                    @if (priorityChange(e)) {
+                      <div [class]="dark ? 'text-xs font-mono text-slate-300' : 'text-xs font-mono text-slate-700'">Priority: {{ priorityChange(e) }}</div>
+                    }
+                    @if (e.note) {
+                      <div [class]="dark ? 'text-xs text-slate-400' : 'text-xs text-slate-600'">{{ e.note }}</div>
+                    }
+                  </li>
+                }
+              </ol>
+            }
+          </section>
+
+          @if (d.regressions.length > 0) {
+            <section aria-labelledby="regressions-heading">
+              <h3 id="regressions-heading" [class]="dark ? 'text-sm font-bold uppercase tracking-wider text-slate-200 mb-2' : 'text-sm font-bold uppercase tracking-wider text-slate-800 mb-2'">Related regressions</h3>
+              <ul class="space-y-1 text-xs font-mono">
+                @for (r of d.regressions; track r.id) {
+                  <li [class]="dark ? 'text-slate-300' : 'text-slate-700'">{{ r.attributeType }}: {{ r.previousValue }} to {{ r.currentValue }}, confirmed {{ formatTime(r.confirmedAt) }}</li>
+                }
+              </ul>
+            </section>
+          }
+
+          <!-- Provenance -->
+          <section aria-labelledby="provenance-heading">
+            <h3 id="provenance-heading" [class]="dark ? 'text-sm font-bold uppercase tracking-wider text-slate-200 mb-2' : 'text-sm font-bold uppercase tracking-wider text-slate-800 mb-2'">Provenance</h3>
+            <dl [class]="dark ? 'grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-300' : 'grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700'">
+              <div><dt class="text-[10px] uppercase font-bold tracking-wider opacity-70">Scan run</dt><dd class="font-mono break-all">{{ d.provenance.runId || 'not recorded' }}</dd></div>
+              <div><dt class="text-[10px] uppercase font-bold tracking-wider opacity-70">Scanner library</dt><dd class="font-mono">{{ d.provenance.libraryVersion || 'not recorded' }}</dd></div>
+              <div><dt class="text-[10px] uppercase font-bold tracking-wider opacity-70">Signal registry</dt><dd class="font-mono">{{ d.provenance.registryVersion || 'not recorded' }}</dd></div>
+            </dl>
+            <div class="mt-3">
+              <h4 [class]="dark ? 'text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1' : 'text-[10px] uppercase font-bold tracking-wider text-slate-600 mb-1'">Feed snapshots</h4>
+              @if ((d.provenance.feedSnapshots ?? []).length > 0) {
+                <ul class="space-y-1 text-xs font-mono">
+                  @for (s of d.provenance.feedSnapshots ?? []; track s.id) {
+                    <li [class]="dark ? 'text-slate-300' : 'text-slate-700'">{{ s.feed }} · snapshot {{ s.id }} · retrieved {{ formatTime(s.retrievedAt) }} · {{ s.recordCount }} records</li>
+                  }
+                </ul>
+              } @else {
+                <p [class]="dark ? 'text-xs text-slate-400' : 'text-xs text-slate-600'">No feed snapshot is cited for this finding.</p>
+              }
+            </div>
+          </section>
+        }
+      }
+    }
+  </div>
+</section>

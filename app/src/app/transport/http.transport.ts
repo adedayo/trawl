@@ -1,4 +1,4 @@
-import { AssetContactPanelUI, DomainAssessment, EmailPostureUI, FeedStatusUI, InstanceAggregationUI } from '../models/types';
+import { AssetContactPanelUI, AssetSoftwareUI, CandidateRefreshSummaryUI, ChangeSet, DomainAssessment, EmailPostureUI, FeedStatusUI, FindingDetail, FindingFilter, FindingSummary, HistoryPoint, InstanceAggregationUI, ScanRunView, SoftwareCoverageUI } from '../models/types';
 import { AssessOptionsUI, BuildInfo, CalibrationExperiment, CalibrationReportRow, DiscoveryOptions, DiscoveryResult, Scope, TrawlTransport } from './trawl-transport';
 
 /**
@@ -116,11 +116,41 @@ export class HttpTransport implements TrawlTransport {
     return this.get<FeedStatusUI[]>('/api/v1/feeds', []);
   }
 
-  async refreshFeeds(epssThreshold = 0): Promise<FeedStatusUI[]> {
+  getAssetSoftware(assetId = ''): Promise<AssetSoftwareUI[]> {
+    const query = assetId ? `?assetId=${encodeURIComponent(assetId)}` : '';
+    return this.get<AssetSoftwareUI[]>(`/api/v1/software${query}`, []);
+  }
+
+  getSoftwareCoverage(assetId = ''): Promise<SoftwareCoverageUI[]> {
+    const query = assetId ? `?assetId=${encodeURIComponent(assetId)}` : '';
+    return this.get<SoftwareCoverageUI[]>(`/api/v1/software/coverage${query}`, []);
+  }
+
+  async refreshCandidates(force = false): Promise<CandidateRefreshSummaryUI | null> {
+    const response = await fetch(this.url('/api/v1/candidates/refresh'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ force })
+    });
+    if (!response.ok) {
+      throw new Error(`Trawl: refreshing software candidates failed with ${response.status}`);
+    }
+    return ((await response.json()) as CandidateRefreshSummaryUI) ?? null;
+  }
+
+  refreshFeeds(epssThreshold = 0): Promise<FeedStatusUI[]> {
+    return this.postRefresh({ epssThreshold });
+  }
+
+  refreshFeed(feed: string, epssThreshold = 0): Promise<FeedStatusUI[]> {
+    return this.postRefresh({ epssThreshold, feeds: [feed] });
+  }
+
+  private async postRefresh(body: { epssThreshold: number; feeds?: string[] }): Promise<FeedStatusUI[]> {
     const response = await fetch(this.url('/api/v1/feeds/refresh'), {
       method: 'POST',
       headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ epssThreshold })
+      body: JSON.stringify(body)
     });
     if (!response.ok && response.status !== 207) {
       throw new Error(`Trawl: refreshing vulnerability feeds failed with ${response.status}`);
@@ -136,6 +166,64 @@ export class HttpTransport implements TrawlTransport {
 
   getWeaknessContactAggregations(): Promise<InstanceAggregationUI[]> {
     return this.get<InstanceAggregationUI[]>('/api/v1/contact/weaknesses', []);
+  }
+
+  /**
+   * A read that rejects on failure instead of returning a fallback.
+   *
+   * `get` swallows errors and answers with an empty value, which is right for
+   * the older views whose emptiness the operator can see for themselves. The
+   * findings index, history and change views are different: "no findings" is a
+   * strong statement, and it must never be the accidental result of a request
+   * that failed.
+   */
+  private async getOrThrow<T>(path: string): Promise<T | undefined> {
+    const response = await fetch(this.url(path), { headers: { Accept: 'application/json' } });
+    if (response.status === 404) {
+      return undefined;
+    }
+    if (!response.ok) {
+      throw new Error(`Trawl: GET ${path} failed with ${response.status}`);
+    }
+    return (await response.json()) as T;
+  }
+
+  private static query(params: Record<string, string | undefined>): string {
+    const parts = Object.entries(params)
+      .filter(([, value]) => !!value)
+      .map(([name, value]) => `${name}=${encodeURIComponent(value as string)}`);
+    return parts.length > 0 ? `?${parts.join('&')}` : '';
+  }
+
+  async getFindingIndex(filter: FindingFilter = {}): Promise<FindingSummary[]> {
+    const query = HttpTransport.query({
+      status: filter.status,
+      severity: filter.severity,
+      source: filter.source,
+      assetId: filter.assetId,
+      changedSince: filter.changedSince
+    });
+    return (await this.getOrThrow<FindingSummary[]>(`/api/v1/findings/index${query}`)) ?? [];
+  }
+
+  async getFindingDetail(key: string): Promise<FindingDetail | null> {
+    // The key is URL-safe by contract; it is encoded anyway so an address typed
+    // by hand cannot alter the path.
+    return (await this.getOrThrow<FindingDetail>(`/api/v1/findings/${encodeURIComponent(key)}`)) ?? null;
+  }
+
+  async getFindingChanges(from = '', to = ''): Promise<ChangeSet> {
+    const query = HttpTransport.query({ from, to });
+    const changes = await this.getOrThrow<ChangeSet>(`/api/v1/findings/changes${query}`);
+    return changes ?? { new: [], resolved: [], worsened: [], improved: [] };
+  }
+
+  async getScanRuns(): Promise<ScanRunView[]> {
+    return (await this.getOrThrow<ScanRunView[]>('/api/v1/scans')) ?? [];
+  }
+
+  async getHistorySummary(since = ''): Promise<HistoryPoint[]> {
+    return (await this.getOrThrow<HistoryPoint[]>(`/api/v1/history/summary${HttpTransport.query({ since })}`)) ?? [];
   }
 
   getAssessments(): Promise<DomainAssessment[]> {

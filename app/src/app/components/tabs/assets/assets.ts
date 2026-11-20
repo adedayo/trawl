@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { WailsIpcService } from '../../../wails-ipc.service';
-import { AssetAttribution, AssetContactPanelUI, IntervalUI } from '../../../models/types';
+import { AssetAttribution, AssetContactPanelUI, AssetSoftwareUI, IntervalUI, SoftwareCoverageUI } from '../../../models/types';
 import { byHost, HostingSummary, noHosting, summariseHosting } from './hosting';
 
 @Component({
@@ -44,6 +44,61 @@ export class AssetsComponent {
   readonly contactPanel = signal<AssetContactPanelUI | null>(null);
   readonly contactLoading = signal<boolean>(false);
   readonly excludedFactors = signal<string[]>([]);
+
+  /** The asset whose software inventory panel is open, if any. */
+  readonly softwareAssetId = signal<string>('');
+
+  private softwareByAsset = computed(() => {
+    const map = new Map<string, AssetSoftwareUI[]>();
+    for (const item of this.wailsIpc.assetSoftware()) {
+      const list = map.get(item.assetId) ?? [];
+      list.push(item);
+      map.set(item.assetId, list);
+    }
+    return map;
+  });
+
+  private softwareCoverageByAsset = computed(() => {
+    const map = new Map<string, SoftwareCoverageUI>();
+    for (const cov of this.wailsIpc.softwareCoverage()) {
+      map.set(cov.assetId, cov);
+    }
+    return map;
+  });
+
+  softwareFor(assetId: string): AssetSoftwareUI[] {
+    return this.softwareByAsset().get(assetId) ?? [];
+  }
+
+  softwareCoverageFor(assetId: string): SoftwareCoverageUI {
+    return (
+      this.softwareCoverageByAsset().get(assetId) ?? {
+        assetId,
+        state: 'not_assessed',
+        identified: 0,
+        versionUnknown: 0,
+        unmapped: 0,
+        superseded: 0
+      }
+    );
+  }
+
+  softwareCoverageLabel(cov: SoftwareCoverageUI): string {
+    switch (cov.state) {
+      case 'identified':
+        return `${cov.identified} identified`;
+      case 'version_unknown':
+        return `${cov.versionUnknown} version unknown`;
+      case 'seen_unmapped':
+        return `${cov.unmapped} unmapped`;
+      default:
+        return 'Not assessed';
+    }
+  }
+
+  toggleSoftwarePanel(assetId: string): void {
+    this.softwareAssetId.update(current => (current === assetId ? '' : assetId));
+  }
 
   hosting(assetId: string): HostingSummary {
     return this.hostingIndex().get(assetId) ?? noHosting;
