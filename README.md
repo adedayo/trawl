@@ -9,11 +9,18 @@
 </p>
 
 <p align="center">
+  <a href="https://adedayo.github.io/trawl/">Live Demo Page</a> ·
   <a href="#install">Install</a> ·
   <a href="#what-you-get">What you get</a> ·
   <a href="docs/distribution.md">All install options</a> ·
   <a href="docs/development.md">For developers</a> ·
   <a href="#licence">Licence</a>
+</p>
+
+<p align="center">
+  <a href="https://adedayo.github.io/trawl/">
+    <img src="docs/screenshots/executive.png" alt="Trawl Executive View showing four-state assessment coverage, CISA KEV findings, regressions, and prioritised exposure" width="900" />
+  </a>
 </p>
 
 ---
@@ -68,9 +75,20 @@ part most tools miss. Trawl compares every check against the last one, so a TLS
 downgrade, a weakened DMARC policy, a newly-opened port or a re-exposed secret
 raises an alert - even though nothing is technically "new".
 
-**Plain-English explanations.** An optional AI layer writes up what a finding
-means and how to fix it. It is advisory only and never influences the priority
-score. You can point it at a local model, or leave it switched off entirely.
+**History you can read back.** Every scan is recorded, and so is every change
+to every finding: when it first appeared, when its severity moved, when it was
+fixed, and when it came back. Open any finding to see its timeline, and compare
+two scans to see what is new, what was fixed and what got worse. A change
+caused by a scanner upgrade or a threat-feed update is labelled as such, so it
+is not mistaken for a change in your estate. See
+[docs/findings-history.md](docs/findings-history.md).
+
+**Plain-English explanations.** Every finding explains, without jargon, what was
+found, why it matters, how someone could abuse it, and what to do about it.
+The text is written and reviewed by people, ships with Trawl, and is the same
+every time. It works fully offline. An optional AI layer may later add advice
+specific to your organisation; it would be advisory only and would never
+influence the priority score.
 
 > **What Trawl will not do.** Trawl does connect to hosts - reading a
 > certificate or checking a service means talking to it, and port and service
