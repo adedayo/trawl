@@ -89,7 +89,7 @@ jobs:
   macos:
     name: macOS (universal)
     needs: meta
-    runs-on: macos-14
+    runs-on: macos-15
     # Declared at job level, not step level. A step-level `env:` is not visible
     # to that same step's `if:`, which evaluates before the step environment is
     # constructed — so guarding on it there silently never matches.
@@ -582,7 +582,7 @@ jobs:
         working-directory: staging
         run: |
           set -euo pipefail
-          sha256sum * > SHA256SUMS
+          sha256sum -- * > SHA256SUMS
           cat SHA256SUMS
 
       - uses: sigstore/cosign-installer@v3
