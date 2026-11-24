@@ -751,6 +751,7 @@ export interface SoftwareCoverageUI {
   versionUnknown: number;
   unmapped: number;
   superseded: number;
+  reason?: string;
 }
 
 export interface CandidateRefreshSummaryUI {

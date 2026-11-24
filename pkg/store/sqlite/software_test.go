@@ -31,13 +31,16 @@ func TestSoftwareInventorySupersedingAndCoverage(t *testing.T) {
 		t.Fatalf("SaveAsset: %v", err)
 	}
 
-	// Initially not assessed.
+	// Initially not assessed, with an explicit reason explaining why.
 	cov, err := s.ComputeSoftwareCoverage(ctx, asset.ID)
 	if err != nil {
 		t.Fatalf("ComputeSoftwareCoverage: %v", err)
 	}
 	if cov.State != store.SoftwareCoverageNotAssessed {
 		t.Fatalf("initial coverage = %q, want not_assessed", cov.State)
+	}
+	if cov.Reason == "" {
+		t.Fatalf("expected non-empty reason when software is not_assessed")
 	}
 
 	// Only unmapped software -> seen_unmapped.
@@ -172,4 +175,83 @@ func TestCandidateFindingSingleWritePathEvents(t *testing.T) {
 	if evs[0].Type != store.EventFirstSeen || evs[1].Type != store.EventResolved || evs[2].Type != store.EventReopened {
 		t.Fatalf("event types = [%s, %s, %s], want [first_seen, resolved, reopened]", evs[0].Type, evs[1].Type, evs[2].Type)
 	}
+}
+
+func TestSoftwareNotAssessedReasons(t *testing.T) {
+	s, err := sqlite.NewSQLiteStore(filepath.Join(t.TempDir(), "reasons.db"))
+	if err != nil {
+		t.Fatalf("NewSQLiteStore: %v", err)
+	}
+	defer s.Close()
+
+	ctx := context.Background()
+	now := time.Date(2026, 11, 20, 12, 0, 0, 0, time.UTC)
+
+	saveAsset := func(id string, typ store.AssetType, val string) {
+		if err := s.SaveAsset(ctx, &store.Asset{
+			ID: id, Type: typ, Value: val, Status: store.AssetStatusActive,
+			DiscoverySource: "test", Confidence: 1, FirstSeen: now, LastSeen: now,
+		}); err != nil {
+			t.Fatalf("SaveAsset %s: %v", id, err)
+		}
+	}
+
+	// 1. Repository asset
+	saveAsset("repo-1", store.AssetTypeRepository, "https://github.com/example/repo")
+	cov, err := s.ComputeSoftwareCoverage(ctx, "repo-1")
+	if err != nil || cov.Reason == "" {
+		t.Fatalf("repo coverage = %+v, err=%v", cov, err)
+	}
+
+	// 2. Probed, none responded (ports closed/refused)
+	saveAsset("closed-1", store.AssetTypeSubdomain, "closed.example.com")
+	_ = s.SaveServiceObservation(ctx, &store.ServiceObservation{
+		ID: "o1", AssetID: "closed-1", Host: "closed.example.com", Port: 443,
+		Service: "https", Transport: "tcp", Protocol: "https", Layer: "http",
+		State: "not_responding", Coverage: store.CoverageOK, ObservedAt: now,
+	})
+	cov, err = s.ComputeSoftwareCoverage(ctx, "closed-1")
+	if err != nil || cov.State != store.SoftwareCoverageNotAssessed || cov.Reason == "" {
+		t.Fatalf("closed coverage = %+v, err=%v", cov, err)
+	}
+	if want := "none responded"; !containsStr(cov.Reason, want) {
+		t.Errorf("closed reason = %q, want substring %q", cov.Reason, want)
+	}
+
+	// 3. Probed, inconclusive (timeout)
+	saveAsset("timeout-1", store.AssetTypeSubdomain, "fw.example.com")
+	_ = s.SaveServiceObservation(ctx, &store.ServiceObservation{
+		ID: "o2", AssetID: "timeout-1", Host: "fw.example.com", Port: 443,
+		Service: "https", Transport: "tcp", Protocol: "https", Layer: "http",
+		State: "unknown", Coverage: store.CoverageCheckFailed, Evidence: `{"error":"i/o timeout"}`, ObservedAt: now,
+	})
+	cov, err = s.ComputeSoftwareCoverage(ctx, "timeout-1")
+	if err != nil || !containsStr(cov.Reason, "i/o timeout") {
+		t.Errorf("timeout reason = %q, err=%v, want i/o timeout", cov.Reason, err)
+	}
+
+	// 4. Responded, but disclosed no software headers/banners
+	saveAsset("silent-1", store.AssetTypeSubdomain, "silent.example.com")
+	_ = s.SaveServiceObservation(ctx, &store.ServiceObservation{
+		ID: "o3", AssetID: "silent-1", Host: "silent.example.com", Port: 443,
+		Service: "https", Transport: "tcp", Protocol: "https", Layer: "http",
+		State: "responding", Coverage: store.CoverageOK, ObservedAt: now,
+	})
+	cov, err = s.ComputeSoftwareCoverage(ctx, "silent-1")
+	if err != nil || !containsStr(cov.Reason, "disclosed no software") {
+		t.Errorf("silent reason = %q, err=%v, want disclosed no software", cov.Reason, err)
+	}
+}
+
+func containsStr(s, sub string) bool {
+	return len(s) >= len(sub) && (s == sub || len(sub) == 0 || indexStr(s, sub) >= 0)
+}
+
+func indexStr(s, sub string) int {
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return i
+		}
+	}
+	return -1
 }

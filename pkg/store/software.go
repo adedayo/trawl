@@ -78,6 +78,11 @@ type SoftwareCoverage struct {
 	VersionUnknown int                   `json:"versionUnknown"`
 	Unmapped       int                   `json:"unmapped"`
 	Superseded     int                   `json:"superseded"`
+	// Reason explains why software could not be assessed when State is
+	// not_assessed (for example: no service probe has run yet, probed services
+	// did not respond, probes timed out, or responding services disclosed no
+	// software headers/banners).
+	Reason string `json:"reason,omitempty"`
 }
 
 // CandidateCVE is one CVE returned by NVD for a specific (cpePart, vendor,

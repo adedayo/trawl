@@ -78,10 +78,12 @@
             </td>
             <td [class]="theme() === 'dark' ? 'py-4 px-6 text-slate-400' : 'py-4 px-6 text-slate-500'">{{ asset.firstSeen }} / {{ asset.lastSeen }}</td>
             <td class="py-4 px-6 text-right space-x-2">
+              @let rowSwCov = softwareCoverageFor(asset.id);
               <button type="button" data-testid="toggle-software-btn" (click)="toggleSoftwarePanel(asset.id)"
                 [attr.aria-expanded]="softwareAssetId() === asset.id"
+                [attr.title]="rowSwCov.reason || null"
                 [class]="theme() === 'dark' ? 'px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-violet-300 font-medium transition' : 'px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 border border-slate-300 text-violet-800 font-medium transition'">
-                Software ({{ softwareCoverageLabel(softwareCoverageFor(asset.id)) }})
+                Software ({{ softwareCoverageLabel(rowSwCov) }})
               </button>
               <button type="button" (click)="toggleContactPanel(asset.id)"
                 [attr.aria-expanded]="contactAssetId() === asset.id"
@@ -167,7 +169,12 @@
                           <strong>Software seen, unmapped</strong> ({{ swCov.unmapped }} observed without a curated product mapping - not looked up in NVD)
                         }
                         @default {
-                          <strong>Not assessed for software</strong> (no technology data recorded - this is not evidence of zero software vulnerabilities)
+                          <strong>Not assessed for software</strong>
+                          @if (swCov.reason) {
+                            (<span data-testid="software-not-assessed-reason">{{ swCov.reason }}</span> This is not evidence of zero software vulnerabilities.)
+                          } @else {
+                            (no technology data recorded - this is not evidence of zero software vulnerabilities)
+                          }
                         }
                       }
                     </p>

@@ -194,8 +194,92 @@ func (s *SQLiteStore) ComputeSoftwareCoverage(ctx context.Context, assetID strin
 		cov.State = store.SoftwareCoverageSeenUnmapped
 	default:
 		cov.State = store.SoftwareCoverageNotAssessed
+		cov.Reason = s.softwareNotAssessedReason(ctx, assetID)
 	}
 	return cov, nil
+}
+
+// softwareNotAssessedReason explains why an asset currently has no software
+// inventory records by inspecting the asset type and latest service probe
+// observations. Never claims that absence of software data means zero risk.
+func (s *SQLiteStore) softwareNotAssessedReason(ctx context.Context, assetID string) string {
+	if asset, err := s.GetAssetByID(ctx, assetID); err == nil && asset != nil {
+		if asset.Type == store.AssetTypeRepository {
+			return "Repository asset; network service software probing does not apply."
+		}
+	}
+
+	observations, err := s.GetServiceObservations(ctx, assetID)
+	if err != nil || len(observations) == 0 {
+		return "No service probe has run on this asset yet. Run a scan or service sweep to inspect exposed services."
+	}
+
+	// Keep the latest observation per (host, port, layer) so stale historical
+	// probes do not distort the current explanation.
+	type obsKey struct {
+		host  string
+		port  uint16
+		layer string
+	}
+	latest := make(map[obsKey]store.ServiceObservation, len(observations))
+	for _, o := range observations {
+		k := obsKey{host: o.Host, port: o.Port, layer: o.Layer}
+		if prev, ok := latest[k]; !ok || o.ObservedAt.After(prev.ObservedAt) {
+			latest[k] = o
+		}
+	}
+
+	var responding []string
+	notResponding := 0
+	inconclusive := 0
+	var sampleErr string
+	for _, o := range latest {
+		switch {
+		case o.Coverage.Assessed() && o.State == "responding":
+			svc := o.Service
+			if svc == "" {
+				svc = o.Protocol
+			}
+			if svc == "" {
+				svc = o.Layer
+			}
+			responding = append(responding, fmt.Sprintf("%s:%d", svc, o.Port))
+		case o.Coverage.Assessed() && o.State == "not_responding":
+			notResponding++
+		default:
+			inconclusive++
+			if sampleErr == "" && o.Evidence != "" {
+				var ev map[string]any
+				if json.Unmarshal([]byte(o.Evidence), &ev) == nil {
+					if e, _ := ev["error"].(string); strings.TrimSpace(e) != "" {
+						sampleErr = strings.TrimSpace(e)
+					}
+				}
+			}
+		}
+	}
+
+	if len(responding) > 0 {
+		if len(responding) > 4 {
+			return fmt.Sprintf("%d responding service(s) (including %s) disclosed no software headers, cookies, HTML fingerprints, or banners.",
+				len(responding), strings.Join(responding[:4], ", "))
+		}
+		return fmt.Sprintf("%d responding service(s) (%s) disclosed no software headers, cookies, HTML fingerprints, or banners.",
+			len(responding), strings.Join(responding, ", "))
+	}
+
+	total := notResponding + inconclusive
+	switch {
+	case notResponding > 0 && inconclusive == 0:
+		return fmt.Sprintf("Probed %d service(s); none responded (ports closed or refused).", total)
+	case inconclusive > 0 && notResponding == 0:
+		if sampleErr != "" {
+			return fmt.Sprintf("Probed %d service(s); probes were inconclusive (%s).", total, sampleErr)
+		}
+		return fmt.Sprintf("Probed %d service(s); probes were inconclusive (timeout, firewall drop, or DNS failure).", total)
+	default:
+		return fmt.Sprintf("Probed %d service(s); %d did not respond and %d probe(s) were inconclusive.", total, notResponding, inconclusive)
+	}
 }
 
 // GetSoftwareLookupCache retrieves a cached NVD lookup for a (part, vendor,

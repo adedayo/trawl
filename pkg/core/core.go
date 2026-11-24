@@ -636,7 +636,7 @@ func (c *Core) probeDiscoveredServices(ctx context.Context, profile vprobe.Disco
 				return
 			}
 			observations, err := c.assessment.ProbeServices(sweepCtx, prober, vadapter.ServiceRequest{
-				AssetID: asset.ID, Host: asset.Value, Profile: profile,
+				AssetID: asset.ID, Host: asset.Value, Profile: profile, Scope: guard,
 			})
 			exposed := 0
 			for _, observation := range observations {

@@ -30,7 +30,10 @@ describe('Assets', () => {
     ]);
     ipc.softwareCoverage.set([
       { assetId: 'a-1', state: 'identified', identified: 1, versionUnknown: 1, unmapped: 1, superseded: 1 },
-      { assetId: 'a-2', state: 'not_assessed', identified: 0, versionUnknown: 0, unmapped: 0, superseded: 0 }
+      {
+        assetId: 'a-2', state: 'not_assessed', identified: 0, versionUnknown: 0, unmapped: 0, superseded: 0,
+        reason: 'Probed 4 service(s); none responded (ports closed or refused).'
+      }
     ]);
     ipc.assetSoftware.set([
       {
@@ -82,6 +85,8 @@ describe('Assets', () => {
 
     const panel2 = root.querySelector('[data-testid="asset-software-panel"]')?.textContent ?? '';
     expect(panel2).toContain('Not assessed for software');
+    expect(panel2).toContain('Probed 4 service(s); none responded');
     expect(panel2).toContain('not evidence of zero software vulnerabilities');
+    expect(buttons[1].getAttribute('title')).toContain('none responded');
   });
 });

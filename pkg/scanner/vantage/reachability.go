@@ -20,6 +20,10 @@ type ServiceRequest struct {
 	Host    string
 	Profile vprobe.DiscoveryProfile
 	Custom  []vprobe.Request
+	// Scope enforces the same authorised target boundary on any follow-up
+	// read-only HTTP fingerprinting pass (including redirects). When nil,
+	// follow-up HTTP fingerprinting is skipped.
+	Scope *Scope
 }
 
 // ProbeServices runs the Vantage service probe and translates observations to

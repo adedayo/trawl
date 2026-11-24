@@ -1843,6 +1843,7 @@ export namespace store {
 	    versionUnknown: number;
 	    unmapped: number;
 	    superseded: number;
+	    reason?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new SoftwareCoverage(source);
@@ -1856,6 +1857,7 @@ export namespace store {
 	        this.versionUnknown = source["versionUnknown"];
 	        this.unmapped = source["unmapped"];
 	        this.superseded = source["superseded"];
+	        this.reason = source["reason"];
 	    }
 	}
 

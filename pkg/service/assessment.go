@@ -28,9 +28,16 @@ import (
 // here. That keeps presentation concerns out of the adapter and vantage types
 // out of the frontend, so neither can drift into the other.
 type AssessmentService struct {
-	store    store.Store
-	bus      event.Bus
-	registry *vadapter.SignalRegistry
+	store             store.Store
+	bus               event.Bus
+	registry          *vadapter.SignalRegistry
+	httpFingerprinter HTTPFingerprinter
+}
+
+// SetHTTPFingerprinter overrides the read-only HTTP fingerprinter used after a
+// responding HTTP/HTTPS service probe. Intended for deterministic unit tests.
+func (svc *AssessmentService) SetHTTPFingerprinter(fn HTTPFingerprinter) {
+	svc.httpFingerprinter = fn
 }
 
 // outcomeUnknown is reported for an asset that carries assessment rows but no
@@ -147,7 +154,7 @@ func (svc *AssessmentService) ProbeServices(ctx context.Context, prober vprobe.P
 			return nil, fmt.Errorf("service probe: saving %s:%d: %w", observations[i].Host, observations[i].Port, err)
 		}
 	}
-	svc.recordServiceProbeSoftware(ctx, request.AssetID, observations, time.Now().UTC())
+	svc.recordServiceProbeSoftware(ctx, request.AssetID, request.Scope, observations, time.Now().UTC())
 	if err := vadapter.ServiceAdvisories(ctx, func(finding *store.Finding) error {
 		return svc.store.SaveFinding(ctx, finding)
 	}, observations, time.Now().UTC()); err != nil {
@@ -175,17 +182,19 @@ func (svc *AssessmentService) ProbeServices(ctx context.Context, prober vprobe.P
 }
 
 // recordServiceProbeSoftware extracts structured software inventory entries
-// from HTTP headers (Server, X-Powered-By) and non-HTTP service banners
-// (SSH, SMTP, FTP, IMAP, POP3, etc.) collected by Vantage's ServiceProber.
-// It sends no additional traffic and never invents a version or CPE mapping.
-func (svc *AssessmentService) recordServiceProbeSoftware(ctx context.Context, assetID string, observations []store.ServiceObservation, now time.Time) {
+// from HTTP headers (Server, X-Powered-By), read-only HTTP response
+// fingerprinting (additional headers, cookies, HTML meta generators and passive
+// markers), and non-HTTP service banners (SSH, SMTP, FTP, IMAP, POP3, etc.)
+// collected by Vantage's ServiceProber. It never invents a version or CPE
+// mapping.
+func (svc *AssessmentService) recordServiceProbeSoftware(ctx context.Context, assetID string, scope *vadapter.Scope, observations []store.ServiceObservation, now time.Time) {
 	pm, err := software.LoadMap()
 	if err != nil {
 		return
 	}
 	sawResponding := false
 	recordedAny := false
-	saveParsed := func(list []software.ParsedTech) {
+	saveParsed := func(source string, list []software.ParsedTech) {
 		for _, parsed := range list {
 			sw := store.AssetSoftware{
 				AssetID:      assetID,
@@ -193,7 +202,7 @@ func (svc *AssessmentService) recordServiceProbeSoftware(ctx context.Context, as
 				Version:      parsed.Version,
 				VersionState: store.SoftwareVersionUnknown,
 				MappingState: store.SoftwareUnmapped,
-				Source:       "vantage-probe",
+				Source:       source,
 				RawString:    parsed.Raw,
 				Status:       store.SoftwareCurrent,
 				FirstSeen:    now,
@@ -215,30 +224,82 @@ func (svc *AssessmentService) recordServiceProbeSoftware(ctx context.Context, as
 		}
 	}
 
+	fingerprinter := svc.httpFingerprinter
+	if fingerprinter == nil {
+		fingerprinter = defaultHTTPFingerprint
+	}
+	fingerprintedHTTP := map[string]bool{}
+
 	for _, obs := range observations {
 		if !obs.Coverage.Assessed() || obs.State != "responding" {
 			continue
 		}
 		sawResponding = true
-		if obs.Evidence == "" {
+		obsRecorded := false
+		if obs.Evidence != "" {
+			var ev map[string]any
+			if err := json.Unmarshal([]byte(obs.Evidence), &ev); err == nil {
+				if server, _ := ev["server"].(string); strings.TrimSpace(server) != "" {
+					parsed := software.ParseServerHeader(server)
+					if len(parsed) > 0 {
+						saveParsed("vantage-probe", parsed)
+						obsRecorded = true
+					}
+				}
+				if poweredBy, _ := ev["powered_by"].(string); strings.TrimSpace(poweredBy) != "" {
+					parsed := software.ParseServerHeader(poweredBy)
+					if len(parsed) > 0 {
+						saveParsed("vantage-probe", parsed)
+						obsRecorded = true
+					}
+				}
+				if banner, _ := ev["banner"].(string); strings.TrimSpace(banner) != "" {
+					parsed := software.ParseServiceBanner(obs.Protocol, banner)
+					if len(parsed) > 0 {
+						saveParsed("vantage-probe", parsed)
+						obsRecorded = true
+					}
+				}
+			}
+		}
+
+		proto := strings.ToLower(strings.TrimSpace(obs.Protocol))
+		svcName := strings.ToLower(strings.TrimSpace(obs.Service))
+		if proto == "http" || proto == "https" || svcName == "http" || svcName == "https" {
+			scheme := "http"
+			if proto == "https" || svcName == "https" || obs.Port == 443 || obs.Port == 8443 {
+				scheme = "https"
+			}
+			key := fmt.Sprintf("%s://%s:%d", scheme, obs.Host, obs.Port)
+			if !fingerprintedHTTP[key] && (scope != nil || svc.httpFingerprinter != nil) {
+				fingerprintedHTTP[key] = true
+				if parsed, fpErr := fingerprinter(ctx, scope, scheme, obs.Host, obs.Port); fpErr == nil && len(parsed) > 0 {
+					saveParsed("http-fingerprint", parsed)
+					obsRecorded = true
+				}
+			}
 			continue
 		}
-		var ev map[string]any
-		if err := json.Unmarshal([]byte(obs.Evidence), &ev); err != nil {
-			continue
-		}
-		if server, _ := ev["server"].(string); strings.TrimSpace(server) != "" {
-			saveParsed(software.ParseServerHeader(server))
-		}
-		if poweredBy, _ := ev["powered_by"].(string); strings.TrimSpace(poweredBy) != "" {
-			saveParsed(software.ParseServerHeader(poweredBy))
-		}
-		if banner, _ := ev["banner"].(string); strings.TrimSpace(banner) != "" {
-			saveParsed(software.ParseServiceBanner(obs.Protocol, banner))
+
+		// Non-HTTP responding service with no text banner: record the
+		// confirmed service/protocol with version unknown so the operator sees
+		// what is exposed rather than "Not assessed", without inventing a version.
+		if !obsRecorded {
+			name := obs.Service
+			if name == "" {
+				name = obs.Protocol
+			}
+			if strings.TrimSpace(name) != "" {
+				saveParsed("vantage-probe", []software.ParsedTech{{
+					Raw:          fmt.Sprintf("responding %s service on port %d", name, obs.Port),
+					Name:         name,
+					VersionKnown: false,
+				}})
+			}
 		}
 	}
 	if sawResponding && !recordedAny {
-		_ = svc.store.MarkAssetCandidatesNotReassessed(ctx, assetID, "Latest service probe reported no software headers or service banners; software could not be re-assessed.")
+		_ = svc.store.MarkAssetCandidatesNotReassessed(ctx, assetID, "Latest service probe reported no software headers, cookies, HTML fingerprints, or service banners; software could not be re-assessed.")
 	}
 }
 

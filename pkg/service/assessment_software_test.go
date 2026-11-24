@@ -13,6 +13,7 @@ import (
 	"github.com/adedayo/trawl/pkg/event"
 	vadapter "github.com/adedayo/trawl/pkg/scanner/vantage"
 	"github.com/adedayo/trawl/pkg/service"
+	"github.com/adedayo/trawl/pkg/software"
 	"github.com/adedayo/trawl/pkg/store"
 	"github.com/adedayo/trawl/pkg/store/sqlite"
 )
@@ -110,5 +111,92 @@ func TestProbeServicesPopulatesSoftwareInventoryFromServerHeader(t *testing.T) {
 	}
 	if !sawApache || !sawOpenSSL {
 		t.Fatalf("expected apache 2.4.49 and openssl 1.1.1k from vantage-probe, got %+v", items)
+	}
+}
+
+type stubMultiServiceProber struct {
+	obs []vobs.ServiceObservation
+}
+
+func (p stubMultiServiceProber) Probe(_ context.Context, _ vprobe.Request) vobs.ServiceObservation {
+	return p.obs[0]
+}
+
+func (p stubMultiServiceProber) ProbeMany(_ context.Context, _ []vprobe.Request) []vobs.ServiceObservation {
+	return p.obs
+}
+
+func TestProbeServicesRunsHTTPFingerprinterAndRecordsSilentNonHTTPServices(t *testing.T) {
+	s, err := sqlite.NewSQLiteStore(filepath.Join(t.TempDir(), "probe_fp.db"))
+	if err != nil {
+		t.Fatalf("NewSQLiteStore: %v", err)
+	}
+	defer s.Close()
+
+	svc, err := service.NewAssessmentService(s, event.NewMemoryBus(), signals.RegistryJSON())
+	if err != nil {
+		t.Fatalf("NewAssessmentService: %v", err)
+	}
+
+	ctx := context.Background()
+	now := time.Date(2026, 11, 20, 12, 0, 0, 0, time.UTC)
+	if err := s.SaveAsset(ctx, &store.Asset{
+		ID: "asset-fp", Type: store.AssetTypeSubdomain, Value: "portal.example.com",
+		Status: store.AssetStatusActive, DiscoverySource: "subfinder", Confidence: 1,
+		FirstSeen: now, LastSeen: now,
+	}); err != nil {
+		t.Fatalf("SaveAsset: %v", err)
+	}
+
+	svc.SetHTTPFingerprinter(func(_ context.Context, _ *vadapter.Scope, scheme, host string, port uint16) ([]software.ParsedTech, error) {
+		if scheme != "https" || host != "portal.example.com" || port != 443 {
+			t.Errorf("unexpected fingerprint target %s://%s:%d", scheme, host, port)
+		}
+		return []software.ParsedTech{
+			{Raw: "meta generator: WordPress 6.5.2", Name: "WordPress", Version: "6.5.2", VersionKnown: true},
+		}, nil
+	})
+
+	prober := stubMultiServiceProber{obs: []vobs.ServiceObservation{
+		{
+			Host: "portal.example.com", Port: 443, Service: "https", Transport: "tcp",
+			Protocol: "https", Layer: vobs.ServiceLayerHTTP, State: vobs.ServiceResponding,
+			ProbeProfile: "most-common", ObservedAt: now,
+			Evidence: vobs.ServiceEvidence{ResponseClass: "http_response", HTTPStatus: 200},
+		},
+		{
+			Host: "portal.example.com", Port: 5432, Service: "postgresql", Transport: "tcp",
+			Protocol: "postgresql", Layer: vobs.ServiceLayerTCP, State: vobs.ServiceResponding,
+			ProbeProfile: "most-common", ObservedAt: now,
+			Evidence: vobs.ServiceEvidence{ResponseClass: "tcp_connect"},
+		},
+	}}
+
+	custom := []vprobe.Request{
+		{Target: vprobe.Target{Host: "portal.example.com", Port: 443}, Layer: vobs.ServiceLayerHTTP},
+		{Target: vprobe.Target{Host: "portal.example.com", Port: 5432}, Layer: vobs.ServiceLayerTCP},
+	}
+
+	if _, err := svc.ProbeServices(ctx, prober, vadapter.ServiceRequest{
+		AssetID: "asset-fp", Host: "portal.example.com", Custom: custom,
+	}); err != nil {
+		t.Fatalf("ProbeServices: %v", err)
+	}
+
+	items, err := s.GetAssetSoftware(ctx, "asset-fp")
+	if err != nil {
+		t.Fatalf("GetAssetSoftware: %v", err)
+	}
+	var sawWP, sawPG bool
+	for _, it := range items {
+		if it.Product == "wordpress" && it.Version == "6.5.2" && it.Source == "http-fingerprint" {
+			sawWP = true
+		}
+		if it.ObservedName == "postgresql" && it.VersionState == store.SoftwareVersionUnknown && it.Source == "vantage-probe" {
+			sawPG = true
+		}
+	}
+	if !sawWP || !sawPG {
+		t.Fatalf("expected WordPress 6.5.2 (http-fingerprint) and postgresql (version unknown), got %+v", items)
 	}
 }
