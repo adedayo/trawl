@@ -12,7 +12,7 @@ import (
 
 func (s *SQLiteStore) GetRegressions(ctx context.Context) ([]store.Regression, error) {
 	query := `SELECT id, asset_id, attribute_type, previous_value, current_value, consecutive_fails, confirmed_at FROM regressions ORDER BY confirmed_at DESC`
-	rows, err := s.db.QueryContext(ctx, query)
+	rows, err := s.reader().QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query regressions: %w", err)
 	}
@@ -139,7 +139,7 @@ type emailDetails struct {
 
 func (s *SQLiteStore) GetEmailPostures(ctx context.Context) ([]store.EmailPosture, error) {
 	query := `SELECT domain, dmarc_policy, priority, last_checked, controls, details FROM email_postures ORDER BY domain ASC`
-	rows, err := s.db.QueryContext(ctx, query)
+	rows, err := s.reader().QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query email postures: %w", err)
 	}

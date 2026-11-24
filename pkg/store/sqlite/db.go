@@ -39,9 +39,21 @@ func init() {
 
 type SQLiteStore struct {
 	db *sql.DB
+	// rdb is a separate read-only connection pool used for read queries so
+	// SQLite WAL readers execute concurrently alongside the single writer
+	// connection without stalling UI detail/list reads during an active scan.
+	rdb *sql.DB
 	// clock supplies the time every history write is stamped with. It is a
 	// field so that tests can fix it; production uses the wall clock in UTC.
 	clock func() time.Time
+}
+
+// reader returns the read-only pool when available, falling back to db.
+func (s *SQLiteStore) reader() *sql.DB {
+	if s.rdb != nil {
+		return s.rdb
+	}
+	return s.db
 }
 
 // now returns the current time in UTC.
@@ -89,6 +101,14 @@ func NewSQLiteStore(dbPath string) (*SQLiteStore, error) {
 	if err := s.migrate(context.Background()); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
+
+	if dbPath != ":memory:" {
+		rdb, rerr := sql.Open("sqlite", dbPath+"?_pragma=busy_timeout(5000)&_pragma=query_only(ON)")
+		if rerr == nil {
+			rdb.SetMaxOpenConns(4)
+			s.rdb = rdb
+		}
 	}
 
 	return s, nil
@@ -891,5 +911,13 @@ func (s *SQLiteStore) EraseDiscoveredData(ctx context.Context) error {
 }
 
 func (s *SQLiteStore) Close() error {
-	return s.db.Close()
+	var rerr error
+	if s.rdb != nil && s.rdb != s.db {
+		rerr = s.rdb.Close()
+	}
+	werr := s.db.Close()
+	if werr != nil {
+		return werr
+	}
+	return rerr
 }

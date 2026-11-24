@@ -221,7 +221,7 @@ func (s *SQLiteStore) GetFindingEvents(ctx context.Context, q store.EventQuery) 
 	}
 	query += " ORDER BY seq"
 
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.reader().QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query finding events: %w", err)
 	}
@@ -393,7 +393,7 @@ func (s *SQLiteStore) GetScanRuns(ctx context.Context, limit int) ([]store.ScanR
 		query += " LIMIT ?"
 		args = append(args, limit)
 	}
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.reader().QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query scan runs: %w", err)
 	}
@@ -429,7 +429,7 @@ func (s *SQLiteStore) GetScanSummaries(ctx context.Context, since time.Time) ([]
 		args = append(args, formatTS(since))
 	}
 	query += " ORDER BY at, rowid"
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.reader().QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query scan summaries: %w", err)
 	}

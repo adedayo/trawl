@@ -122,10 +122,10 @@ func (s *SQLiteStore) GetAssetSoftware(ctx context.Context, assetID string) ([]s
 	var err error
 	if assetID != "" {
 		query += ` WHERE asset_id = ? ORDER BY CASE status WHEN 'current' THEN 0 ELSE 1 END, last_seen DESC, observed_name ASC`
-		rows, err = s.db.QueryContext(ctx, query, assetID)
+		rows, err = s.reader().QueryContext(ctx, query, assetID)
 	} else {
 		query += ` ORDER BY asset_id ASC, CASE status WHEN 'current' THEN 0 ELSE 1 END, last_seen DESC, observed_name ASC`
-		rows, err = s.db.QueryContext(ctx, query)
+		rows, err = s.reader().QueryContext(ctx, query)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to query asset software: %w", err)
@@ -485,10 +485,10 @@ func (s *SQLiteStore) GetCandidateFindings(ctx context.Context, assetID string) 
 	var err error
 	if assetID != "" {
 		query += ` WHERE asset_id = ? ORDER BY last_seen DESC, cve ASC`
-		rows, err = s.db.QueryContext(ctx, query, assetID)
+		rows, err = s.reader().QueryContext(ctx, query, assetID)
 	} else {
 		query += ` ORDER BY last_seen DESC, cve ASC`
-		rows, err = s.db.QueryContext(ctx, query)
+		rows, err = s.reader().QueryContext(ctx, query)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to query candidate findings: %w", err)

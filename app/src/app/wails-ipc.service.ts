@@ -172,7 +172,31 @@ export class WailsIpcService {
     }
   }
 
+  private softwareRefreshRunning = false;
+  private softwareRefreshPending = false;
+
   public async refreshSoftware(assetId = ''): Promise<void> {
+    if (!assetId) {
+      if (this.softwareRefreshRunning) {
+        this.softwareRefreshPending = true;
+        return;
+      }
+      this.softwareRefreshRunning = true;
+      try {
+        do {
+          this.softwareRefreshPending = false;
+          const [items, cov] = await Promise.all([
+            this.transport.getAssetSoftware(''),
+            this.transport.getSoftwareCoverage('')
+          ]);
+          this.assetSoftware.set(items || []);
+          this.softwareCoverage.set(cov || []);
+        } while (this.softwareRefreshPending);
+      } finally {
+        this.softwareRefreshRunning = false;
+      }
+      return;
+    }
     const [items, cov] = await Promise.all([
       this.transport.getAssetSoftware(assetId),
       this.transport.getSoftwareCoverage(assetId)

@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -256,6 +257,50 @@ func TestHistoryDrawsOnlyRecordedRunsAndCarriesTheirCoverage(t *testing.T) {
 	p := points[0]
 	if p.Critical != 1 || p.Open != 1 || p.Run.CoverageFraction != 0.25 {
 		t.Errorf("point = %+v; each point must carry the coverage of its run", p)
+	}
+}
+
+func TestDetailStaysResponsiveDuringConcurrentScanWrites(t *testing.T) {
+	svc, st, _, ctx := newFindingsFixture(t)
+	fid := "service:asset-1:example.com:443:http:exposed"
+	if err := st.SaveFinding(ctx, &store.Finding{
+		ID: fid, AssetID: "asset-1", Title: "Externally reachable https service",
+		Severity: store.SeverityLow, Priority: "low", Category: "service-exposure",
+	}); err != nil {
+		t.Fatalf("SaveFinding: %v", err)
+	}
+
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; ; i++ {
+			select {
+			case <-stop:
+				return
+			default:
+				_ = st.SaveServiceObservation(ctx, &store.ServiceObservation{
+					ID: fmt.Sprintf("obs-%d", i), AssetID: "asset-1", Host: "example.com", Port: 443,
+					Service: "https", Transport: "tcp", Protocol: "https", Layer: "http",
+					State: "responding", Coverage: store.CoverageOK, ObservedAt: time.Now().UTC(),
+				})
+			}
+		}
+	}()
+	defer func() {
+		close(stop)
+		<-done
+	}()
+
+	key := store.FindingKey(store.SourceFinding, fid)
+	for i := 0; i < 10; i++ {
+		detail, err := svc.Detail(ctx, key)
+		if err != nil {
+			t.Fatalf("Detail under concurrent writes failed: %v", err)
+		}
+		if detail.Key != key || detail.Title != "Externally reachable https service" {
+			t.Fatalf("unexpected detail: %+v", detail)
+		}
 	}
 }
 

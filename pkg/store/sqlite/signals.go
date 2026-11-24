@@ -166,7 +166,7 @@ func (s *SQLiteStore) querySignalObservations(ctx context.Context, assetID strin
 	}
 	query += ` ORDER BY signal_id`
 
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.reader().QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query signal observations: %w", err)
 	}
@@ -249,7 +249,7 @@ func (s *SQLiteStore) GetSignalRegistry(ctx context.Context) ([]store.SignalRegi
 	SELECT signal_id, condition, weakness_class, scenario, stage, dedup_group,
 	       control, direction, registry_version
 	FROM signal_registry ORDER BY signal_id`
-	rows, err := s.db.QueryContext(ctx, query)
+	rows, err := s.reader().QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query signal registry: %w", err)
 	}
@@ -275,7 +275,7 @@ func (s *SQLiteStore) GetSignalRegistryEntry(ctx context.Context, signalID strin
 	       control, direction, registry_version
 	FROM signal_registry WHERE signal_id = ?`
 	var e store.SignalRegistryEntry
-	err := s.db.QueryRowContext(ctx, query, signalID).Scan(&e.SignalID, &e.Condition,
+	err := s.reader().QueryRowContext(ctx, query, signalID).Scan(&e.SignalID, &e.Condition,
 		&e.WeaknessClass, &e.Scenario, &e.Stage, &e.DedupGroup, &e.Control, &e.Direction, &e.RegistryVersion)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -322,7 +322,7 @@ func (s *SQLiteStore) GetAssessmentCoverage(ctx context.Context, assetID string)
 	}
 	query += ` ORDER BY check_id`
 
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.reader().QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query assessment coverage: %w", err)
 	}
@@ -393,7 +393,7 @@ func (s *SQLiteStore) GetAssessmentRuns(ctx context.Context, assetID string) ([]
 	}
 	query += ` ORDER BY asset_id`
 
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.reader().QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query assessment runs: %w", err)
 	}

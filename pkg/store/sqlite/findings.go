@@ -15,10 +15,10 @@ func (s *SQLiteStore) GetFindings(ctx context.Context, assetID string) ([]store.
 
 	if assetID != "" {
 		query += ` WHERE asset_id = ? ORDER BY last_seen DESC`
-		rows, err = s.db.QueryContext(ctx, query, assetID)
+		rows, err = s.reader().QueryContext(ctx, query, assetID)
 	} else {
 		query += ` ORDER BY last_seen DESC`
-		rows, err = s.db.QueryContext(ctx, query)
+		rows, err = s.reader().QueryContext(ctx, query)
 	}
 
 	if err != nil {

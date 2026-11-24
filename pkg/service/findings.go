@@ -343,18 +343,195 @@ func eventView(e store.FindingEvent) FindingEventView {
 	}
 }
 
+// loadOne loads only the single finding named by (source, rowID) and its own
+// indexed event timeline, avoiding a full-estate scan across all tables and
+// every finding_event when opening a finding's detail view.
+func (s *FindingsService) loadOne(ctx context.Context, key, source, rowID string) (*findingRecord, []store.FindingEvent, map[string]store.SignalRegistryEntry, error) {
+	var r *findingRecord
+	registry := map[string]store.SignalRegistryEntry{}
+
+	switch source {
+	case store.SourceSignal:
+		signals, err := s.store.GetAllSignalObservations(ctx, "")
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("findings: reading observations: %w", err)
+		}
+		for i := range signals {
+			o := &signals[i]
+			if o.ID != rowID || !o.State.Assessed() {
+				continue
+			}
+			title := o.SignalID
+			category := o.CheckID
+			if e, err := s.store.GetSignalRegistryEntry(ctx, o.SignalID); err == nil && e != nil {
+				registry[o.SignalID] = *e
+			}
+			if e, ok := catalogueEntry(o.SignalID); ok {
+				title = e.Title
+			} else if reg, ok := registry[o.SignalID]; ok && reg.Condition != "" {
+				title = reg.Condition
+			}
+			rec := &findingRecord{
+				signal:  o,
+				checkID: o.CheckID,
+				summary: FindingSummary{
+					Key: key, Source: SourceSignal,
+					AssetID: o.AssetID, Title: title, SignalID: o.SignalID,
+					Severity: o.Severity, Priority: string(o.Severity), Status: statusOf(o.Status),
+					Category: category, FirstSeen: rfc(o.FirstSeen), LastSeen: rfc(o.LastSeen),
+				},
+			}
+			if o.ResolvedAt != nil {
+				rec.summary.ResolvedAt = rfc(*o.ResolvedAt)
+			}
+			if coverage, err := s.store.GetAssessmentCoverage(ctx, o.AssetID); err == nil {
+				for _, c := range coverage {
+					if c.CheckID == o.CheckID {
+						rec.checkState, rec.checkReason = c.State, c.Reason
+						if rec.summary.Status != string(store.FindingResolved) && !c.State.Assessed() {
+							rec.summary.NotReassessed = true
+							rec.summary.NotReassessedReason = notReassessedReason(c)
+						}
+						break
+					}
+				}
+			}
+			r = rec
+			break
+		}
+
+	case store.SourceFinding:
+		findings, err := s.store.GetFindings(ctx, "")
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("findings: reading findings: %w", err)
+		}
+		for i := range findings {
+			f := &findings[i]
+			if f.ID != rowID {
+				continue
+			}
+			prio := f.Priority
+			if prio == "" {
+				prio = string(f.Severity)
+			}
+			rec := &findingRecord{
+				finding: f,
+				summary: FindingSummary{
+					Key: key, Source: SourceFinding,
+					AssetID: f.AssetID, Title: f.Title, Severity: f.Severity, Priority: prio,
+					Status: statusOf(f.Status), Category: f.Category, CVE: f.CVE, KEV: f.KEVListed,
+					FirstSeen: rfc(f.FirstSeen), LastSeen: rfc(f.LastSeen),
+				},
+			}
+			if f.ResolvedAt != nil {
+				rec.summary.ResolvedAt = rfc(*f.ResolvedAt)
+			}
+			r = rec
+			break
+		}
+
+	case store.SourceSecret:
+		secrets, err := s.store.GetSecretFindings(ctx, "")
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("findings: reading secrets: %w", err)
+		}
+		for i := range secrets {
+			sf := &secrets[i]
+			if sf.ID != rowID {
+				continue
+			}
+			sev := store.SecretSeverity(sf.Verified)
+			rec := &findingRecord{
+				secret: sf,
+				summary: FindingSummary{
+					Key: key, Source: SourceSecret,
+					AssetID: sf.AssetID, SecretID: sf.ID, Title: fmt.Sprintf("Exposed %s in %s", sf.SecretType, sf.FilePath),
+					Severity: sev, Priority: string(sev), Status: statusOf(sf.Status), Category: "secret",
+					FirstSeen: rfc(sf.FirstSeen), LastSeen: rfc(sf.LastSeen),
+				},
+			}
+			if sf.ResolvedAt != nil {
+				rec.summary.ResolvedAt = rfc(*sf.ResolvedAt)
+			}
+			r = rec
+			break
+		}
+
+	case store.SourceCandidate:
+		candidates, err := s.store.GetCandidateFindings(ctx, "")
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("findings: reading candidates: %w", err)
+		}
+		for i := range candidates {
+			cf := &candidates[i]
+			if cf.ID != rowID {
+				continue
+			}
+			prio := cf.Priority
+			if prio == "" {
+				prio = store.ComputeFindingPriority(cf.Severity, cf.EPSS, cf.KEVListed)
+			}
+			rec := &findingRecord{
+				candidate: cf,
+				summary: FindingSummary{
+					Key: key, Source: SourceCandidate,
+					AssetID: cf.AssetID, Title: cf.Title, Severity: cf.Severity, Priority: prio,
+					Status: statusOf(cf.Status), NotReassessed: cf.NotReassessed, NotReassessedReason: cf.NotReassessedReason,
+					Category: "software-candidate", CVE: cf.CVE, KEV: cf.KEVListed,
+					Unconfirmed: true, SeveritySource: cf.SeveritySource,
+					FirstSeen: rfc(cf.FirstSeen), LastSeen: rfc(cf.LastSeen),
+				},
+			}
+			if cf.ResolvedAt != nil {
+				rec.summary.ResolvedAt = rfc(*cf.ResolvedAt)
+			}
+			r = rec
+			break
+		}
+	}
+
+	if r == nil {
+		return nil, nil, nil, ErrFindingNotFound
+	}
+
+	if r.summary.AssetID != "" {
+		if asset, err := s.store.GetAssetByID(ctx, r.summary.AssetID); err == nil && asset != nil {
+			r.summary.AssetValue = asset.Value
+		}
+	}
+
+	events, err := s.store.GetFindingEvents(ctx, store.EventQuery{Key: key})
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("findings: reading history: %w", err)
+	}
+
+	now := s.clock()
+	end := now
+	if r.summary.ResolvedAt != "" {
+		if t, err := time.Parse(time.RFC3339, r.summary.ResolvedAt); err == nil {
+			end = t
+		}
+	}
+	if first, err := time.Parse(time.RFC3339, r.summary.FirstSeen); err == nil && end.After(first) {
+		r.summary.AgeDays = int(end.Sub(first).Hours() / 24)
+	}
+	r.summary.LastChange, r.summary.LastChangeType = r.summary.FirstSeen, string(store.EventFirstSeen)
+	if len(events) > 0 {
+		last := events[len(events)-1]
+		r.summary.LastChange, r.summary.LastChangeType = rfc(last.At), string(last.Type)
+	}
+	return r, events, registry, nil
+}
+
 // Detail assembles the drill-down for one finding.
 func (s *FindingsService) Detail(ctx context.Context, key string) (FindingDetail, error) {
-	if _, _, err := store.ParseFindingKey(key); err != nil {
+	source, rowID, err := store.ParseFindingKey(key)
+	if err != nil {
 		return FindingDetail{}, ErrFindingNotFound
 	}
-	ld, err := s.load(ctx)
+	r, events, registry, err := s.loadOne(ctx, key, source, rowID)
 	if err != nil {
 		return FindingDetail{}, err
-	}
-	r, ok := ld.byKey[key]
-	if !ok {
-		return FindingDetail{}, ErrFindingNotFound
 	}
 
 	d := FindingDetail{
@@ -365,7 +542,7 @@ func (s *FindingsService) Detail(ctx context.Context, key string) (FindingDetail
 		Timeline:       []FindingEventView{},
 		Regressions:    []store.Regression{},
 	}
-	for _, e := range ld.events[key] {
+	for _, e := range events {
 		d.Timeline = append(d.Timeline, eventView(e))
 	}
 	if n := len(d.Timeline); n > 0 {
@@ -385,7 +562,7 @@ func (s *FindingsService) Detail(ctx context.Context, key string) (FindingDetail
 		d.Detail, d.Evidence = o.Detail, o.Evidence
 		d.Provenance.LibraryVersion, d.Provenance.RegistryVersion = o.LibraryVersion, o.RegistryVersion
 		in.SignalID, in.Check, in.Detail, in.Evidence = o.SignalID, o.CheckID, o.Detail, o.Evidence
-		if e, ok := ld.registry[o.SignalID]; ok {
+		if e, ok := registry[o.SignalID]; ok {
 			in.WeaknessClass, in.Scenario = e.WeaknessClass, e.Scenario
 		}
 		if c, ok := catalogueEntry(o.SignalID); ok {

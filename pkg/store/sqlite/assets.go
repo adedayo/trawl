@@ -16,10 +16,10 @@ func (s *SQLiteStore) GetAssets(ctx context.Context, status store.AssetStatus) (
 
 	if status != "" {
 		query += ` WHERE status = ? ORDER BY last_seen DESC`
-		rows, err = s.db.QueryContext(ctx, query, status)
+		rows, err = s.reader().QueryContext(ctx, query, status)
 	} else {
 		query += ` ORDER BY last_seen DESC`
-		rows, err = s.db.QueryContext(ctx, query)
+		rows, err = s.reader().QueryContext(ctx, query)
 	}
 
 	if err != nil {
@@ -44,7 +44,7 @@ func (s *SQLiteStore) GetAssets(ctx context.Context, status store.AssetStatus) (
 
 func (s *SQLiteStore) GetAssetByID(ctx context.Context, id string) (*store.Asset, error) {
 	query := `SELECT id, type, value, status, discovery_source, confidence, first_seen, last_seen, COALESCE(metadata, '') FROM assets WHERE id = ?`
-	row := s.db.QueryRowContext(ctx, query, id)
+	row := s.reader().QueryRowContext(ctx, query, id)
 
 	var a store.Asset
 	var firstSeen, lastSeen string

@@ -15,10 +15,10 @@ func (s *SQLiteStore) GetSecretFindings(ctx context.Context, repoURL string) ([]
 
 	if repoURL != "" {
 		query += ` WHERE repo_url = ? ORDER BY first_seen DESC`
-		rows, err = s.db.QueryContext(ctx, query, repoURL)
+		rows, err = s.reader().QueryContext(ctx, query, repoURL)
 	} else {
 		query += ` ORDER BY first_seen DESC`
-		rows, err = s.db.QueryContext(ctx, query)
+		rows, err = s.reader().QueryContext(ctx, query)
 	}
 
 	if err != nil {

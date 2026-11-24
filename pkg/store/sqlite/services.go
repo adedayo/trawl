@@ -52,7 +52,7 @@ func (s *SQLiteStore) GetServiceObservations(ctx context.Context, assetID string
 		args = append(args, assetID)
 	}
 	query += ` ORDER BY observed_at, id`
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.reader().QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query service observations: %w", err)
 	}
