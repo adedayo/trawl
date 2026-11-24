@@ -166,6 +166,20 @@ describe('buildTrend', () => {
   it('reports the largest count so the axis can be scaled', () => {
     expect(buildTrend([point({ at: at(0), low: 9 }), point({ at: at(DAY), high: 4 })]).maxCount).toBe(9);
   });
+
+  it('handles 2,000 scan summaries swiftly in O(N log N) time', () => {
+    const many = Array.from({ length: 2000 }, (_, i) =>
+      point({ runId: `r-${i}`, at: at(i * HOUR), high: i % 5, open: i % 5 })
+    );
+    const start = performance.now();
+    const trend = buildTrend(many);
+    const elapsedMs = performance.now() - start;
+
+    expect(trend.points).toHaveLength(2000);
+    expect(trend.gaps).toHaveLength(0);
+    expect(trend.segments).toHaveLength(1999);
+    expect(elapsedMs).toBeLessThan(250);
+  });
 });
 
 describe('seriesPaths', () => {

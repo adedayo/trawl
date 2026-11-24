@@ -4,10 +4,12 @@ import {
   causeLabel,
   changedSinceCutoff,
   DEFAULT_FILTERS,
+  encodeFindingKey,
   eventTypeLabel,
   explanationText,
   filterFindings,
   findingHash,
+  findingKeyForFinding,
   findSummaryForSecret,
   findSummaryForSignal,
   narrativeLevelLine,
@@ -242,6 +244,18 @@ describe('linking other tabs to a finding', () => {
     ];
     const hit = findSummaryForSecret(opaque, { _id: 'secret:two', repoUrl: 'https://git.example/r', redactedRef: '', filePath: '' });
     expect(hit?.key).toBe('secret.BBB');
+  });
+
+  it('encodes and resolves finding keys for prioritised findings', () => {
+    const key = encodeFindingKey('finding', 'service:a1:host:443:tls/1:exposed');
+    expect(key).toBe('finding.c2VydmljZTphMTpob3N0OjQ0Mzp0bHMvMTpleHBvc2Vk');
+    expect(findingKeyForFinding([], { id: 'service:a1:host:443:tls/1:exposed' })).toBe(key);
+    expect(
+      findingKeyForFinding(
+        [summary({ key, source: 'finding', assetId: 'a1', title: 'Exposed TLS' })],
+        { id: 'service:a1:host:443:tls/1:exposed', assetId: 'a1', title: 'Exposed TLS' }
+      )
+    ).toBe(key);
   });
 
   it('falls back to the title when the identifier is not in the key', () => {

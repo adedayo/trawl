@@ -1,9 +1,10 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, DeferBlockState, TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
 
 import { OverviewComponent, matchesServiceFilter, serviceEvidenceHeadline, summariseServiceEvidence } from './overview';
 import { ServiceObservation } from '../../../models/types';
 import { WailsIpcService } from '../../../wails-ipc.service';
+import { encodeFindingKey } from '../../../dashboard/findings';
 
 const httpsObservation: ServiceObservation = {
   assetId: 'asset-1', host: 'api.example.com', port: 443, service: 'https',
@@ -110,15 +111,40 @@ describe('Overview', () => {
     expect(component.priorityFindings().map(f => f.id)).toEqual(['f-high', 'f-low']);
   });
 
-  it('includes the change panel and the trend, loaded on demand', async () => {
+  it('defers the trend chart behind a placeholder until idle and renders it on completion', async () => {
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
 
     const root = fixture.nativeElement as HTMLElement;
     expect(root.querySelector('app-changes-panel')).not.toBeNull();
+    expect(root.querySelector('[data-testid="trend-placeholder"]')).not.toBeNull();
+    expect(root.querySelector('app-trend-chart')).toBeNull();
+
+    const deferBlocks = await fixture.getDeferBlocks();
+    for (const block of deferBlocks) {
+      await block.render(DeferBlockState.Complete);
+    }
+    fixture.detectChanges();
+
     expect(root.querySelector('app-trend-chart')).not.toBeNull();
     expect(root.textContent).toContain('Since the last scan');
     expect(root.textContent).toContain('Open findings over time');
+  });
+
+  it('drills down into finding details when clicking a priority finding', async () => {
+    const ipc = TestBed.inject(WailsIpcService);
+    const openSpy = vi.spyOn(ipc, 'openFinding');
+    ipc.findings.set([
+      { id: 'scan:abc123', assetId: 'asset-a', assetValue: 'api.example.com', title: 'HTTP/2 Rapid Reset', severity: 'high', status: 'open', kev: true, epssScore: 0.89 }
+    ]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const btn = (fixture.nativeElement as HTMLElement).querySelector('button[aria-label="Open details for HTTP/2 Rapid Reset"]') as HTMLButtonElement | null;
+    expect(btn).not.toBeNull();
+    btn!.click();
+
+    expect(openSpy).toHaveBeenCalledWith(encodeFindingKey('finding', 'scan:abc123'));
   });
 });

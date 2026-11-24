@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { WailsIpcService } from '../../../wails-ipc.service';
 import { ServiceObservation } from '../../../models/types';
 import { rankFindings } from '../../../dashboard/estate';
+import { findingKeyForFinding } from '../../../dashboard/findings';
 import { ChangesPanelComponent } from './changes-panel/changes-panel';
 import { TrendChartComponent } from './trend-chart/trend-chart';
 
@@ -147,12 +148,30 @@ export class OverviewComponent {
     .sort((a, b) => b.observedAt.localeCompare(a.observedAt))
     .slice(0, 100));
 
+  /**
+   * Precomputed evidence summaries for each visible service observation so
+   * `JSON.parse` runs once per observation instead of on every template binding.
+   */
+  recentServiceEvidenceItems = computed(() =>
+    this.recentServiceEvidence().map(observation => ({
+      observation,
+      summary: serviceEvidenceHeadline(observation),
+    }))
+  );
+
   evidenceSummary(observation: ServiceObservation): ServiceEvidenceSummary {
     return summariseServiceEvidence(observation);
   }
 
   evidenceHeadline(observation: ServiceObservation): ServiceEvidenceHeadline {
     return serviceEvidenceHeadline(observation);
+  }
+
+  openPriorityFinding(finding: { id?: string; assetId?: string; title?: string }): void {
+    const key = findingKeyForFinding(this.wailsIpc.findingIndex(), finding);
+    if (key) {
+      this.wailsIpc.openFinding(key);
+    }
   }
 
   async probeServices(profile: 'most-common' | 'extended'): Promise<void> {

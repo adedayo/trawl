@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { WailsIpcService } from '../../../wails-ipc.service';
+import { findingKeyForFinding } from '../../../dashboard/findings';
 import {
   coverageLabel,
   DEFAULT_COVERAGE_FLOOR,
@@ -207,6 +208,13 @@ export class ExecutiveComponent {
 
   goToFindings(): void {
     this.wailsIpc.activeTab.set('findings');
+  }
+
+  openRankedFinding(finding: { id?: string; assetId?: string; title?: string }): void {
+    const key = findingKeyForFinding(this.wailsIpc.findingIndex(), finding);
+    if (key) {
+      this.wailsIpc.openFinding(key);
+    }
   }
 
   goToAssets(): void {

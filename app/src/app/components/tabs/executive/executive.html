@@ -505,16 +505,23 @@
             </thead>
             <tbody>
               @for (r of topRanked(); track r.finding.id) {
-                <tr [class]="dark ? 'border-b border-slate-800/60' : 'border-b border-slate-100'">
+                <tr [class]="dark ? 'border-b border-slate-800/60 hover:bg-slate-800/35 transition-colors' : 'border-b border-slate-100 hover:bg-slate-50/80 transition-colors'">
                   <td class="px-2 py-3 align-top">
                     <span [class]="dark ? 'font-mono text-xs text-slate-500' : 'font-mono text-xs text-slate-400'">
                       {{ r.position }}
                     </span>
                   </td>
                   <td class="px-2 py-3 align-top">
-                    <span [class]="dark ? 'text-sm font-semibold text-slate-100' : 'text-sm font-semibold text-slate-900'">
+                    <button
+                      type="button"
+                      data-testid="ranked-finding-link"
+                      (click)="openRankedFinding(r.finding)"
+                      [attr.aria-label]="'Open details for ' + r.finding.title"
+                      [class]="dark
+                        ? 'text-left text-sm font-semibold text-slate-100 hover:text-cyan-300 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500 rounded'
+                        : 'text-left text-sm font-semibold text-slate-900 hover:text-cyan-800 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600 rounded'">
                       {{ r.finding.title }}
-                    </span>
+                    </button>
                     <span [class]="dark ? 'block text-[11px] text-slate-500 font-mono mt-0.5' : 'block text-[11px] text-slate-500 font-mono mt-0.5'">
                       {{ r.finding.assetValue }}@if (r.finding.cveId) { · {{ r.finding.cveId }} }
                     </span>

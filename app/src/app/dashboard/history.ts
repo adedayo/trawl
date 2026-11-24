@@ -162,6 +162,27 @@ export function median(values: readonly number[]): number {
 }
 
 /**
+ * Median of `sorted` with one occurrence of `excluded` removed, in O(1).
+ *
+ * Pre-sorting once and removing in constant time turns `buildTrend`'s gap
+ * classification from O(N^2 log N) into O(N log N) while keeping the exact
+ * same leave-one-out median semantics.
+ */
+function medianWithout(sorted: readonly number[], excluded: number): number {
+  const m = sorted.length;
+  if (m <= 1) return 0;
+  const k = Math.floor(m / 2);
+  if ((m - 1) % 2 === 1) {
+    // m = 2k, remaining length is odd (2k - 1), median is at index k - 1 of remaining.
+    return excluded <= sorted[k - 1] ? sorted[k] : sorted[k - 1];
+  }
+  // m = 2k + 1, remaining length is even (2k), median averages indices k - 1 and k.
+  if (excluded < sorted[k]) return (sorted[k] + sorted[k + 1]) / 2;
+  if (excluded === sorted[k]) return (sorted[k - 1] + sorted[k + 1]) / 2;
+  return (sorted[k - 1] + sorted[k]) / 2;
+}
+
+/**
  * Turns run summaries into a trend, sorted by time, with silences marked.
  *
  * Points are placed at the run's real time. Two consecutive points are joined
@@ -203,7 +224,13 @@ export function buildTrend(history: readonly HistoryPoint[], options: TrendOptio
   for (let i = 1; i < points.length; i++) {
     intervals.push(points[i].t - points[i - 1].t);
   }
-  const medianIntervalMs = median(intervals);
+  const sortedIntervals = [...intervals].sort((a, b) => a - b);
+  const medianIntervalMs =
+    sortedIntervals.length === 0
+      ? 0
+      : sortedIntervals.length % 2 === 1
+        ? sortedIntervals[Math.floor(sortedIntervals.length / 2)]
+        : (sortedIntervals[sortedIntervals.length / 2 - 1] + sortedIntervals[sortedIntervals.length / 2]) / 2;
 
   // Each interval is judged against the typical interval of the *others*. A
   // single long silence otherwise drags the median up and excuses itself: with
@@ -214,8 +241,7 @@ export function buildTrend(history: readonly HistoryPoint[], options: TrendOptio
   const segments: [number, number][] = [];
   for (let i = 1; i < points.length; i++) {
     const interval = intervals[i - 1];
-    const others = intervals.filter((_, j) => j !== i - 1);
-    const threshold = Math.max(median(others) * gapFactor, minGapMs);
+    const threshold = Math.max(medianWithout(sortedIntervals, interval) * gapFactor, minGapMs);
     if (interval > threshold) {
       gaps.push({
         fromIndex: i - 1,

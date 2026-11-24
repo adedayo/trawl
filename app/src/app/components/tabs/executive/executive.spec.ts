@@ -1,10 +1,11 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import axe from 'axe-core';
+import { vi } from 'vitest';
 
 import { ExecutiveComponent } from './executive';
 import { WailsIpcService } from '../../../wails-ipc.service';
 import { DomainAssessment } from '../../../models/types';
-import { explanationText, unsupportedClaims } from '../../../dashboard/findings';
+import { encodeFindingKey, explanationText, unsupportedClaims } from '../../../dashboard/findings';
 import { detail } from '../../../dashboard/findings.fixtures';
 
 /**
@@ -337,6 +338,32 @@ describe('ExecutiveComponent', () => {
     expect(text).toContain('What to deal with first');
     expect(text).toContain('What changed for the worse');
     expect(text).not.toMatch(/undefined|\[object Object\]/);
+  });
+
+  it('drills down into a finding detail when clicking a row in What to deal with first', async () => {
+    ipc.findings.set([
+      {
+        id: 'scan:kev-1',
+        assetId: 'a-1',
+        assetValue: 'api.example.com',
+        title: 'HTTP/2 Rapid Reset Vulnerability',
+        cveId: 'CVE-2023-44487',
+        severity: 'high',
+        status: 'open',
+        kev: true,
+        epssScore: 0.892
+      } as unknown as never
+    ]);
+    const openSpy = vi.spyOn(ipc, 'openFinding');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const btn = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="ranked-finding-link"]') as HTMLButtonElement | null;
+    expect(btn).not.toBeNull();
+    expect(btn!.textContent).toContain('HTTP/2 Rapid Reset Vulnerability');
+    btn!.click();
+
+    expect(openSpy).toHaveBeenCalledWith(encodeFindingKey('finding', 'scan:kev-1'));
   });
 
   describe('candidate separation and boundary', () => {

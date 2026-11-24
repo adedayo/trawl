@@ -448,6 +448,46 @@ export function findSummaryForSecret(
   return null;
 }
 
+/**
+ * Encodes a finding source and row identifier into the same URL-safe key the
+ * Go engine produces (`store.FindingKey`).
+ */
+export function encodeFindingKey(source: 'finding' | 'signal' | 'secret' | 'candidate', rowId: string): string {
+  if (!rowId) return '';
+  const bytes = new TextEncoder().encode(rowId);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  const b64 = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return `${source}.${b64}`;
+}
+
+/**
+ * Resolves the drill-down key for a row from `wailsIpc.findings()`.
+ *
+ * Prefers the findings index when loaded (confirming the key exists there),
+ * falling back to the deterministic `finding.<base64url(id)>` key so clicking
+ * a prioritised finding still opens its detail even before the index arrives.
+ */
+export function findingKeyForFinding(
+  index: readonly FindingSummary[],
+  finding: { id?: string; assetId?: string; title?: string }
+): string {
+  const id = (finding.id ?? '').trim();
+  if (!id) return '';
+  const encoded = encodeFindingKey('finding', id);
+  const exact = index.find(f => f.key === encoded);
+  if (exact) return exact.key;
+  if (index.length > 0 && finding.assetId && finding.title) {
+    const matches = index.filter(
+      f => f.source === 'finding' && f.assetId === finding.assetId && norm(f.title) === norm(finding.title)
+    );
+    if (matches.length === 1) return matches[0].key;
+  }
+  return encoded;
+}
+
 // ---------------------------------------------------------------------------
 // The narrative boundary
 // ---------------------------------------------------------------------------
